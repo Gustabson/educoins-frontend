@@ -89,6 +89,7 @@ const api = {
   chatFriendReq:     (addressee_id) => apiFetch("/chat/friends/request", { method:"POST", body:{addressee_id} }),
   chatFriendAccept:  (id)           => apiFetch(`/chat/friends/${id}/accept`, { method:"POST" }),
   chatFriendReject:  (id)           => apiFetch(`/chat/friends/${id}/reject`, { method:"POST" }),
+  createReport:   (data)                  => apiFetch("/reports",          { method:"POST", body:data }),
   myReports:      ()                      => apiFetch("/reports/mine"),
   allReports:     (q="")                  => apiFetch(`/reports${q}`),
   updateReport:   (id, data)              => apiFetch(`/reports/${id}/estado`, { method:"PATCH", body:data }),
@@ -266,7 +267,7 @@ function OHdrA({title,sub,extra,dark=false,onBack=null}){
     textShadow:dark?"none":"0 1px 4px rgba(0,60,100,.45)",
   };
   return(
-    <div style={{background:bg,position:"relative",overflow:"hidden",paddingBottom:28,color:"white",transition:"background .3s"}}>
+    <div style={{background:bg,position:"sticky",top:0,zIndex:50,overflow:"hidden",paddingBottom:28,color:"white",transition:"background .3s"}}>
       <div style={{position:"absolute",width:220,height:220,borderRadius:"50%",
         background:"rgba(255,255,255,.1)",top:-60,right:-50,pointerEvents:"none"}}/>
       <div style={{padding:"22px 20px 0",position:"relative"}}>
@@ -432,11 +433,14 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const hideNav = ["chat","noticias","votaciones","reportes"].includes(tab);
 
   return(
-    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:pageBg,
-      display:"flex",flexDirection:"column",fontFamily:"Nunito,sans-serif",transition:"background .3s"}}>
+    <div style={{maxWidth:480,margin:"0 auto",height:"100vh",background:pageBg,
+      display:"flex",flexDirection:"column",fontFamily:"Nunito,sans-serif",
+      transition:"background .3s",overflow:"hidden"}}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
-      <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90}}>
+      {/* Contenido scrolleable — el header de cada pantalla queda fijo dentro */}
+      <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,
+        animation:"fadeIn .18s ease"}}>
         {tab==="home"       && <AHome       me={me} balance={balance} onNav={setTab} dark={dark} setDark={setDark}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark}/>}
         {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark}/>}
@@ -571,7 +575,7 @@ function AHome({me,balance,onNav,dark,setDark}){
 
   return(
     <div style={{minHeight:"100vh",transition:"background .3s"}}>
-      <div style={{background:headerBg,position:"relative",overflow:"hidden",paddingBottom:20,color:"white",transition:"background .3s",
+      <div style={{background:headerBg,position:"sticky",top:0,zIndex:50,overflow:"hidden",paddingBottom:20,color:"white",transition:"background .3s",
         textShadow:dark?"none":"0 1px 4px rgba(0,60,100,.4)"}}>  {/* contraste en celeste */}
         <div style={{position:"absolute",width:260,height:260,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-80,right:-70,pointerEvents:"none"}}/>
@@ -633,7 +637,7 @@ function AHome({me,balance,onNav,dark,setDark}){
         ].map(([ic,lb,sb,col,dest])=>(
           <div key={lb} onClick={()=>onNav(dest)}
             style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",
-              marginBottom:8,background:cardBg,borderRadius:20,
+              marginBottom:8,background:dark?"rgb(69,50,125)":"rgba(35,255,255,0.3)",borderRadius:20,
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
               transition:"background .3s"}}>
             <div style={{width:46,height:46,borderRadius:14,background:col+"22",
@@ -2175,43 +2179,44 @@ function MPerfilSimple({me,logout}){
 function Admin({me,logout}){
   const [tab,setTab]=useState("home");
   const [toast,showToast]=useToast();
-  const navTabs=["home","usuarios","tesoro","tienda","audit"];
+  const navTabs=["home","usuarios","tesoro","tienda","audit","config"];
   const hideNav=!navTabs.includes(tab);
 
   return(
-    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#F0F0F0",fontFamily:"Nunito,sans-serif"}}>
+    <div style={{maxWidth:480,margin:"0 auto",height:"100vh",background:"#F0F0F0",
+      fontFamily:"Nunito,sans-serif",display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
-      <div style={{paddingBottom:hideNav?0:90}}>
-        {tab==="home"     && <AdminHome    me={me} onNav={setTab} showToast={showToast}/>}
-        {tab==="usuarios" && <AdminUsuarios showToast={showToast}/>}
-        {tab==="tesoro"   && <AdminTesoro  me={me} showToast={showToast}/>}
-        {tab==="tienda"   && <AdminTienda  showToast={showToast}/>}
-        {tab==="audit"    && <AdminAudit/>}
-        {tab==="perfil"   && <MPerfilSimple me={me} logout={logout}/>}
-        {tab==="noticias" && <AdminNoticias showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="votaciones"&&<AdminVotaciones showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="reportes" && <AdminReportes showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="aulas"    && <AdminAulas showToast={showToast} onBack={()=>setTab("home")}/>}
+      <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
+        {tab==="home"      && <AdminHome    me={me} onNav={setTab} showToast={showToast}/>}
+        {tab==="usuarios"  && <AdminUsuarios showToast={showToast}/>}
+        {tab==="tesoro"    && <AdminTesoro  me={me} showToast={showToast}/>}
+        {tab==="tienda"    && <AdminTienda  showToast={showToast}/>}
+        {tab==="audit"     && <AdminAudit/>}
+        {tab==="config"    && <AdminConfig  me={me} logout={logout}/>}
+        {tab==="noticias"  && <AdminNoticias  showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="votaciones"&& <AdminVotaciones showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="reportes"  && <AdminReportes  showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="aulas"     && <AdminAulas     showToast={showToast} onBack={()=>setTab("home")}/>}
       </div>
       {!hideNav&&(
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
-        width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #EFEFEF",
-        padding:"6px 4px 20px",display:"flex",justifyContent:"space-around",
-        boxShadow:"0 -2px 16px rgba(0,0,0,.07)"}}>
+      <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
+        borderTop:"1px solid #EFEFEF",padding:"6px 4px 20px",display:"flex",
+        justifyContent:"space-around",boxShadow:"0 -2px 16px rgba(0,0,0,.07)"}}>
         {[
           {id:"home",    icon:"🏠",label:"Inicio"},
           {id:"usuarios",icon:"👥",label:"Usuarios"},
           {id:"tesoro",  icon:"🏦",label:"Tesoro"},
           {id:"tienda",  icon:"🛒",label:"Tienda"},
           {id:"audit",   icon:"📋",label:"Audit"},
+          {id:"config",  icon:"⚙️", label:"Config"},
         ].map(item=>{
           const on=tab===item.id;
           return(
             <button key={item.id} onClick={()=>setTab(item.id)} style={{
               display:"flex",flexDirection:"column",alignItems:"center",gap:3,flex:1,
               background:"none",border:"none",cursor:"pointer",color:on?"#00c1fc":"#777777",
-              fontFamily:"Nunito,sans-serif",padding:"3px 6px"}}>
+              fontFamily:"Nunito,sans-serif",padding:"3px 2px"}}>
               <div style={{width:36,height:30,borderRadius:10,background:on?"#e0f7fe":"transparent",
                 display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <span style={{fontSize:19}}>{item.icon}</span>
@@ -2688,10 +2693,17 @@ function AdminVotaciones({showToast, onBack}){
   const [form,setForm]=useState(false);
   const [titulo,setTitulo]=useState("");
   const [opciones,setOpciones]=useState(["",""]);
-  const [fin,setFin]=useState("");
+  const [finTipo,setFinTipo]=useState("fecha"); // "fecha" | "horas" | "nunca"
+  const [finFecha,setFinFecha]=useState("");
+  const [finHoras,setFinHoras]=useState("24");
   const [saving,setSaving]=useState(false);
 
-  const load=()=>{ api.polls().then(d=>setPolls(Array.isArray(d)?d:d.data||[])).catch(()=>[]).finally(()=>setLoading(false)); };
+  const load=()=>{ 
+    api.polls()
+      .then(d=>setPolls(Array.isArray(d)?d:d.data||[]))
+      .catch(()=>{})
+      .finally(()=>setLoading(false)); 
+  };
   useEffect(()=>{ load(); },[]);
 
   const crear=async()=>{
@@ -2700,11 +2712,19 @@ function AdminVotaciones({showToast, onBack}){
     if(ops.length<2){showToast("Necesitás al menos 2 opciones","error");return;}
     setSaving(true);
     try{
-      await api.createPoll({titulo:titulo.trim(),opciones:ops,fin:fin||null});
+      let finISO = null;
+      if(finTipo==="fecha" && finFecha) {
+        finISO = new Date(finFecha+"T23:59:59").toISOString();
+      } else if(finTipo==="horas" && finHoras) {
+        const d = new Date();
+        d.setHours(d.getHours() + parseInt(finHoras));
+        finISO = d.toISOString();
+      }
+      await api.createPoll({titulo:titulo.trim(), opciones:ops, fin:finISO});
       showToast("Votación creada ✅");
-      setForm(false);setTitulo("");setOpciones(["",""]);setFin("");
+      setForm(false);setTitulo("");setOpciones(["",""]);setFinFecha("");setFinHoras("24");setFinTipo("fecha");
       load();
-    }catch(e){showToast(e.message||"Error","error");}
+    }catch(e){showToast(e.message||"Error al crear","error");}
     finally{setSaving(false);}
   };
 
@@ -2758,9 +2778,35 @@ function AdminVotaciones({showToast, onBack}){
                   padding:"8px",fontSize:12,fontWeight:800,color:"#666",cursor:"pointer",
                   marginBottom:8,fontFamily:"Nunito,sans-serif"}}>+ Agregar opción</button>
             )}
-            <input type="date" value={fin} onChange={e=>setFin(e.target.value)}
-              style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
-                padding:"10px 14px",fontSize:13,marginBottom:10,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Vencimiento de la votación</div>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              {[["fecha","📅 Por fecha"],["horas","⏱ Por horas"],["nunca","♾ Sin límite"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setFinTipo(v)} style={{
+                  flex:1,background:finTipo===v?"#00c1fc":"#f0f0f0",
+                  color:finTipo===v?"white":"#555",border:"none",borderRadius:10,
+                  padding:"7px 4px",fontWeight:800,fontSize:11,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>{l}</button>
+              ))}
+            </div>
+            {finTipo==="fecha"&&(
+              <input type="date" value={finFecha} onChange={e=>setFinFecha(e.target.value)}
+                style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+                  padding:"10px 14px",fontSize:13,marginBottom:10,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+            )}
+            {finTipo==="horas"&&(
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <input type="number" value={finHoras} onChange={e=>setFinHoras(e.target.value)}
+                  min="1" max="720"
+                  style={{flex:1,border:"1.5px solid #e8e8e8",borderRadius:12,padding:"10px 14px",
+                    fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                <span style={{fontSize:13,color:"#666",fontWeight:700}}>horas desde ahora</span>
+              </div>
+            )}
+            {finTipo==="nunca"&&(
+              <div style={{fontSize:12,color:"#aaa",marginBottom:10,textAlign:"center"}}>
+                La votación no tiene fecha de cierre automático
+              </div>
+            )}
             <button onClick={crear} disabled={saving} style={{width:"100%",background:saving?"#ccc":"#00c1fc",
               border:"none",borderRadius:50,color:"white",padding:"12px",fontWeight:800,
               fontSize:14,cursor:saving?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif"}}>
@@ -3112,6 +3158,95 @@ function AdminAulas({showToast, onBack}){
             No hay aulas creadas aún
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ADMIN — CONFIGURACIÓN
+// ════════════════════════════════════════════════════════════
+function AdminConfig({me, logout}){
+  const ROL_LABEL={admin:"Administrador",teacher:"Docente",student:"Alumno"};
+  const infoItems=[
+    {icon:"👤", label:"Nombre",     value:me.nombre},
+    {icon:"📧", label:"Correo",     value:me.email},
+    {icon:"🔑", label:"Rol",        value:ROL_LABEL[me.rol]||me.rol},
+    {icon:"🆔", label:"ID de cuenta",value:me.id?.slice(0,8)+"..."},
+    {icon:"🌐", label:"Versión",    value:"Aubank v1.0"},
+    {icon:"🏫", label:"Sistema",    value:"EduCoins — Economía Escolar"},
+  ];
+
+  return(
+    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
+      {/* Header */}
+      <div style={{background:"#00c1fc",position:"sticky",top:0,zIndex:50,
+        padding:"22px 20px 40px",color:"white",overflow:"hidden",
+        textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
+        <div style={{position:"absolute",width:200,height:200,borderRadius:"50%",
+          background:"rgba(255,255,255,.1)",top:-60,right:-40,pointerEvents:"none"}}/>
+        <div style={{fontWeight:900,fontSize:22}}>⚙️ Configuración</div>
+        <div style={{fontSize:13,opacity:.85,marginTop:2}}>Panel de administrador</div>
+      </div>
+
+      <div style={{padding:"0 14px 24px",marginTop:-20}}>
+        {/* Card avatar + nombre */}
+        <div style={{background:"white",borderRadius:20,padding:"20px 16px",
+          marginBottom:12,boxShadow:"0 1px 8px rgba(0,0,0,.06)",textAlign:"center"}}>
+          <div style={{width:72,height:72,borderRadius:"50%",background:"#00c1fc22",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:36,margin:"0 auto 10px"}}>👨‍💼</div>
+          <div style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>{me.nombre}</div>
+          <div style={{fontSize:12,color:"#777",marginTop:2}}>{me.email}</div>
+          <div style={{display:"inline-block",marginTop:8,background:"#00c1fc22",
+            color:"#00c1fc",borderRadius:99,padding:"4px 14px",fontSize:11,fontWeight:800}}>
+            {ROL_LABEL[me.rol]}
+          </div>
+        </div>
+
+        {/* Info del sistema */}
+        <div style={{background:"white",borderRadius:20,overflow:"hidden",
+          boxShadow:"0 1px 8px rgba(0,0,0,.06)",marginBottom:12}}>
+          {infoItems.map((item,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:12,
+              padding:"13px 16px",borderBottom:i<infoItems.length-1?"1px solid #f0f0f0":"none"}}>
+              <span style={{fontSize:18,flexShrink:0}}>{item.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:11,color:"#aaa",fontWeight:700}}>{item.label}</div>
+                <div style={{fontSize:13,color:"#1a1a1a",fontWeight:700,marginTop:1}}>{item.value}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Links útiles */}
+        <div style={{background:"white",borderRadius:20,overflow:"hidden",
+          boxShadow:"0 1px 8px rgba(0,0,0,.06)",marginBottom:20}}>
+          {[
+            {icon:"🔒", label:"Cambiar contraseña", sub:"Próximamente"},
+            {icon:"📊", label:"Exportar datos",      sub:"Próximamente"},
+            {icon:"🛡️", label:"Permisos del sistema",sub:"Próximamente"},
+          ].map((item,i,arr)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:12,
+              padding:"13px 16px",borderBottom:i<arr.length-1?"1px solid #f0f0f0":"none",
+              opacity:.5}}>
+              <span style={{fontSize:18,flexShrink:0}}>{item.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,color:"#1a1a1a",fontWeight:700}}>{item.label}</div>
+                <div style={{fontSize:11,color:"#aaa"}}>{item.sub}</div>
+              </div>
+              <span style={{color:"#ddd",fontSize:16}}>›</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Cerrar sesión */}
+        <button onClick={logout} style={{width:"100%",background:"#fee2e2",border:"none",
+          borderRadius:16,color:"#ef4444",padding:"14px",fontWeight:900,fontSize:15,
+          cursor:"pointer",fontFamily:"Nunito,sans-serif",
+          boxShadow:"0 2px 8px rgba(239,68,68,.2)"}}>
+          🚪 Cerrar sesión
+        </button>
       </div>
     </div>
   );
