@@ -2093,10 +2093,15 @@ function AReportes({me,dark,showToast,onBack}){
     setSending(true);
     try{
       const d = await api.sendReportMsg(reporteSel.id, newMsg.trim());
-      setMsgs(prev=>[...prev, d.data||d]);
+      const nuevoMsg = d.data || d;
+      setMsgs(prev=>[...prev, nuevoMsg]);
       setNewMsg("");
-      // Refrescar lista para actualizar estado
-      loadList();
+      // Refrescar el reporte para tener el estado actualizado
+      const lista = await api.myReports().catch(()=>({data:[]}));
+      const todos = lista.data || lista || [];
+      setEnviados(todos);
+      const actualizado = todos.find(r=>r.id===reporteSel.id);
+      if(actualizado) setRepSel(actualizado);
     }catch(e){ showToast("Error al enviar","error"); }
     finally{ setSending(false); }
   };
@@ -3355,103 +3360,119 @@ function AdminReportes({showToast, onBack}){
     setSaving(true);
     try{
       const d = await api.sendReportMsg(sel.id, newMsg.trim());
-      setMsgs(prev=>[...prev, d.data||d]);
+      const nuevoMsg = d.data||d;
+      setMsgs(prev=>[...prev, nuevoMsg]);
       setNewMsg("");
+      if(sel.estado==='recibido') setSel(prev=>({...prev,estado:'en_revision'}));
       load();
     }catch(e){showToast("Error al enviar","error");}
     finally{setSaving(false);}
   };
 
-  if(sel) return(
-    <div style={{minHeight:"100vh",background:"#F0F0F0",display:"flex",flexDirection:"column"}}>
-      <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px",
-        position:"sticky",top:0,zIndex:50}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <button onClick={()=>{setSel(null);load();}} style={{background:"rgba(0,0,0,.15)",border:"none",
-            borderRadius:50,color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
-            display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-          <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:18,
-            textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
-            {TIPO_ICON[sel.tipo]} {sel.reporter_nombre||"Anónimo"}
-          </div>
-          <span style={{background:ESTADO_COL[sel.estado]+"33",color:ESTADO_COL[sel.estado],
-            borderRadius:99,padding:"3px 10px",fontSize:10,fontWeight:800}}>
-            {ESTADO_LABEL2[sel.estado]}
-          </span>
-        </div>
-      </div>
-
-      <div style={{padding:"10px 14px 0"}}>
-        {/* Descripción original */}
-        <div style={{background:"white",borderRadius:14,padding:"10px 14px",marginBottom:8,
-          boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-          <div style={{fontSize:10,fontWeight:800,color:"#00c1fc",marginBottom:3}}>REPORTE</div>
-          <div style={{fontSize:13,color:"#333",lineHeight:1.5}}>{sel.descripcion}</div>
-          <div style={{fontSize:11,color:"#aaa",marginTop:4}}>
-            {new Date(sel.created_at).toLocaleDateString("es-AR")}
+  if(sel){
+    const tipoInfo = REPORTE_TIPOS.find(t=>t.id===sel.tipo)||{icon:"📋",label:sel.tipo,col:"#64748b"};
+    const abierto  = sel.estado!=="resuelto"&&sel.estado!=="descartado";
+    return(
+      <div style={{minHeight:"100vh",background:"#eef2f7"}}>
+        <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px",
+          position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={()=>{setSel(null);load();}} style={{background:"rgba(0,0,0,.15)",border:"none",
+              borderRadius:50,color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
+              display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
+            <div style={{flex:1,textAlign:"center"}}>
+              <div style={{fontWeight:900,fontSize:15}}>Caso #{sel.id?.slice(0,8).toUpperCase()}</div>
+              <div style={{fontSize:11,opacity:.85}}>{tipoInfo.icon} {tipoInfo.label} · {sel.reporter_nombre||"Anónimo"}</div>
+            </div>
+            <span style={{background:"rgba(255,255,255,.2)",borderRadius:99,padding:"3px 10px",fontSize:10,fontWeight:800}}>
+              {ESTADO_LABEL2[sel.estado]}
+            </span>
           </div>
         </div>
-        {/* Cambiar estado */}
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-          {ESTADOS.map(e=>(
-            <button key={e} onClick={()=>cambiarEstado(sel.id,e)} disabled={saving||sel.estado===e}
-              style={{background:sel.estado===e?ESTADO_COL[e]:"#f0f0f0",
-                color:sel.estado===e?"white":"#555",border:"none",borderRadius:99,
-                padding:"5px 12px",fontSize:11,fontWeight:800,cursor:sel.estado===e?"default":"pointer",
-                fontFamily:"Nunito,sans-serif"}}>
-              {ESTADO_LABEL2[e]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Mensajes */}
-      <div style={{flex:1,overflowY:"auto",padding:"0 14px 80px",display:"flex",flexDirection:"column",gap:8}}>
-        {msgs.length===0&&(
-          <div style={{textAlign:"center",color:"#aaa",fontSize:12,padding:16}}>
-            Sin mensajes aún — respondé al alumno aquí
+        <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {ESTADOS.map(e=>(
+              <button key={e} onClick={()=>cambiarEstado(sel.id,e)} disabled={saving||sel.estado===e}
+                style={{background:sel.estado===e?ESTADO_COL[e]:"white",color:sel.estado===e?"white":"#555",
+                  border:`1.5px solid ${sel.estado===e?ESTADO_COL[e]:"#e8e8e8"}`,borderRadius:99,
+                  padding:"5px 13px",fontSize:11,fontWeight:800,cursor:sel.estado===e?"default":"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>{ESTADO_LABEL2[e]}</button>
+            ))}
           </div>
-        )}
-        {msgs.map((m,i)=>{
-          const isAdmin = m.sender_rol==="admin";
-          return(
-            <div key={m.id||i} style={{display:"flex",justifyContent:isAdmin?"flex-end":"flex-start"}}>
-              <div style={{maxWidth:"80%",padding:"9px 13px",
-                borderRadius:isAdmin?"18px 18px 4px 18px":"18px 18px 18px 4px",
-                background:isAdmin?"#00c1fc":"white",
-                color:isAdmin?"white":"#1a1a1a",fontSize:13,fontWeight:600,
-                boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
-                {!isAdmin&&<div style={{fontSize:10,fontWeight:800,color:"#00c1fc",marginBottom:3}}>
-                  {m.sender_nombre}
-                </div>}
-                {m.texto}
-                <div style={{fontSize:9,opacity:.6,marginTop:2,textAlign:"right"}}>
-                  {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+          <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.08)"}}>
+            <div style={{background:"#f8f9fa",padding:"12px 16px",borderBottom:"1px solid #e8e8e8"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+                <div style={{width:32,height:32,borderRadius:"50%",background:tipoInfo.col+"22",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>👤</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{sel.reporter_nombre||"Anónimo"}</div>
+                  <div style={{fontSize:10,color:"#777"}}>Para: Administración</div>
+                </div>
+                <div style={{fontSize:10,color:"#aaa",textAlign:"right"}}>
+                  {new Date(sel.created_at).toLocaleDateString("es-AR",{day:"numeric",month:"short"})}
+                  <br/>{new Date(sel.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
                 </div>
               </div>
+              <div style={{fontSize:11,fontWeight:700,color:"#777"}}>
+                Asunto: <span style={{color:tipoInfo.col}}>[{tipoInfo.label.toUpperCase()}]</span> #{sel.id?.slice(0,8).toUpperCase()}
+              </div>
             </div>
-          );
-        })}
-        <div ref={bottomRef}/>
+            <div style={{padding:"14px 16px",fontSize:13,color:"#333",lineHeight:1.7}}>{sel.descripcion}</div>
+          </div>
+          {msgs.length===0&&(
+            <div style={{background:"white",borderRadius:16,padding:"20px",textAlign:"center",boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontSize:11,color:"#aaa"}}>Sin mensajes — respondé abajo para iniciar el diálogo</div>
+            </div>
+          )}
+          {msgs.map((m,i)=>{
+            const esAdmin = m.sender_rol==="admin";
+            return(
+              <div key={m.id||i} style={{background:"white",borderRadius:16,overflow:"hidden",
+                boxShadow:"0 1px 8px rgba(0,0,0,.06)",borderLeft:`4px solid ${esAdmin?"#00c1fc":"#e0e0e0"}`}}>
+                <div style={{background:"#f8f9fa",padding:"10px 16px",borderBottom:"1px solid #e8e8e8",
+                  display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:26,height:26,borderRadius:"50%",flexShrink:0,
+                    background:esAdmin?"#00c1fc22":"#e8e8e8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>
+                    {esAdmin?"👨‍💼":"👤"}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,fontSize:12,color:esAdmin?"#00c1fc":"#1a1a1a"}}>
+                      {esAdmin?"Administración":m.sender_nombre}
+                    </div>
+                    <div style={{fontSize:10,color:"#aaa"}}>
+                      {new Date(m.created_at).toLocaleDateString("es-AR",{day:"numeric",month:"short"})}
+                      {" · "}{new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                    </div>
+                  </div>
+                </div>
+                <div style={{padding:"12px 16px",fontSize:13,color:"#333",lineHeight:1.7}}>{m.texto}</div>
+              </div>
+            );
+          })}
+          {abierto&&(
+            <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.08)"}}>
+              <div style={{background:"#f8f9fa",padding:"10px 16px",borderBottom:"1px solid #e8e8e8",
+                fontSize:11,fontWeight:800,color:"#777"}}>↩ RESPONDER COMO ADMINISTRACIÓN</div>
+              <div style={{padding:"12px 16px"}}>
+                <textarea value={newMsg} onChange={e=>setNewMsg(e.target.value)}
+                  placeholder="Escribí tu respuesta oficial..."
+                  rows={3} style={{width:"100%",boxSizing:"border-box",background:"#f7f7f7",
+                    border:"1.5px solid #e8e8e8",borderRadius:12,padding:"10px 14px",fontSize:13,
+                    outline:"none",resize:"none",color:"#1a1a1a",fontFamily:"Nunito,sans-serif",fontWeight:600,marginBottom:10}}/>
+                <button onClick={sendMsg} disabled={saving||!newMsg.trim()}
+                  style={{width:"100%",background:saving?"#ccc":"#00c1fc",border:"none",borderRadius:50,
+                    color:"white",padding:"11px",fontWeight:800,fontSize:13,
+                    cursor:saving?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {saving?"Enviando...":"Enviar respuesta oficial ↩"}
+                </button>
+              </div>
+            </div>
+          )}
+          <div style={{height:16}}/>
+        </div>
       </div>
-
-      {/* Input */}
-      <div style={{position:"sticky",bottom:0,padding:"10px 14px 16px",display:"flex",gap:8,
-        background:"white",borderTop:"1px solid #eee"}}>
-        <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&sendMsg()}
-          placeholder="Responder al alumno..."
-          style={{flex:1,background:"#F7F7F7",border:"1.5px solid #E8E8E8",borderRadius:50,
-            padding:"10px 16px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
-        <button onClick={sendMsg} disabled={saving||!newMsg.trim()}
-          style={{width:42,height:42,borderRadius:"50%",background:"#00c1fc",border:"none",
-            color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
-            display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
-      </div>
-    </div>
-  );
-
-  return(
+    );
+  }  return(
     <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
       <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
