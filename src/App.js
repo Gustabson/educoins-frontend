@@ -93,6 +93,8 @@ const api = {
   myReports:      ()                      => apiFetch("/reports/mine"),
   allReports:     (q="")                  => apiFetch(`/reports${q}`),
   updateReport:   (id, data)              => apiFetch(`/reports/${id}/estado`, { method:"PATCH", body:data }),
+  reportMessages: (id)                    => apiFetch(`/reports/${id}/messages`),
+  sendReportMsg:  (id, texto)             => apiFetch(`/reports/${id}/messages`, { method:"POST", body:{texto} }),
   deletePost:     (id)                    => apiFetch(`/posts/${id}`,          { method:"DELETE" }),
   updatePoll:     (id, data)              => apiFetch(`/polls/${id}`,          { method:"PATCH", body:data }),
   adminClassrooms:()                      => apiFetch("/admin/classrooms"),
@@ -793,77 +795,230 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
 }
 
 function AEnviar({me,balance,showToast,refreshBalance,dark=false}){
-  const [users,setUsers]=useState([]);
-  const [search,setSearch]=useState("");
-  const [selected,setSelected]=useState(null);
-  const [amount,setAmount]=useState("");
-  const [sending,setSending]=useState(false);
-  const cardBg=dark?"#1e1b2e":"white";
-  const txt=dark?"#e0e0e0":"#1a1a1a";
+  const [friends,setFriends]   = useState([]);
+  const [search,setSearch]     = useState("");
+  const [results,setResults]   = useState([]);
+  const [searching,setSearching]= useState(false);
+  const [selected,setSelected] = useState(null);
+  const [amount,setAmount]     = useState("");
+  const [sending,setSending]   = useState(false);
+  const [tab,setTab]           = useState("amigos"); // "amigos" | "buscar" | "manual"
+  const [manualId,setManualId] = useState("");
+  const debounceRef            = useRef(null);
+
+  const cardBg = dark?"#1e1b2e":"white";
+  const txt    = dark?"#e0e0e0":"#1a1a1a";
+  const sub    = dark?"#888":"#555";
+  const accent = dark?"#c084fc":"#00c1fc";
+  const inputBg= dark?"#2d2a45":"#F7F7F7";
+  const inputBd= dark?"#3d3a55":"#E8E8E8";
 
   useEffect(()=>{
-    // Cargamos usuarios para buscar — usamos el endpoint de admin si es student
-    // En una app real habría un endpoint público de búsqueda
-    api.adminUsers().then(us=>setUsers(us.filter(u=>u.rol==="student"&&u.id!==me.id))).catch(()=>{});
+    api.chatFriends()
+      .then(d=>{
+        const all = d.data||d||[];
+        setFriends(all.filter(f=>f.estado==='accepted'));
+      }).catch(()=>{});
   },[]);
 
-  const filtered=users.filter(u=>u.nombre.toLowerCase().includes(search.toLowerCase()));
+  // Búsqueda con debounce
+  useEffect(()=>{
+    if(tab!=="buscar") return;
+    clearTimeout(debounceRef.current);
+    if(search.trim().length<2){setResults([]);return;}
+    debounceRef.current = setTimeout(async()=>{
+      setSearching(true);
+      try{
+        const d = await api.chatSearch(search.trim());
+        setResults(d.data||d||[]);
+      }catch(e){}
+      finally{setSearching(false);}
+    }, 400);
+  },[search,tab]);
 
-  const send=async()=>{
-    const amt=parseInt(amount);
-    if(!selected||!amt||amt<=0){showToast("Seleccioná un destinatario y un monto válido","error");return;}
-    if(amt>balance){showToast("No tenés saldo suficiente","error");return;}
+  const selectUser = (u) => {
+    setSelected({id: u.user_id||u.id, nombre: u.nombre, skin: u.skin, border: u.border});
+    setAmount("");
+  };
+
+  const send = async() => {
+    let toId = selected?.id;
+    if(tab==="manual"){
+      toId = manualId.trim();
+      if(!toId){showToast("Ingresá un ID válido","error");return;}
+    }
+    const amt = parseInt(amount);
+    if(!toId||!amt||amt<=0){showToast("Completá destinatario y monto","error");return;}
+    if(amt>balance){showToast("Saldo insuficiente","error");return;}
     setSending(true);
     try{
-      await api.transfer(selected.id, amt);
-      showToast(`¡Enviaste 🪙${amt} a ${selected.nombre}! 🎉`);
+      await api.transfer(toId, amt);
+      showToast(`¡Enviaste 🪙${amt.toLocaleString("es-AR")}! 🎉`);
       await refreshBalance();
-      setSelected(null);setAmount("");setSearch("");
+      setSelected(null);setAmount("");setManualId("");
     }catch(e){
       showToast(e.message||"Error al transferir","error");
     }finally{setSending(false);}
   };
 
+  const TABS=[["amigos","👥 Amigos"],["buscar","🔍 Buscar"],["manual","✏️ Manual"]];
+
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="Enviar 💸" dark={dark}
-        extra={<div style={{marginTop:10,fontSize:13,opacity:.9,fontWeight:700}}>
-          Tu saldo: 🪙 {balance.toLocaleString("es-AR")}
+        extra={<div style={{marginTop:6,fontSize:13,opacity:.9,fontWeight:700}}>
+          Saldo disponible: 🪙 {balance.toLocaleString("es-AR")}
         </div>}/>
-      <div style={{padding:"0 14px",marginTop:12}}>
-        <div style={{background:cardBg,borderRadius:20,padding:16,marginBottom:12,
-          boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",transition:"background .3s"}}>
-          <div style={{fontWeight:800,color:txt,marginBottom:10}}>Buscar compañero</div>
-          <Inp val={search} set={setSearch} ph="Nombre..." icon="🔍"/>
-          <div style={{marginTop:10,maxHeight:200,overflowY:"auto"}}>
-            {filtered.map(u=>(
-              <div key={u.id} onClick={()=>{setSelected(u);setSearch(u.nombre);}}
-                style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",
-                  borderBottom:`1px solid ${dark?"#2d2a45":"#f5f5f5"}`,cursor:"pointer",
-                  background:selected?.id===u.id?dark?"#2d2a45":"#FFF0F0":"transparent",
-                  borderRadius:10,paddingLeft:selected?.id===u.id?8:0}}>
-                <Av user={u} sz={36}/>
-                <div style={{fontWeight:700,fontSize:14,color:txt}}>{u.nombre}</div>
-                {selected?.id===u.id&&<span style={{marginLeft:"auto",color:dark?"#c084fc":"#00c1fc",fontSize:16}}>✓</span>}
+
+      {/* Tabs */}
+      <div style={{display:"flex",background:cardBg,borderBottom:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
+        {TABS.map(([id,label])=>(
+          <button key={id} onClick={()=>{setTab(id);setSelected(null);setSearch("");setResults([]);}}
+            style={{flex:1,padding:"11px 4px",background:"none",border:"none",
+              fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+              color:tab===id?accent:sub,
+              borderBottom:`2.5px solid ${tab===id?accent:"transparent"}`,
+              transition:"all .2s"}}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
+
+        {/* TAB AMIGOS */}
+        {tab==="amigos"&&(
+          <div>
+            {friends.length===0&&(
+              <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center",
+                boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+                <div style={{fontSize:36,marginBottom:8}}>👥</div>
+                <div style={{fontWeight:800,color:txt,marginBottom:4}}>Sin amigos agregados</div>
+                <div style={{fontSize:12,color:sub}}>Andá a Chat → buscá compañeros para agregarlos</div>
+              </div>
+            )}
+            {friends.map(f=>(
+              <div key={f.friendship_id} onClick={()=>selectUser(f)}
+                style={{background:selected?.id===f.user_id?dark?"rgb(69,50,125)":"rgba(35,255,255,0.3)":cardBg,
+                  borderRadius:16,padding:"12px 14px",marginBottom:8,cursor:"pointer",
+                  display:"flex",alignItems:"center",gap:12,
+                  border:`1.5px solid ${selected?.id===f.user_id?accent:"transparent"}`,
+                  boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
+                  transition:"all .15s"}}>
+                <Av user={f} sz={42}/>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:14,color:txt}}>{f.nombre}</div>
+                  <div style={{fontSize:11,color:sub,marginTop:1}}>
+                    {f.rol==="teacher"?"👩‍🏫 Docente":"👨‍🎓 Alumno"}
+                  </div>
+                </div>
+                {selected?.id===f.user_id&&(
+                  <span style={{color:accent,fontSize:20}}>✓</span>
+                )}
               </div>
             ))}
-            {filtered.length===0&&search&&(
-              <div style={{color:"#bbb",fontSize:13,padding:"10px 0"}}>No encontramos a nadie con ese nombre</div>
+          </div>
+        )}
+
+        {/* TAB BUSCAR */}
+        {tab==="buscar"&&(
+          <div>
+            <div style={{background:cardBg,borderRadius:16,padding:"10px 14px",marginBottom:10,
+              display:"flex",alignItems:"center",gap:8,
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              <span style={{fontSize:16}}>🔍</span>
+              <input value={search} onChange={e=>setSearch(e.target.value)}
+                placeholder="Buscar por nombre..."
+                style={{flex:1,background:"none",border:"none",outline:"none",
+                  fontSize:14,color:txt,fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
+              {searching&&<span style={{fontSize:12,color:sub}}>...</span>}
+            </div>
+            {results.map(u=>(
+              <div key={u.id} onClick={()=>selectUser(u)}
+                style={{background:selected?.id===u.id?dark?"rgb(69,50,125)":"rgba(35,255,255,0.3)":cardBg,
+                  borderRadius:16,padding:"12px 14px",marginBottom:8,cursor:"pointer",
+                  display:"flex",alignItems:"center",gap:12,
+                  border:`1.5px solid ${selected?.id===u.id?accent:"transparent"}`,
+                  boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
+                  transition:"all .15s"}}>
+                <Av user={u} sz={42}/>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:14,color:txt}}>{u.nombre}</div>
+                  <div style={{fontSize:11,color:sub}}>
+                    {u.friendship_estado==="accepted"?"✓ Ya son amigos":
+                     u.friendship_estado==="pending"?"⏳ Solicitud pendiente":
+                     u.rol==="teacher"?"👩‍🏫 Docente":"👨‍🎓 Alumno"}
+                  </div>
+                </div>
+                {selected?.id===u.id&&<span style={{color:accent,fontSize:20}}>✓</span>}
+              </div>
+            ))}
+            {search.length>=2&&results.length===0&&!searching&&(
+              <div style={{textAlign:"center",color:sub,padding:24,fontSize:13}}>Sin resultados para "{search}"</div>
             )}
           </div>
-        </div>
-        {selected&&(
-          <div style={{background:cardBg,borderRadius:20,padding:16,marginBottom:12,
-            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",transition:"background .3s"}}>
-            <div style={{fontWeight:800,color:txt,marginBottom:10}}>
-              Enviarle a <span style={{color:dark?"#c084fc":"#00c1fc"}}>{selected.nombre}</span>
+        )}
+
+        {/* TAB MANUAL */}
+        {tab==="manual"&&(
+          <div style={{background:cardBg,borderRadius:20,padding:16,
+            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div style={{fontWeight:800,color:txt,marginBottom:4}}>ID del destinatario</div>
+            <div style={{fontSize:11,color:sub,marginBottom:10}}>
+              Pedile a tu compañero su ID desde la pantalla "Ingresar"
             </div>
-            <Inp val={amount} set={setAmount} ph="Cantidad de monedas" type="number" icon="🪙"/>
-            <div style={{marginTop:12}}>
-              <PBtn label={sending?"Enviando...":"Confirmar envío 💸"} full
-                disabled={sending||!amount||parseInt(amount)<=0}
-                onClick={send} color={dark?"#52177f":"#00c1fc"}/>
+            <input value={manualId} onChange={e=>setManualId(e.target.value)}
+              placeholder="Pegá el ID aquí..."
+              style={{width:"100%",boxSizing:"border-box",background:inputBg,
+                border:`1.5px solid ${inputBd}`,borderRadius:12,padding:"11px 14px",
+                fontSize:13,outline:"none",color:txt,fontFamily:"Nunito,sans-serif",fontWeight:600,
+                marginBottom:0}}/>
+          </div>
+        )}
+
+        {/* Monto + confirmar — aparece cuando hay destinatario seleccionado o manual */}
+        {(selected||(tab==="manual"&&manualId.trim()))&&(
+          <div style={{background:cardBg,borderRadius:20,padding:16,marginTop:10,
+            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+            {selected&&(
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,
+                padding:"10px 12px",background:dark?"rgba(255,255,255,.05)":"#f7f7f7",borderRadius:12}}>
+                <Av user={selected} sz={36}/>
+                <div>
+                  <div style={{fontSize:11,color:sub,fontWeight:700}}>Enviando a</div>
+                  <div style={{fontWeight:800,fontSize:14,color:txt}}>{selected.nombre}</div>
+                </div>
+              </div>
+            )}
+            <div style={{fontWeight:800,color:txt,marginBottom:8}}>¿Cuántas monedas?</div>
+            <div style={{background:inputBg,border:`1.5px solid ${inputBd}`,borderRadius:14,
+              display:"flex",alignItems:"center",padding:"4px 14px",marginBottom:12}}>
+              <span style={{fontSize:20,marginRight:8}}>🪙</span>
+              <input value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/,""))}
+                placeholder="0" type="number" min="1"
+                style={{flex:1,background:"none",border:"none",outline:"none",fontSize:22,
+                  fontWeight:900,color:accent,fontFamily:"Nunito,sans-serif"}}/>
             </div>
+            {/* Atajos de monto */}
+            <div style={{display:"flex",gap:6,marginBottom:12}}>
+              {[10,50,100,500].map(n=>(
+                <button key={n} onClick={()=>setAmount(String(n))}
+                  style={{flex:1,background:amount===String(n)?accent:"transparent",
+                    color:amount===String(n)?"white":accent,
+                    border:`1.5px solid ${accent}`,borderRadius:99,
+                    padding:"5px",fontSize:12,fontWeight:800,cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif"}}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <button onClick={send} disabled={sending||!amount||parseInt(amount)<=0}
+              style={{width:"100%",background:sending?"#ccc":accent,border:"none",
+                borderRadius:50,color:"white",padding:"13px",fontWeight:900,fontSize:15,
+                cursor:sending?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif",
+                boxShadow:sending?"none":`0 4px 16px ${accent}55`}}>
+              {sending?"Enviando...":"Confirmar envío 💸"}
+            </button>
           </div>
         )}
       </div>
@@ -872,48 +1027,131 @@ function AEnviar({me,balance,showToast,refreshBalance,dark=false}){
 }
 
 function AMovimientos({dark=false}){
-  const [txs,setTxs]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const cardBg=dark?"#1e1b2e":"white";
-  const txt=dark?"#e0e0e0":"#1a1a1a";
+  const [txs,setTxs]       = useState([]);
+  const [loading,setLoading]= useState(true);
+  const [search,setSearch]  = useState("");
+  const cardBg = dark?"#1e1b2e":"white";
+  const txt    = dark?"#e0e0e0":"#1a1a1a";
+  const sub    = dark?"#888":"#666";
+  const accent = dark?"#c084fc":"#00c1fc";
 
-  useEffect(()=>{
-    api.transactions().then(setTxs).finally(()=>setLoading(false));
-  },[]);
+  useEffect(()=>{ api.transactions().then(setTxs).finally(()=>setLoading(false)); },[]);
 
-  const iconFor=(type)=>({reward:"↓",transfer:"↕",purchase:"↑",adjustment:"⚙"}[type]||"•");
-  const colorFor=(amount)=>amount>0?"#10b981":"#ef4444";
+  const TX_META = {
+    reward:    { icon:"⚡", label:"Misión completada",   color:"#10b981" },
+    transfer:  { icon:"💸", label:"Transferencia",        color:"#3b82f6" },
+    purchase:  { icon:"🛒", label:"Compra en tienda",     color:"#f59e0b" },
+    mint:      { icon:"🏦", label:"Acreditación",         color:"#10b981" },
+    burn:      { icon:"🔥", label:"Débito",               color:"#ef4444" },
+    adjustment:{ icon:"⚙️", label:"Ajuste",               color:"#8b5cf6" },
+  };
 
-  if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando movimientos...</div>;
+  // Filtrar por búsqueda
+  const filtered = txs.filter(t =>
+    !search || t.description?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Agrupar por fecha — solo fechas con movimientos
+  const grupos = {};
+  filtered.forEach(t => {
+    const fecha = new Date(t.created_at).toLocaleDateString("es-AR",{
+      weekday:"long", day:"numeric", month:"long"
+    });
+    const fechaKey = new Date(t.created_at).toDateString();
+    if (!grupos[fechaKey]) grupos[fechaKey] = { label: fecha, items: [] };
+    grupos[fechaKey].items.push(t);
+  });
+
+  if(loading) return(
+    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",
+      display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{textAlign:"center",color:sub}}>
+        <div style={{fontSize:32,marginBottom:8}}>⏳</div>
+        <div style={{fontWeight:700}}>Cargando movimientos...</div>
+      </div>
+    </div>
+  );
 
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="Movimientos 📊" dark={dark}/>
-      <div style={{padding:"0 14px",marginTop:12}}>
-        {txs.length===0&&(
+
+      {/* Buscador sticky */}
+      <div style={{position:"sticky",top:0,zIndex:40,background:dark?"#12101e":"#F0F0F0",
+        padding:"10px 14px 6px"}}>
+        <div style={{background:cardBg,borderRadius:14,padding:"9px 14px",
+          display:"flex",alignItems:"center",gap:8,
+          boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+          <span style={{fontSize:15}}>🔍</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="Buscar movimiento..."
+            style={{flex:1,background:"none",border:"none",outline:"none",
+              fontSize:13,color:txt,fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
+          {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",
+            color:sub,cursor:"pointer",fontSize:16,padding:0}}>✕</button>}
+        </div>
+      </div>
+
+      <div style={{padding:"4px 14px 16px"}}>
+        {filtered.length===0&&(
           <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center",
-            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",marginTop:8}}>
             <div style={{fontSize:40}}>📊</div>
-            <div style={{fontWeight:800,color:txt,marginTop:8}}>Sin movimientos aún</div>
+            <div style={{fontWeight:800,color:txt,marginTop:8}}>
+              {search?"Sin resultados":"Sin movimientos aún"}
+            </div>
           </div>
         )}
-        {txs.map((t,i)=>(
-          <div key={i} style={{marginBottom:8,display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
-            background:cardBg,borderRadius:20,
-            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",transition:"background .3s"}}>
-            <div style={{width:40,height:40,borderRadius:"50%",flexShrink:0,
-              background:t.amount>0?dark?"#052e16":"#f0fdf4":dark?"#2d0a0a":"#fef2f2",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              fontWeight:700,color:colorFor(t.amount),fontSize:18}}>
-              {iconFor(t.type)}
+
+        {Object.entries(grupos).map(([key,grupo])=>(
+          <div key={key}>
+            {/* Separador de fecha */}
+            <div style={{display:"flex",alignItems:"center",gap:10,margin:"14px 0 8px"}}>
+              <div style={{flex:1,height:1,background:dark?"#2d2a45":"#e8e8e8"}}/>
+              <span style={{fontSize:11,fontWeight:800,color:sub,textTransform:"capitalize",
+                whiteSpace:"nowrap"}}>
+                {grupo.label}
+              </span>
+              <div style={{flex:1,height:1,background:dark?"#2d2a45":"#e8e8e8"}}/>
             </div>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:13,color:txt}}>{t.description}</div>
-              <div style={{fontSize:11,color:dark?"#555":"#bbb"}}>{new Date(t.created_at).toLocaleDateString("es-AR")}</div>
+
+            {/* Movimientos del día en una card */}
+            <div style={{background:cardBg,borderRadius:20,overflow:"hidden",
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              {grupo.items.map((t,i)=>{
+                const meta = TX_META[t.type] || { icon:"•", label:t.type, color:"#94a3b8" };
+                const isPos = t.amount > 0;
+                return(
+                  <div key={t.id||i} style={{
+                    display:"flex",alignItems:"center",gap:12,padding:"13px 16px",
+                    borderBottom:i<grupo.items.length-1?`1px solid ${dark?"#2d2a45":"#f0f0f0"}`:"none"}}>
+                    {/* Icono */}
+                    <div style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
+                      background:isPos?dark?"#052e16":"#f0fdf4":dark?"#2d0a0a":"#fef2f2",
+                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:19}}>
+                      {meta.icon}
+                    </div>
+                    {/* Descripción */}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:13,color:txt,
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {t.description||meta.label}
+                      </div>
+                      <div style={{fontSize:11,color:sub,marginTop:1}}>
+                        {new Date(t.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                      </div>
+                    </div>
+                    {/* Monto */}
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontWeight:900,fontSize:15,
+                        color:isPos?"#10b981":"#ef4444"}}>
+                        {isPos?"+":""}{t.amount.toLocaleString("es-AR")} 🪙
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <span style={{fontWeight:900,color:colorFor(t.amount),fontSize:15,flexShrink:0}}>
-              {t.amount>0?"+":""}{t.amount} 🪙
-            </span>
           </div>
         ))}
       </div>
@@ -1186,17 +1424,23 @@ function AChat({me, dark, showToast, onBack}){
   const openFriend = async (f) => {
     setFriend(f);
     setPerson([]);
+    setConvId(null);
     try {
       const d = await api.chatPersonalMsgs(f.user_id);
       const data = d.data || d;
-      const cid = data.conversation_id || data[0]?.conversation_id;
-      setPerson(data.messages || data || []);
+      // El backend devuelve { messages: [...], conversation_id: "..." }
+      const msgs = data.messages || (Array.isArray(data) ? data : []);
+      const cid  = data.conversation_id || msgs[0]?.conversation_id || null;
+      setPerson(msgs);
       setConvId(cid);
-      if (cid) personalConvIdRef.current = cid;
-      const s = getSocket();
-      if (s && cid) s.emit('join_personal', cid);
+      if (cid) {
+        personalConvIdRef.current = cid;
+        const s = getSocket();
+        if (s) s.emit('join_personal', cid);
+      }
     } catch(e) {
       showToast("Error al cargar el chat","error");
+      console.error("openFriend error:", e);
     }
   };
 
@@ -1259,13 +1503,24 @@ function AChat({me, dark, showToast, onBack}){
   const acceptFriend = async (friendshipId) => {
     try {
       await api.chatFriendAccept(friendshipId);
-      const updated = await api.chatFriends();
-      const all = updated.data || updated || [];
-      setFriends(all.filter(f=>f.estado==='accepted'));
-      setPend(all.filter(f=>f.estado==='pending'&&!f.soy_requester));
       showToast("Amistad aceptada! 🎉");
+      // Recargar lista con pequeño delay para que el backend procese
+      setTimeout(async () => {
+        const updated = await api.chatFriends();
+        const all = updated.data || updated || [];
+        setFriends(all.filter(f=>f.estado==='accepted'));
+        setPend(all.filter(f=>f.estado==='pending'&&!f.soy_requester));
+      }, 500);
     } catch(e) {
-      showToast(e.message||"Error","error");
+      // Si ya fue aceptada (ej: doble click), refrescar silenciosamente
+      if (e.message?.includes('NOT_FOUND') || e.message?.includes('404')) {
+        const updated = await api.chatFriends().catch(()=>({data:[]}));
+        const all = updated.data || updated || [];
+        setFriends(all.filter(f=>f.estado==='accepted'));
+        setPend(all.filter(f=>f.estado==='pending'&&!f.soy_requester));
+      } else {
+        showToast(e.message||"Error al aceptar","error");
+      }
     }
   };
 
@@ -1776,54 +2031,170 @@ const ESTADO_LABEL={recibido:"Recibido",en_revision:"En revisión",resuelto:"Res
 const ESTADO_COLOR={recibido:"#f59e0b",en_revision:"#3b82f6",resuelto:"#10b981",descartado:"#94a3b8"};
 
 function AReportes({me,dark,showToast,onBack}){
-  const [tipo,setTipo]=useState(null);
-  const [desc,setDesc]=useState("");
-  const [anon,setAnon]=useState(false);
-  const [enviados,setEnviados]=useState([]);
-  const [loadingHist,setLoadingHist]=useState(true);
-  const [enviando,setEnviando]=useState(false);
+  const [vista,setVista]       = useState("lista"); // "lista" | "nuevo" | "chat"
+  const [reporteSel,setRepSel] = useState(null);
+  const [tipo,setTipo]         = useState(null);
+  const [desc,setDesc]         = useState("");
+  const [anon,setAnon]         = useState(false);
+  const [enviados,setEnviados] = useState([]);
+  const [msgs,setMsgs]         = useState([]);
+  const [newMsg,setNewMsg]     = useState("");
+  const [loading,setLoading]   = useState(true);
+  const [enviando,setEnviando] = useState(false);
+  const [sending,setSending]   = useState(false);
+  const bottomRef              = useRef(null);
 
-  const cardBg=dark?"#1e1b2e":"white";
-  const txt=dark?"#e0e0e0":"#1a1a1a";
-  const sub=dark?"#888":"#555";
-  const bg=dark?"#12101e":"#F5F5F5";
-  const inputBg=dark?"#2d2a45":"#F7F7F7";
-  const inputBord=dark?"#3d3a55":"#E8E8E8";
+  const cardBg  = dark?"#1e1b2e":"white";
+  const txt     = dark?"#e0e0e0":"#1a1a1a";
+  const sub     = dark?"#888":"#555";
+  const bg      = dark?"#12101e":"#F5F5F5";
+  const accent  = dark?"#c084fc":"#00c1fc";
+  const inputBg = dark?"#2d2a45":"#F7F7F7";
+  const inputBd = dark?"#3d3a55":"#E8E8E8";
 
-  const loadHistory=()=>{
-    // Solo cargamos historial de reportes NO anónimos del usuario
+  const loadList = () => {
     api.myReports()
-      .then(setEnviados)
+      .then(d=>setEnviados(d.data||d||[]))
       .catch(()=>setEnviados([]))
-      .finally(()=>setLoadingHist(false));
+      .finally(()=>setLoading(false));
+  };
+  useEffect(()=>{ loadList(); },[]);
+
+  useEffect(()=>{
+    bottomRef.current?.scrollIntoView({behavior:"smooth"});
+  },[msgs]);
+
+  const openChat = async(r) => {
+    setRepSel(r);
+    setMsgs([]);
+    setVista("chat");
+    try{
+      const d = await api.reportMessages(r.id);
+      setMsgs(d.data||d||[]);
+    }catch(e){ showToast("Error al cargar mensajes","error"); }
   };
 
-  useEffect(()=>{ loadHistory(); },[]);
-
-  const enviar=async()=>{
-    if(!tipo){showToast("Elegí un tipo de reporte","error");return;}
+  const enviar = async() => {
+    if(!tipo){showToast("Elegí un tipo","error");return;}
     if(!desc.trim()||desc.length<10){showToast("Descripción muy corta (mín. 10 caracteres)","error");return;}
     setEnviando(true);
     try{
       await api.createReport({tipo:tipo.id, descripcion:desc.trim(), anonimo:anon});
-      showToast("¡Reporte enviado! 📋");
-      setTipo(null); setDesc(""); setAnon(false);
-      if(!anon) loadHistory(); // Refrescar historial solo si no era anónimo
-    }catch(e){
-      showToast(e.message||"Error al enviar reporte","error");
-    }finally{setEnviando(false);}
+      showToast("Reporte enviado ✅");
+      setTipo(null);setDesc("");setAnon(false);
+      setVista("lista");
+      if(!anon) loadList();
+    }catch(e){ showToast(e.message||"Error","error"); }
+    finally{ setEnviando(false); }
   };
 
-  return(
+  const sendMsg = async() => {
+    if(!newMsg.trim()) return;
+    setSending(true);
+    try{
+      const d = await api.sendReportMsg(reporteSel.id, newMsg.trim());
+      setMsgs(prev=>[...prev, d.data||d]);
+      setNewMsg("");
+      // Refrescar lista para actualizar estado
+      loadList();
+    }catch(e){ showToast("Error al enviar","error"); }
+    finally{ setSending(false); }
+  };
+
+  // ── Vista: chat de un reporte ─────────────────────────────
+  if(vista==="chat"&&reporteSel) return(
+    <div style={{background:bg,height:"100vh",display:"flex",flexDirection:"column"}}>
+      <div style={{background:accent,position:"sticky",top:0,zIndex:50,
+        padding:"16px 16px 20px",color:"white",
+        textShadow:dark?"none":"0 1px 4px rgba(0,60,100,.4)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <button onClick={()=>{setVista("lista");loadList();}}
+            style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+              color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
+              display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
+          <div style={{flex:1,textAlign:"center"}}>
+            <div style={{fontWeight:900,fontSize:16}}>
+              {REPORTE_TIPOS.find(t=>t.id===reporteSel.tipo)?.icon} {REPORTE_TIPOS.find(t=>t.id===reporteSel.tipo)?.label}
+            </div>
+            <div style={{fontSize:11,opacity:.8}}>
+              {ESTADO_LABEL[reporteSel.estado]||reporteSel.estado}
+            </div>
+          </div>
+          <div style={{width:34}}/>
+        </div>
+      </div>
+
+      {/* Descripción original */}
+      <div style={{margin:"10px 14px 0",background:dark?"#2d2a45":"#e0f7fe",
+        borderRadius:14,padding:"10px 14px"}}>
+        <div style={{fontSize:10,fontWeight:800,color:accent,marginBottom:3}}>REPORTE ORIGINAL</div>
+        <div style={{fontSize:12,color:txt,lineHeight:1.5}}>{reporteSel.descripcion}</div>
+      </div>
+
+      {/* Mensajes */}
+      <div style={{flex:1,overflowY:"auto",padding:"10px 14px 80px",display:"flex",flexDirection:"column",gap:8}}>
+        {msgs.length===0&&(
+          <div style={{textAlign:"center",color:sub,fontSize:12,marginTop:20}}>
+            Aún no hay respuestas. El administrador te responderá pronto.
+          </div>
+        )}
+        {msgs.map((m,i)=>{
+          const isMe = m.sender_id===me.id;
+          return(
+            <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start"}}>
+              <div style={{maxWidth:"80%",padding:"9px 13px",
+                borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                background:isMe?accent:cardBg,
+                color:isMe?"white":txt,fontSize:13,fontWeight:600,
+                boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
+                {!isMe&&<div style={{fontSize:10,fontWeight:800,color:accent,marginBottom:3}}>
+                  {m.sender_rol==="admin"?"👨‍💼 Administración":m.sender_nombre}
+                </div>}
+                {m.texto}
+                <div style={{fontSize:9,opacity:.6,marginTop:2,textAlign:"right"}}>
+                  {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* Input fijo */}
+      {reporteSel.estado!=="resuelto"&&reporteSel.estado!=="descartado"?(
+        <div style={{position:"absolute",bottom:0,left:0,right:0,
+          padding:"10px 14px 16px",display:"flex",gap:8,
+          background:cardBg,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
+          <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&sendMsg()}
+            placeholder="Escribí un mensaje..."
+            style={{flex:1,background:inputBg,border:`1.5px solid ${inputBd}`,
+              borderRadius:50,padding:"10px 16px",fontSize:13,outline:"none",
+              color:txt,fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
+          <button onClick={sendMsg} disabled={sending||!newMsg.trim()}
+            style={{width:42,height:42,borderRadius:"50%",background:accent,
+              border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
+              display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+        </div>
+      ):(
+        <div style={{padding:"12px 14px",background:cardBg,textAlign:"center",
+          fontSize:12,color:sub,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
+          Este reporte está {reporteSel.estado} — no se pueden enviar más mensajes
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Vista: formulario nuevo reporte ──────────────────────
+  if(vista==="nuevo") return(
     <div style={{background:bg,minHeight:"100vh"}}>
-      <OHdrA title="🚩 Reportes" dark={dark} onBack={onBack}/>
+      <OHdrA title="🚩 Nuevo Reporte" dark={dark} onBack={()=>setVista("lista")}/>
       <div style={{padding:"12px 14px"}}>
-
-        {/* Formulario */}
-        <div style={{background:cardBg,borderRadius:20,padding:"16px",marginBottom:12,
+        <div style={{background:cardBg,borderRadius:20,padding:16,
           boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-          <div style={{fontWeight:800,color:txt,marginBottom:12,fontSize:14}}>Nuevo reporte</div>
 
+          <div style={{fontWeight:800,color:txt,marginBottom:10,fontSize:13}}>¿Qué querés reportar?</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
             {REPORTE_TIPOS.map(t=>(
               <div key={t.id} onClick={()=>setTipo(t)}
@@ -1839,11 +2210,11 @@ function AReportes({me,dark,showToast,onBack}){
 
           <textarea value={desc} onChange={e=>setDesc(e.target.value)}
             placeholder="Describí lo que pasó con el mayor detalle posible..."
-            rows={4} style={{width:"100%",boxSizing:"border-box",background:inputBg,
-              border:`1.5px solid ${inputBord}`,borderRadius:14,padding:"11px 14px",fontSize:13,
-              outline:"none",color:txt,fontFamily:"Nunito,sans-serif",resize:"none",fontWeight:600}}/>
+            rows={5} style={{width:"100%",boxSizing:"border-box",background:inputBg,
+              border:`1.5px solid ${inputBd}`,borderRadius:14,padding:"11px 14px",fontSize:13,
+              outline:"none",color:txt,fontFamily:"Nunito,sans-serif",resize:"none",fontWeight:600,marginBottom:10}}/>
 
-          <div style={{display:"flex",alignItems:"center",gap:10,marginTop:10,marginBottom:14,cursor:"pointer"}}
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,cursor:"pointer"}}
             onClick={()=>setAnon(a=>!a)}>
             <div style={{width:22,height:22,borderRadius:6,transition:"all .2s",
               border:`2px solid ${anon?"#3b82f6":dark?"#3d3a55":"#ddd"}`,
@@ -1851,56 +2222,70 @@ function AReportes({me,dark,showToast,onBack}){
               {anon&&<span style={{color:"white",fontSize:12,fontWeight:900}}>✓</span>}
             </div>
             <span style={{fontSize:13,fontWeight:700,color:txt}}>Enviar de forma anónima</span>
+            <span style={{fontSize:11,color:sub}}>(sin respuesta)</span>
           </div>
 
           <button onClick={enviar} disabled={enviando}
-            style={{width:"100%",background:enviando?"#ccc":"#00c1fc",border:"none",borderRadius:50,
-              color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:enviando?"not-allowed":"pointer",
-              fontFamily:"Nunito,sans-serif",boxShadow:enviando?"none":"0 4px 16px #00c1fc44",transition:"all .2s"}}>
+            style={{width:"100%",background:enviando?"#ccc":accent,border:"none",borderRadius:50,
+              color:"white",padding:"13px",fontWeight:800,fontSize:14,
+              cursor:enviando?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif",
+              boxShadow:enviando?"none":`0 4px 16px ${accent}44`}}>
             {enviando?"Enviando...":"Enviar reporte 🚩"}
           </button>
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Historial */}
-        <div style={{fontWeight:800,color:txt,fontSize:13,marginBottom:8}}>Mis reportes anteriores</div>
-        {loadingHist&&<div style={{textAlign:"center",color:"#aaa",padding:16}}>Cargando historial...</div>}
-        {!loadingHist&&enviados.length===0&&(
-          <div style={{background:cardBg,borderRadius:16,padding:"16px",textAlign:"center",
+  // ── Vista: lista de reportes ──────────────────────────────
+  return(
+    <div style={{background:bg,minHeight:"100vh"}}>
+      <OHdrA title="🚩 Reportes" dark={dark} onBack={onBack}/>
+      <div style={{padding:"12px 14px"}}>
+        <button onClick={()=>setVista("nuevo")}
+          style={{width:"100%",background:accent,border:"none",borderRadius:16,
+            color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:"pointer",
+            fontFamily:"Nunito,sans-serif",marginBottom:14,
+            boxShadow:`0 4px 16px ${accent}44`}}>
+          + Nuevo reporte
+        </button>
+
+        <div style={{fontWeight:800,color:txt,fontSize:13,marginBottom:8}}>Mis reportes</div>
+        {loading&&<div style={{textAlign:"center",color:sub,padding:20}}>Cargando...</div>}
+        {!loading&&enviados.length===0&&(
+          <div style={{background:cardBg,borderRadius:16,padding:24,textAlign:"center",
             color:sub,fontSize:13,boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-            Aún no enviaste reportes
+            No tenés reportes enviados aún
           </div>
         )}
         {enviados.map((r,i)=>{
-          const t=REPORTE_TIPOS.find(x=>x.id===r.tipo)||REPORTE_TIPOS[4];
-          const estCol=ESTADO_COLOR[r.estado]||"#94a3b8";
+          const t = REPORTE_TIPOS.find(x=>x.id===r.tipo)||REPORTE_TIPOS[4];
+          const estCol = ESTADO_COLOR[r.estado]||"#94a3b8";
           return(
-            <div key={i} style={{background:cardBg,borderRadius:16,padding:"12px 14px",marginBottom:8,
-              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div key={i} onClick={()=>!r.anonimo&&openChat(r)}
+              style={{background:cardBg,borderRadius:16,padding:"12px 14px",marginBottom:8,
+                cursor:r.anonimo?"default":"pointer",
+                boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
+                border:`1.5px solid ${dark?"transparent":"#f0f0f0"}`}}>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <div style={{width:36,height:36,borderRadius:10,background:t.col+"22",
-                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{t.icon}</div>
+                <div style={{width:40,height:40,borderRadius:12,background:t.col+"22",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>
+                  {t.icon}
+                </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:800,fontSize:12,color:txt}}>{t.label}</div>
-                  <div style={{fontSize:11,color:sub,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  <div style={{fontWeight:800,fontSize:13,color:txt}}>{t.label}</div>
+                  <div style={{fontSize:11,color:sub,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                     {r.descripcion}
                   </div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontSize:10,color:sub,marginBottom:3}}>
-                    {new Date(r.created_at).toLocaleDateString("es-AR")}
-                  </div>
                   <span style={{background:estCol+"22",color:estCol,borderRadius:99,
-                    padding:"2px 8px",fontSize:10,fontWeight:800}}>
+                    padding:"3px 8px",fontSize:10,fontWeight:800,display:"block",marginBottom:4}}>
                     {ESTADO_LABEL[r.estado]||r.estado}
                   </span>
+                  {!r.anonimo&&<span style={{fontSize:10,color:accent}}>Ver chat →</span>}
                 </div>
               </div>
-              {r.resolucion&&(
-                <div style={{marginTop:8,padding:"8px 10px",background:dark?"#2d2a45":"#f5f5f5",
-                  borderRadius:10,fontSize:11,color:sub}}>
-                  💬 {r.resolucion}
-                </div>
-              )}
             </div>
           );
         })}
@@ -2867,8 +3252,11 @@ function AdminReportes({showToast, onBack}){
   const [loading,setLoading]=useState(true);
   const [filtro,setFiltro]=useState("recibido");
   const [sel,setSel]=useState(null);
+  const [msgs,setMsgs]=useState([]);
+  const [newMsg,setNewMsg]=useState("");
   const [resolucion,setResolucion]=useState("");
   const [saving,setSaving]=useState(false);
+  const bottomRef=useRef(null);
 
   const ESTADOS=["recibido","en_revision","resuelto","descartado"];
 
@@ -2879,65 +3267,124 @@ function AdminReportes({showToast, onBack}){
       .finally(()=>setLoading(false));
   };
   useEffect(()=>{ setLoading(true); load(); },[filtro]);
+  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); },[msgs]);
+
+  const openSel = async(r) => {
+    setSel(r); setMsgs([]); setResolucion("");
+    try{
+      const d = await api.reportMessages(r.id);
+      setMsgs(d.data||d||[]);
+    }catch(e){}
+  };
 
   const cambiarEstado=async(id,estado)=>{
     setSaving(true);
     try{
       await api.updateReport(id,{estado,resolucion:resolucion.trim()||null});
       showToast("Reporte actualizado ✅");
-      setSel(null);setResolucion("");load();
+      setSel(prev=>({...prev,estado}));
+      setResolucion("");load();
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSaving(false);}
   };
 
+  const sendMsg=async()=>{
+    if(!newMsg.trim()) return;
+    setSaving(true);
+    try{
+      const d = await api.sendReportMsg(sel.id, newMsg.trim());
+      setMsgs(prev=>[...prev, d.data||d]);
+      setNewMsg("");
+      load();
+    }catch(e){showToast("Error al enviar","error");}
+    finally{setSaving(false);}
+  };
+
   if(sel) return(
-    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
-      <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px"}}>
+    <div style={{minHeight:"100vh",background:"#F0F0F0",display:"flex",flexDirection:"column"}}>
+      <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px",
+        position:"sticky",top:0,zIndex:50}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <button onClick={()=>{setSel(null);setResolucion("");}} style={{background:"rgba(0,0,0,.15)",border:"none",
+          <button onClick={()=>{setSel(null);load();}} style={{background:"rgba(0,0,0,.15)",border:"none",
             borderRadius:50,color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
             display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-          <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:20,
-            textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>Detalle reporte</div>
+          <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:18,
+            textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
+            {TIPO_ICON[sel.tipo]} {sel.reporter_nombre||"Anónimo"}
+          </div>
+          <span style={{background:ESTADO_COL[sel.estado]+"33",color:ESTADO_COL[sel.estado],
+            borderRadius:99,padding:"3px 10px",fontSize:10,fontWeight:800}}>
+            {ESTADO_LABEL2[sel.estado]}
+          </span>
         </div>
       </div>
-      <div style={{padding:"12px 14px"}}>
-        <div style={{background:"white",borderRadius:20,padding:16,marginBottom:12,
+
+      <div style={{padding:"10px 14px 0"}}>
+        {/* Descripción original */}
+        <div style={{background:"white",borderRadius:14,padding:"10px 14px",marginBottom:8,
           boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-            <div style={{fontSize:28}}>{TIPO_ICON[sel.tipo]||"📋"}</div>
-            <div>
-              <div style={{fontWeight:800,color:"#1a1a1a",fontSize:14,textTransform:"capitalize"}}>{sel.tipo}</div>
-              <div style={{fontSize:11,color:"#555"}}>{sel.reporter_nombre||"Anónimo"} · {new Date(sel.created_at).toLocaleDateString("es-AR")}</div>
-            </div>
+          <div style={{fontSize:10,fontWeight:800,color:"#00c1fc",marginBottom:3}}>REPORTE</div>
+          <div style={{fontSize:13,color:"#333",lineHeight:1.5}}>{sel.descripcion}</div>
+          <div style={{fontSize:11,color:"#aaa",marginTop:4}}>
+            {new Date(sel.created_at).toLocaleDateString("es-AR")}
           </div>
-          <div style={{background:"#f9f9f9",borderRadius:12,padding:"12px 14px",fontSize:13,
-            color:"#333",lineHeight:1.6,marginBottom:12}}>{sel.descripcion}</div>
-          <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Cambiar estado</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-            {ESTADOS.map(e=>(
-              <button key={e} onClick={()=>cambiarEstado(sel.id,e)} disabled={saving||sel.estado===e}
-                style={{background:sel.estado===e?ESTADO_COL[e]:"#f0f0f0",
-                  color:sel.estado===e?"white":"#555",border:"none",borderRadius:99,
-                  padding:"6px 13px",fontSize:11,fontWeight:800,cursor:sel.estado===e?"default":"pointer",
-                  fontFamily:"Nunito,sans-serif",opacity:sel.estado===e?1:.8}}>
-                {ESTADO_LABEL2[e]}
-              </button>
-            ))}
-          </div>
-          <textarea value={resolucion} onChange={e=>setResolucion(e.target.value)}
-            placeholder="Nota de resolución (opcional)..."
-            rows={3} style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
-              borderRadius:12,padding:"10px 14px",fontSize:13,outline:"none",resize:"none",
-              fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
-          {resolucion.trim()&&(
-            <button onClick={()=>cambiarEstado(sel.id,sel.estado)} disabled={saving}
-              style={{width:"100%",background:"#00c1fc",border:"none",borderRadius:50,color:"white",
-                padding:"12px",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-              Guardar nota
-            </button>
-          )}
         </div>
+        {/* Cambiar estado */}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+          {ESTADOS.map(e=>(
+            <button key={e} onClick={()=>cambiarEstado(sel.id,e)} disabled={saving||sel.estado===e}
+              style={{background:sel.estado===e?ESTADO_COL[e]:"#f0f0f0",
+                color:sel.estado===e?"white":"#555",border:"none",borderRadius:99,
+                padding:"5px 12px",fontSize:11,fontWeight:800,cursor:sel.estado===e?"default":"pointer",
+                fontFamily:"Nunito,sans-serif"}}>
+              {ESTADO_LABEL2[e]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Mensajes */}
+      <div style={{flex:1,overflowY:"auto",padding:"0 14px 80px",display:"flex",flexDirection:"column",gap:8}}>
+        {msgs.length===0&&(
+          <div style={{textAlign:"center",color:"#aaa",fontSize:12,padding:16}}>
+            Sin mensajes aún — respondé al alumno aquí
+          </div>
+        )}
+        {msgs.map((m,i)=>{
+          const isAdmin = m.sender_rol==="admin";
+          return(
+            <div key={m.id||i} style={{display:"flex",justifyContent:isAdmin?"flex-end":"flex-start"}}>
+              <div style={{maxWidth:"80%",padding:"9px 13px",
+                borderRadius:isAdmin?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                background:isAdmin?"#00c1fc":"white",
+                color:isAdmin?"white":"#1a1a1a",fontSize:13,fontWeight:600,
+                boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
+                {!isAdmin&&<div style={{fontSize:10,fontWeight:800,color:"#00c1fc",marginBottom:3}}>
+                  {m.sender_nombre}
+                </div>}
+                {m.texto}
+                <div style={{fontSize:9,opacity:.6,marginTop:2,textAlign:"right"}}>
+                  {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* Input */}
+      <div style={{position:"sticky",bottom:0,padding:"10px 14px 16px",display:"flex",gap:8,
+        background:"white",borderTop:"1px solid #eee"}}>
+        <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&sendMsg()}
+          placeholder="Responder al alumno..."
+          style={{flex:1,background:"#F7F7F7",border:"1.5px solid #E8E8E8",borderRadius:50,
+            padding:"10px 16px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
+        <button onClick={sendMsg} disabled={saving||!newMsg.trim()}
+          style={{width:42,height:42,borderRadius:"50%",background:"#00c1fc",border:"none",
+            color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
       </div>
     </div>
   );
@@ -2971,7 +3418,7 @@ function AdminReportes({showToast, onBack}){
           </div>
         )}
         {reports.map(r=>(
-          <div key={r.id} onClick={()=>setSel(r)} style={{background:"white",borderRadius:16,
+          <div key={r.id} onClick={()=>openSel(r)} style={{background:"white",borderRadius:16,
             padding:"12px 14px",marginBottom:8,cursor:"pointer",
             boxShadow:"0 1px 8px rgba(0,0,0,.06)",display:"flex",alignItems:"center",gap:10}}>
             <div style={{fontSize:24,flexShrink:0}}>{TIPO_ICON[r.tipo]||"📋"}</div>
