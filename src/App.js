@@ -2101,90 +2101,149 @@ function AReportes({me,dark,showToast,onBack}){
     finally{ setSending(false); }
   };
 
-  // ── Vista: chat de un reporte ─────────────────────────────
-  if(vista==="chat"&&reporteSel) return(
-    <div style={{background:bg,height:"100vh",display:"flex",flexDirection:"column"}}>
-      <div style={{background:accent,position:"sticky",top:0,zIndex:50,
-        padding:"16px 16px 20px",color:"white",
-        textShadow:dark?"none":"0 1px 4px rgba(0,60,100,.4)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <button onClick={()=>{setVista("lista");loadList();}}
-            style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
-              color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
-              display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-          <div style={{flex:1,textAlign:"center"}}>
-            <div style={{fontWeight:900,fontSize:16}}>
-              {REPORTE_TIPOS.find(t=>t.id===reporteSel.tipo)?.icon} {REPORTE_TIPOS.find(t=>t.id===reporteSel.tipo)?.label}
+  // ── Vista: correo de un reporte ──────────────────────────
+  if(vista==="chat"&&reporteSel){
+    const tipoInfo = REPORTE_TIPOS.find(t=>t.id===reporteSel.tipo)||REPORTE_TIPOS[4];
+    const estCol   = ESTADO_COLOR[reporteSel.estado]||"#94a3b8";
+    const abierto  = reporteSel.estado!=="resuelto"&&reporteSel.estado!=="descartado";
+    return(
+      <div style={{background:dark?"#12101e":"#eef2f7",minHeight:"100vh"}}>
+        {/* Header */}
+        <div style={{background:accent,position:"sticky",top:0,zIndex:50,
+          padding:"16px 16px 20px",color:"white",
+          textShadow:dark?"none":"0 1px 4px rgba(0,60,100,.4)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={()=>{setVista("lista");loadList();}}
+              style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+                color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
+                display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
+            <div style={{flex:1,textAlign:"center"}}>
+              <div style={{fontWeight:900,fontSize:15}}>Caso #{reporteSel.id?.slice(0,8).toUpperCase()}</div>
+              <div style={{fontSize:11,opacity:.85}}>{tipoInfo.icon} {tipoInfo.label}</div>
             </div>
-            <div style={{fontSize:11,opacity:.8}}>
-              {ESTADO_LABEL[reporteSel.estado]||reporteSel.estado}
-            </div>
+            <span style={{background:"rgba(255,255,255,.2)",borderRadius:99,
+              padding:"3px 10px",fontSize:10,fontWeight:800}}>
+              {ESTADO_LABEL[reporteSel.estado]}
+            </span>
           </div>
-          <div style={{width:34}}/>
         </div>
-      </div>
 
-      {/* Descripción original */}
-      <div style={{margin:"10px 14px 0",background:dark?"#2d2a45":"#e0f7fe",
-        borderRadius:14,padding:"10px 14px"}}>
-        <div style={{fontSize:10,fontWeight:800,color:accent,marginBottom:3}}>REPORTE ORIGINAL</div>
-        <div style={{fontSize:12,color:txt,lineHeight:1.5}}>{reporteSel.descripcion}</div>
-      </div>
+        <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
 
-      {/* Mensajes */}
-      <div style={{flex:1,overflowY:"auto",padding:"10px 14px 80px",display:"flex",flexDirection:"column",gap:8}}>
-        {msgs.length===0&&(
-          <div style={{textAlign:"center",color:sub,fontSize:12,marginTop:20}}>
-            Aún no hay respuestas. El administrador te responderá pronto.
-          </div>
-        )}
-        {msgs.map((m,i)=>{
-          const isMe = m.sender_id===me.id;
-          return(
-            <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start"}}>
-              <div style={{maxWidth:"80%",padding:"9px 13px",
-                borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
-                background:isMe?accent:cardBg,
-                color:isMe?"white":txt,fontSize:13,fontWeight:600,
-                boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
-                {!isMe&&<div style={{fontSize:10,fontWeight:800,color:accent,marginBottom:3}}>
-                  {m.sender_rol==="admin"?"👨‍💼 Administración":m.sender_nombre}
-                </div>}
-                {m.texto}
-                <div style={{fontSize:9,opacity:.6,marginTop:2,textAlign:"right"}}>
-                  {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+          {/* Mensaje inicial — como un correo */}
+          <div style={{background:cardBg,borderRadius:16,overflow:"hidden",
+            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.08)"}}>
+            {/* Cabecera del correo */}
+            <div style={{background:dark?"#2d2a45":"#f8f9fa",padding:"12px 16px",
+              borderBottom:`1px solid ${dark?"#3d3a55":"#e8e8e8"}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+                <div style={{width:34,height:34,borderRadius:"50%",background:tipoInfo.col+"22",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
+                  {tipoInfo.icon}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:13,color:txt}}>Tú</div>
+                  <div style={{fontSize:10,color:sub}}>Para: Administración escolar</div>
+                </div>
+                <div style={{fontSize:10,color:sub,textAlign:"right"}}>
+                  {new Date(reporteSel.created_at).toLocaleDateString("es-AR",{day:"numeric",month:"short"})}
+                  <br/>{new Date(reporteSel.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
                 </div>
               </div>
+              <div style={{fontSize:11,fontWeight:700,color:sub}}>
+                Asunto: <span style={{color:tipoInfo.col}}>[{tipoInfo.label.toUpperCase()}]</span> Reporte #{reporteSel.id?.slice(0,8).toUpperCase()}
+              </div>
             </div>
-          );
-        })}
-        <div ref={bottomRef}/>
-      </div>
+            {/* Cuerpo */}
+            <div style={{padding:"14px 16px",fontSize:13,color:txt,lineHeight:1.7}}>
+              {reporteSel.descripcion}
+            </div>
+          </div>
 
-      {/* Input fijo */}
-      {reporteSel.estado!=="resuelto"&&reporteSel.estado!=="descartado"?(
-        <div style={{position:"absolute",bottom:0,left:0,right:0,
-          padding:"10px 14px 16px",display:"flex",gap:8,
-          background:cardBg,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
-          <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&sendMsg()}
-            placeholder="Escribí un mensaje..."
-            style={{flex:1,background:inputBg,border:`1.5px solid ${inputBd}`,
-              borderRadius:50,padding:"10px 16px",fontSize:13,outline:"none",
-              color:txt,fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
-          <button onClick={sendMsg} disabled={sending||!newMsg.trim()}
-            style={{width:42,height:42,borderRadius:"50%",background:accent,
-              border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
-              display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+          {/* Respuestas — estilo hilo de correo */}
+          {msgs.length===0&&(
+            <div style={{background:cardBg,borderRadius:16,padding:"20px 16px",textAlign:"center",
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontSize:24,marginBottom:6}}>📬</div>
+              <div style={{fontSize:13,fontWeight:700,color:txt}}>Esperando respuesta</div>
+              <div style={{fontSize:11,color:sub,marginTop:3}}>La administración revisará tu reporte pronto</div>
+            </div>
+          )}
+
+          {msgs.map((m,i)=>{
+            const esAdmin = m.sender_rol==="admin";
+            return(
+              <div key={m.id||i} style={{background:cardBg,borderRadius:16,overflow:"hidden",
+                boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.08)",
+                borderLeft:esAdmin?`4px solid ${accent}`:`4px solid ${dark?"#3d3a55":"#e0e0e0"}`}}>
+                {/* Cabecera del mensaje */}
+                <div style={{background:dark?"#2d2a45":"#f8f9fa",padding:"10px 16px",
+                  borderBottom:`1px solid ${dark?"#3d3a55":"#e8e8e8"}`,
+                  display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:28,height:28,borderRadius:"50%",flexShrink:0,
+                    background:esAdmin?accent+"22":dark?"#3d3a55":"#e8e8e8",
+                    display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
+                    {esAdmin?"👨‍💼":"👤"}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,fontSize:12,color:esAdmin?accent:txt}}>
+                      {esAdmin?"Administración escolar":m.sender_nombre}
+                    </div>
+                    <div style={{fontSize:10,color:sub}}>
+                      {new Date(m.created_at).toLocaleDateString("es-AR",{day:"numeric",month:"short",year:"numeric"})}
+                      {" a las "}
+                      {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                    </div>
+                  </div>
+                  {i===msgs.length-1&&<span style={{fontSize:10,color:sub}}>Último</span>}
+                </div>
+                {/* Cuerpo */}
+                <div style={{padding:"12px 16px",fontSize:13,color:txt,lineHeight:1.7}}>
+                  {m.texto}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Responder */}
+          {abierto?(
+            <div style={{background:cardBg,borderRadius:16,overflow:"hidden",
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.08)"}}>
+              <div style={{background:dark?"#2d2a45":"#f8f9fa",padding:"10px 16px",
+                borderBottom:`1px solid ${dark?"#3d3a55":"#e8e8e8"}`,
+                fontSize:11,fontWeight:800,color:sub}}>
+                ↩ RESPONDER
+              </div>
+              <div style={{padding:"12px 16px"}}>
+                <textarea value={newMsg} onChange={e=>setNewMsg(e.target.value)}
+                  placeholder="Escribí tu respuesta..."
+                  rows={3} style={{width:"100%",boxSizing:"border-box",
+                    background:inputBg,border:`1.5px solid ${inputBd}`,borderRadius:12,
+                    padding:"10px 14px",fontSize:13,outline:"none",resize:"none",
+                    color:txt,fontFamily:"Nunito,sans-serif",fontWeight:600,marginBottom:10}}/>
+                <button onClick={sendMsg} disabled={sending||!newMsg.trim()}
+                  style={{width:"100%",background:sending?"#ccc":accent,border:"none",
+                    borderRadius:50,color:"white",padding:"11px",fontWeight:800,fontSize:13,
+                    cursor:sending?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {sending?"Enviando...":"Enviar respuesta ↩"}
+                </button>
+              </div>
+            </div>
+          ):(
+            <div style={{background:cardBg,borderRadius:16,padding:"16px",textAlign:"center",
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              <span style={{background:estCol+"22",color:estCol,borderRadius:99,
+                padding:"5px 14px",fontSize:12,fontWeight:800}}>
+                Caso {ESTADO_LABEL[reporteSel.estado]} — cerrado
+              </span>
+            </div>
+          )}
+
+          <div style={{height:20}}/>
         </div>
-      ):(
-        <div style={{padding:"12px 14px",background:cardBg,textAlign:"center",
-          fontSize:12,color:sub,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
-          Este reporte está {reporteSel.estado} — no se pueden enviar más mensajes
-        </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
 
   // ── Vista: formulario nuevo reporte ──────────────────────
   if(vista==="nuevo") return(
@@ -3099,7 +3158,10 @@ function AdminVotaciones({showToast, onBack}){
     try{
       let finISO = null;
       if(finTipo==="fecha" && finFecha) {
-        finISO = new Date(finFecha+"T23:59:59").toISOString();
+        // Crear fecha al final del día en hora local, no UTC
+        const [y,m,d] = finFecha.split("-").map(Number);
+        const fecha = new Date(y, m-1, d, 23, 59, 59);
+        finISO = fecha.toISOString();
       } else if(finTipo==="horas" && finHoras) {
         const d = new Date();
         d.setHours(d.getHours() + parseInt(finHoras));
