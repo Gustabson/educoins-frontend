@@ -3317,7 +3317,7 @@ const TIPO_ICON={bullying:"😰",accidente:"🚑",perdido:"🔍",sugerencia:"�
 function AdminReportes({showToast, onBack}){
   const [reports,setReports]=useState([]);
   const [loading,setLoading]=useState(true);
-  const [filtro,setFiltro]=useState("recibido");
+  const [filtro,setFiltro]=useState("todos");
   const [sel,setSel]=useState(null);
   const [msgs,setMsgs]=useState([]);
   const [newMsg,setNewMsg]=useState("");
@@ -3328,7 +3328,8 @@ function AdminReportes({showToast, onBack}){
   const ESTADOS=["recibido","en_revision","resuelto","descartado"];
 
   const load=()=>{
-    api.allReports(`?estado=${filtro}`)
+    const q = filtro==="todos" ? "" : `?estado=${filtro}`;
+    api.allReports(q)
       .then(d=>setReports(d.reports||d.data?.reports||[]))
       .catch(()=>[])
       .finally(()=>setLoading(false));
@@ -3474,52 +3475,67 @@ function AdminReportes({showToast, onBack}){
     );
   }  return(
     <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
-      <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px"}}>
+      <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px",
+        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
             color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-          <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:20,
-            textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>🚩 Reportes</div>
+          <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:20}}>🚩 Reportes</div>
         </div>
-      </div>
-      <div style={{padding:"12px 14px"}}>
-        <div style={{display:"flex",gap:6,marginBottom:10,overflowX:"auto"}}>
-          {ESTADOS.map(e=>(
-            <button key={e} onClick={()=>setFiltro(e)} style={{
-              background:filtro===e?ESTADO_COL[e]:"white",color:filtro===e?"white":"#555",
-              border:`1.5px solid ${filtro===e?ESTADO_COL[e]:"#e8e8e8"}`,borderRadius:99,
-              padding:"5px 13px",fontSize:11,fontWeight:800,cursor:"pointer",
-              whiteSpace:"nowrap",fontFamily:"Nunito,sans-serif"}}>
-              {ESTADO_LABEL2[e]}
+        {/* Resumen de conteos */}
+        <div style={{display:"flex",gap:6,marginTop:12,overflowX:"auto"}}>
+          {[["todos","Todos",null],...ESTADOS.map(e=>[e,ESTADO_LABEL2[e],ESTADO_COL[e]])].map(([val,label,col])=>(
+            <button key={val} onClick={()=>setFiltro(val)}
+              style={{background:filtro===val?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
+                border:`1.5px solid ${filtro===val?"rgba(255,255,255,.7)":"rgba(255,255,255,.2)"}`,
+                borderRadius:99,padding:"4px 12px",fontSize:11,fontWeight:800,
+                color:"white",cursor:"pointer",whiteSpace:"nowrap",
+                fontFamily:"Nunito,sans-serif",flexShrink:0}}>
+              {label}
             </button>
           ))}
         </div>
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
         {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
         {!loading&&reports.length===0&&(
-          <div style={{textAlign:"center",color:"#aaa",padding:32,background:"white",borderRadius:16}}>
-            Sin reportes en este estado
+          <div style={{textAlign:"center",color:"#aaa",padding:32,background:"white",borderRadius:16,
+            boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+            Sin reportes {filtro!=="todos"?`en estado "${ESTADO_LABEL2[filtro]}"`:""} 
           </div>
         )}
-        {reports.map(r=>(
-          <div key={r.id} onClick={()=>openSel(r)} style={{background:"white",borderRadius:16,
-            padding:"12px 14px",marginBottom:8,cursor:"pointer",
-            boxShadow:"0 1px 8px rgba(0,0,0,.06)",display:"flex",alignItems:"center",gap:10}}>
-            <div style={{fontSize:24,flexShrink:0}}>{TIPO_ICON[r.tipo]||"📋"}</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",textTransform:"capitalize"}}>{r.tipo}</div>
-              <div style={{fontSize:11,color:"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                {r.descripcion}
-              </div>
-              <div style={{fontSize:10,color:"#aaa",marginTop:2}}>
-                {r.reporter_nombre||"Anónimo"} · {new Date(r.created_at).toLocaleDateString("es-AR")}
+        {reports.map(r=>{
+          const tipoInfo = REPORTE_TIPOS.find(t=>t.id===r.tipo)||{icon:"📋",label:r.tipo,col:"#64748b"};
+          const estCol   = ESTADO_COL[r.estado]||"#94a3b8";
+          return(
+            <div key={r.id} onClick={()=>openSel(r)}
+              style={{background:"white",borderRadius:16,marginBottom:8,cursor:"pointer",
+                boxShadow:"0 1px 8px rgba(0,0,0,.06)",overflow:"hidden",
+                borderLeft:`4px solid ${estCol}`}}>
+              <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:40,height:40,borderRadius:12,background:tipoInfo.col+"22",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>
+                  {tipoInfo.icon}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                    <span style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{tipoInfo.label}</span>
+                    <span style={{background:estCol+"22",color:estCol,borderRadius:99,
+                      padding:"1px 7px",fontSize:10,fontWeight:800}}>{ESTADO_LABEL2[r.estado]}</span>
+                  </div>
+                  <div style={{fontSize:11,color:"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {r.descripcion}
+                  </div>
+                  <div style={{fontSize:10,color:"#aaa",marginTop:2}}>
+                    {r.reporter_nombre||"Anónimo"} · {new Date(r.created_at).toLocaleDateString("es-AR")}
+                  </div>
+                </div>
+                <span style={{color:"#ddd",fontSize:18,flexShrink:0}}>›</span>
               </div>
             </div>
-            <span style={{background:ESTADO_COL[r.estado]+"22",color:ESTADO_COL[r.estado],
-              borderRadius:99,padding:"3px 9px",fontSize:10,fontWeight:800,flexShrink:0}}>
-              {ESTADO_LABEL2[r.estado]}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
