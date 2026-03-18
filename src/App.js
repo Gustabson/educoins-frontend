@@ -75,6 +75,10 @@ const api = {
   burn:           (amount, reason)        => apiFetch("/admin/burn",          { method:"POST", body:{amount,reason} }),
   setBudget:      (teacher_id, monthly_limit) => apiFetch("/admin/teacher-budget", { method:"POST", body:{teacher_id,monthly_limit} }),
   auditLog:       ()                      => apiFetch("/admin/audit-log"),
+  adminRanking:   ()                      => apiFetch("/admin/ranking"),
+  bankTransfer:   (data)                  => apiFetch("/admin/bank-transfer", { method:"POST", body:data }),
+  updateItem:     (id,data)               => apiFetch(`/store/items/${id}`,   { method:"PATCH", body:data }),
+  deleteItem:     (id)                    => apiFetch(`/store/items/${id}`,   { method:"DELETE" }),
   deactivate:     (id)                    => apiFetch(`/admin/users/${id}/deactivate`, { method:"PATCH" }),
   // ── Noticias ──────────────────────────────────────────────
   posts:          (tag)                   => apiFetch(`/posts${tag?`?tag=${tag}`:""}`),
@@ -922,23 +926,30 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
   const [items,setItems]=useState([]);
   const [loading,setLoading]=useState(true);
   const [buying,setBuying]=useState(null);
+  const [revealed,setRevealed]=useState(null); // item con mensaje revelado
   const cardBg=dark?"#1e1b2e":"white";
   const txt=dark?"#e0e0e0":"#1a1a1a";
   const subTxt=dark?"#888":"#666";
+  const accent=dark?"#c084fc":"#00c1fc";
+  const bg=dark?"#12101e":"#F0F0F0";
 
   useEffect(()=>{
-    api.storeItems().then(setItems).finally(()=>setLoading(false));
+    api.storeItems().then(d=>setItems(Array.isArray(d)?d:d.data||d||[])).finally(()=>setLoading(false));
   },[]);
 
   const buy=async(item)=>{
-    if(balance<item.precio){showToast("No tenés saldo suficiente 😔","error");return;}
+    if(balance<item.precio){showToast("No tenes saldo suficiente","error");return;}
     setBuying(item.id);
     try{
       await api.purchase(item.id);
-      showToast(`¡Compraste "${item.nombre}"! 🎉`);
+      showToast(`Compraste "${item.nombre}"! 🎉`);
       await refreshBalance();
       const updated=await api.storeItems();
-      setItems(updated);
+      const arr=Array.isArray(updated)?updated:updated.data||updated||[];
+      setItems(arr);
+      // Si tiene mensaje oculto, mostrarlo
+      const freshItem=arr.find(i=>i.id===item.id);
+      if(freshItem?.mensaje_oculto) setRevealed(freshItem);
     }catch(e){
       showToast(e.message||"Error al comprar","error");
     }finally{setBuying(null);}
@@ -947,37 +958,91 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando tienda...</div>;
 
   return(
-    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="Tienda 🛒" dark={dark}
-        extra={<div style={{marginTop:10,fontSize:13,opacity:.9,fontWeight:700}}>
+    <div style={{background:bg,minHeight:"100vh",transition:"background .3s"}}>
+      <OHdrA title="Tienda" dark={dark}
+        extra={<div style={{marginTop:8,fontSize:13,opacity:.9,fontWeight:700}}>
           Tu saldo: 🪙 {balance.toLocaleString("es-AR")}
         </div>}/>
-      <div style={{padding:"0 14px",marginTop:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {items.map(item=>{
-            const canBuy=balance>=item.precio;
-            const sinStock=item.stock===0;
-            return(
-              <div key={item.id} style={{padding:"14px 12px",opacity:sinStock?.5:1,background:cardBg,
-                borderRadius:20,boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
-                transition:"background .3s"}}>
-                <div style={{fontSize:36,marginBottom:8}}>{item.icon||"🎁"}</div>
-                <div style={{fontWeight:800,fontSize:13,color:txt,lineHeight:1.2}}>{item.nombre}</div>
-                <div style={{fontSize:11,color:subTxt,margin:"4px 0 10px",minHeight:26}}>{item.descripcion}</div>
-                <div style={{fontWeight:900,color:dark?"#c084fc":"#00c1fc",fontSize:13,marginBottom:8}}>🪙 {item.precio}</div>
-                {item.stock!==-1&&<div style={{fontSize:10,color:dark?"#555":"#ccc",fontWeight:700,marginBottom:6}}>Stock: {item.stock}</div>}
-                <PBtn label={sinStock?"Sin stock":buying===item.id?"...":"Comprar"} sm full
-                  disabled={!canBuy||sinStock||buying===item.id}
-                  onClick={()=>buy(item)} color={dark?"#52177f":"#00c1fc"}/>
-              </div>
-            );
-          })}
+
+      {/* Modal mensaje oculto revelado */}
+      {revealed&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:300,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{background:cardBg,borderRadius:24,padding:28,width:"100%",maxWidth:360,
+            textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,.3)"}}>
+            <div style={{fontSize:48,marginBottom:12}}>{revealed.icon||"🎁"}</div>
+            <div style={{fontWeight:900,fontSize:16,color:txt,marginBottom:4}}>{revealed.nombre}</div>
+            <div style={{fontSize:12,color:subTxt,marginBottom:16}}>Compraste este item. Aca esta tu recompensa:</div>
+            <div style={{background:dark?"#2d2a45":"#faf5ff",border:`1.5px solid ${accent}44`,
+              borderRadius:14,padding:"14px 16px",fontSize:13,color:txt,fontWeight:700,
+              lineHeight:1.6,marginBottom:20,textAlign:"left"}}>
+              🔒 {revealed.mensaje_oculto}
+            </div>
+            <div style={{fontSize:11,color:subTxt,marginBottom:16}}>
+              Podes ver este mensaje de nuevo visitando la tienda
+            </div>
+            <button onClick={()=>setRevealed(null)}
+              style={{background:accent,border:"none",borderRadius:50,color:"white",
+                padding:"12px 32px",fontWeight:800,fontSize:14,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif"}}>
+              Entendido!
+            </button>
+          </div>
         </div>
+      )}
+
+      <div style={{padding:"0 14px",marginTop:12}}>
+        {items.map(item=>{
+          const canBuy=balance>=item.precio;
+          const sinStock=item.stock===0;
+          const hasMensaje=!!item.mensaje_oculto;
+          const hasImg=!!item.imagen_url;
+          return(
+            <div key={item.id} style={{marginBottom:12,background:cardBg,borderRadius:20,
+              overflow:"hidden",opacity:sinStock?.5:1,
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
+              transition:"background .3s"}}>
+              {hasImg&&(
+                <img src={item.imagen_url} alt={item.nombre}
+                  style={{width:"100%",height:120,objectFit:"cover"}}/>
+              )}
+              <div style={{padding:"14px 14px",display:"flex",gap:12,alignItems:"center"}}>
+                {!hasImg&&<div style={{fontSize:36,flexShrink:0}}>{item.icon||"🎁"}</div>}
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:14,color:txt}}>{item.nombre}</div>
+                  {item.descripcion&&<div style={{fontSize:12,color:subTxt,marginTop:2}}>{item.descripcion}</div>}
+                  {hasMensaje&&(
+                    <div style={{marginTop:4,display:"flex",alignItems:"center",gap:4}}>
+                      <span style={{background:accent+"22",color:accent,borderRadius:99,
+                        padding:"2px 8px",fontSize:10,fontWeight:800}}>🔒 Contiene mensaje secreto</span>
+                    </div>
+                  )}
+                  {item.stock!==-1&&<div style={{fontSize:10,color:dark?"#555":"#ccc",fontWeight:700,marginTop:4}}>
+                    Stock restante: {item.stock}
+                  </div>}
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontWeight:900,color:accent,fontSize:15,marginBottom:8}}>
+                    🪙{item.precio}
+                  </div>
+                  <button onClick={()=>buy(item)}
+                    disabled={!canBuy||sinStock||buying===item.id}
+                    style={{background:sinStock?"#f0f0f0":!canBuy?"#f0f0f0":buying===item.id?"#ccc":accent,
+                      color:sinStock||!canBuy?"#aaa":"white",border:"none",borderRadius:99,
+                      padding:"8px 14px",fontWeight:800,fontSize:11,cursor:canBuy&&!sinStock?"pointer":"not-allowed",
+                      fontFamily:"Nunito,sans-serif",transition:"all .2s",whiteSpace:"nowrap"}}>
+                    {sinStock?"Sin stock":!canBuy?"Sin saldo":buying===item.id?"...":"Comprar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
         {items.length===0&&(
-          <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center",
+          <div style={{background:cardBg,borderRadius:20,padding:40,textAlign:"center",
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
             <div style={{fontSize:40}}>🛒</div>
-            <div style={{fontWeight:800,color:txt,marginTop:8}}>Tienda vacía</div>
+            <div style={{fontWeight:800,color:txt,marginTop:8}}>Tienda vacia</div>
           </div>
         )}
       </div>
@@ -3792,17 +3857,19 @@ function Admin({me,logout}){
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
-        {tab==="home"      && <AdminHome    me={me} onNav={setTab} showToast={showToast}/>}
-        {tab==="usuarios"  && <AdminUsuarios showToast={showToast}/>}
-        {tab==="tesoro"    && <AdminTesoro  me={me} showToast={showToast}/>}
-        {tab==="tienda"    && <AdminTienda  showToast={showToast}/>}
-        {tab==="audit"     && <AdminAudit/>}
-        {tab==="config"    && <AdminConfig  me={me} logout={logout}/>}
-        {tab==="noticias"  && <AdminNoticias  showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="votaciones"&& <AdminVotaciones showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="reportes"  && <AdminReportes  showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="aulas"     && <AdminAulas     showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="custom"    && <AdminCustomShop showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="home"       && <AdminHome    me={me} onNav={setTab} showToast={showToast}/>}
+        {tab==="usuarios"   && <AdminUsuarios showToast={showToast}/>}
+        {tab==="tesoro"     && <AdminTesoro  me={me} showToast={showToast}/>}
+        {tab==="banco"      && <AdminBanco   me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="ranking"    && <AdminRanking onBack={()=>setTab("home")}/>}
+        {tab==="tienda"     && <AdminTienda  showToast={showToast}/>}
+        {tab==="audit"      && <AdminAudit/>}
+        {tab==="config"     && <AdminConfig  me={me} logout={logout}/>}
+        {tab==="noticias"   && <AdminNoticias  showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="votaciones" && <AdminVotaciones showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="reportes"   && <AdminReportes  showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="aulas"      && <AdminAulas     showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="custom"     && <AdminCustomShop showToast={showToast} onBack={()=>setTab("home")}/>}
       </div>
       {!hideNav&&(
       <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
@@ -3918,6 +3985,8 @@ function AdminHome({me,onNav,showToast}){
           {icon:"📰",title:"Noticias",          sub:"Crear y moderar publicaciones",             dest:"noticias",  col:"#00c1fc"},
           {icon:"🗳️",title:"Votaciones",        sub:"Crear encuestas y ver resultados",          dest:"votaciones",col:"#8b5cf6"},
           {icon:"🚩",title:"Reportes",          sub:"Gestionar reportes de alumnos",             dest:"reportes",  col:"#ef4444"},
+          {icon:"🏆",title:"Ranking",           sub:"Top holders y top ganancias",               dest:"ranking",   col:"#f59e0b"},
+          {icon:"🏛️",title:"Banco",             sub:"Transferir a alumnos y docentes",           dest:"banco",     col:"#10b981"},
           {icon:"🏫",title:"Aulas",             sub:"Crear aulas y asignar miembros",            dest:"aulas",     col:"#f59e0b"},
           {icon:"🎨",title:"Tienda Custom",     sub:"Temas, emojis, colores, efectos",           dest:"custom",    col:"#ec4899"},
           {icon:"📋",title:"Audit Log",         sub:"Historial de todas las acciones",           dest:"audit",     col:"#64748b"},
@@ -4189,81 +4258,651 @@ function AdminTesoro({me,showToast}){
   );
 }
 
-function AdminTienda({showToast}){
-  const [items,setItems]=useState([]);
-  const [form,setForm]=useState(false);
-  const [nombre,setNombre]=useState("");
-  const [desc,setDesc]=useState("");
-  const [precio,setPrecio]=useState("");
-  const [stock,setStock]=useState("");
-  const [icon,setIcon]=useState("🎁");
+// ════════════════════════════════════════════════════════════
+// ADMIN RANKING — Top holders y top misiones
+// ════════════════════════════════════════════════════════════
+function AdminRanking({onBack}){
+  const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true);
+  const [sec,setSec]=useState("holders");
 
   useEffect(()=>{
-    api.storeItems().then(setItems).finally(()=>setLoading(false));
+    api.adminRanking()
+      .then(d=>setData(d.data||d))
+      .catch(()=>{})
+      .finally(()=>setLoading(false));
   },[]);
 
-  const crear=async()=>{
-    if(!nombre.trim()||!precio){showToast("Nombre y precio son requeridos","error");return;}
+  const MEDAL=["🥇","🥈","🥉"];
+  const COLOR=["#f59e0b","#94a3b8","#cd7c2f"];
+
+  const RankCard=({user,rank,value,sub,maxVal})=>(
+    <div style={{background:"white",borderRadius:16,padding:"12px 14px",marginBottom:8,
+      boxShadow:"0 1px 8px rgba(0,0,0,.06)",display:"flex",alignItems:"center",gap:12,
+      border:rank===0?"1.5px solid #f59e0b22":"none"}}>
+      <div style={{width:32,height:32,borderRadius:"50%",background:COLOR[rank]+"22",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:rank<3?18:12,fontWeight:900,color:COLOR[rank]||"#94a3b8",flexShrink:0}}>
+        {rank<3?MEDAL[rank]:rank+1}
+      </div>
+      <Av user={user} sz={36}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",
+          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div>
+        {sub&&<div style={{fontSize:10,color:"#aaa"}}>{sub}</div>}
+      </div>
+      <div style={{textAlign:"right",flexShrink:0}}>
+        <div style={{fontWeight:900,fontSize:15,color:rank===0?"#f59e0b":"#00c1fc"}}>
+          🪙{value.toLocaleString("es-AR")}
+        </div>
+        {maxVal&&(
+          <div style={{width:60,height:4,background:"#f0f0f0",borderRadius:99,marginTop:3}}>
+            <div style={{width:Math.round(value/maxVal*100)+"%",height:"100%",borderRadius:99,
+              background:rank===0?"#f59e0b":"#00c1fc"}}/>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
+      <div style={{background:"#f59e0b",color:"white",padding:"22px 16px 16px",
+        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,0,0,.2)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",
+            alignItems:"center",justifyContent:"center"}}>←</button>
+          <div style={{flex:1,fontWeight:900,fontSize:20}}>🏆 Ranking</div>
+        </div>
+        {/* Stats */}
+        {data?.stats&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[
+              {v:data.stats.total_alumnos,l:"Alumnos"},
+              {v:data.stats.total_misiones_completadas,l:"Misiones"},
+              {v:data.stats.total_checkins,l:"Check-ins"},
+              {v:(data.stats.total_distribuido||0).toLocaleString("es-AR"),l:"Distribuido"},
+            ].map(s=>(
+              <div key={s.l} style={{background:"rgba(255,255,255,.2)",borderRadius:10,
+                padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontWeight:900,fontSize:16}}>{s.v}</div>
+                <div style={{fontSize:9,opacity:.8,fontWeight:700}}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Tabs */}
+        <div style={{display:"flex",gap:6,marginTop:12}}>
+          {[["holders","💰 Top Saldo"],["misiones","⚡ Top Misiones"],["checkin","🔥 Top Racha"]].map(([id,l])=>(
+            <button key={id} onClick={()=>setSec(id)}
+              style={{background:sec===id?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
+                border:"1.5px solid "+(sec===id?"rgba(255,255,255,.6)":"rgba(255,255,255,.2)"),
+                borderRadius:99,padding:"5px 12px",fontSize:11,fontWeight:800,color:"white",
+                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
+        {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Calculando...</div>}
+
+        {/* TOP HOLDERS — saldo actual */}
+        {sec==="holders"&&!loading&&(
+          <>
+            <div style={{fontWeight:700,fontSize:11,color:"#aaa",letterSpacing:".06em",marginBottom:8}}>
+              MAYOR SALDO ACTUAL
+            </div>
+            <div style={{background:"#fff7ed",borderRadius:12,padding:"10px 14px",marginBottom:12,
+              fontSize:11,color:"#92400e",fontWeight:700,lineHeight:1.5}}>
+              💡 Saldo real en cuenta ahora mismo (incluye todo lo recibido menos todo lo gastado)
+            </div>
+            {(data?.topHolders||[]).map((u,i)=>(
+              <RankCard key={u.id} user={u} rank={i} value={u.balance}
+                maxVal={data.topHolders[0]?.balance||1}/>
+            ))}
+          </>
+        )}
+
+        {/* TOP MISIONES — solo lo ganado por misiones aprobadas */}
+        {sec==="misiones"&&!loading&&(
+          <>
+            <div style={{fontWeight:700,fontSize:11,color:"#aaa",letterSpacing:".06em",marginBottom:8}}>
+              MONEDAS GANADAS POR MISIONES
+            </div>
+            <div style={{background:"#eff6ff",borderRadius:12,padding:"10px 14px",marginBottom:12,
+              fontSize:11,color:"#1e40af",fontWeight:700,lineHeight:1.5}}>
+              💡 Solo cuenta lo ganado por misiones aprobadas. No descuenta gastos, transferencias ni nada.
+            </div>
+            {(data?.topMisiones||[]).map((u,i)=>(
+              <RankCard key={u.id} user={u} rank={i} value={u.ganado_misiones}
+                sub={`${u.misiones_completadas} misiones completadas`}
+                maxVal={data.topMisiones[0]?.ganado_misiones||1}/>
+            ))}
+          </>
+        )}
+
+        {/* TOP RACHA CHECK-IN */}
+        {sec==="checkin"&&!loading&&(
+          <>
+            <div style={{fontWeight:700,fontSize:11,color:"#aaa",letterSpacing:".06em",marginBottom:8}}>
+              MAYOR RACHA DIARIA
+            </div>
+            {(data?.topCheckin||[]).map((u,i)=>(
+              <div key={u.id} style={{background:"white",borderRadius:16,padding:"12px 14px",
+                marginBottom:8,boxShadow:"0 1px 8px rgba(0,0,0,.06)",
+                display:"flex",alignItems:"center",gap:12,
+                border:i===0?"1.5px solid #f59e0b22":"none"}}>
+                <div style={{width:32,height:32,borderRadius:"50%",background:COLOR[i]+"22",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:i<3?18:12,fontWeight:900,color:COLOR[i]||"#94a3b8",flexShrink:0}}>
+                  {i<3?MEDAL[i]:i+1}
+                </div>
+                <Av user={u} sz={36}/>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{u.nombre}</div>
+                  <div style={{fontSize:10,color:"#aaa"}}>{u.total_checkins} check-ins totales</div>
+                </div>
+                <div style={{fontWeight:900,fontSize:16,color:"#f97316"}}>
+                  🔥{u.racha_max}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {!loading&&data&&Object.values(data).every(v=>!Array.isArray(v)||v.length===0)&&(
+          <div style={{textAlign:"center",color:"#aaa",padding:40}}>
+            <div style={{fontSize:40}}>📊</div>
+            <div style={{fontWeight:800,marginTop:8}}>Sin datos todavia</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ADMIN BANCO — Transferencias directas desde tesorería
+// ════════════════════════════════════════════════════════════
+function AdminBanco({me,showToast,onBack}){
+  const [users,setUsers]=useState([]);
+  const [search,setSearch]=useState("");
+  const [sel,setSel]=useState(null);
+  const [amount,setAmount]=useState("");
+  const [desc,setDesc]=useState("");
+  const [tipo,setTipo]=useState("premio");
+  const [sending,setSending]=useState(false);
+  const [historial,setHistorial]=useState([]);
+
+  useEffect(()=>{
+    api.adminUsers().then(u=>{
+      const arr=Array.isArray(u)?u:u.data||u||[];
+      setUsers(arr.filter(x=>x.activo&&x.rol!=="admin"));
+    }).catch(()=>{});
+    // Cargar historial de transferencias bancarias del audit
+    api.auditLog().then(logs=>{
+      const arr=Array.isArray(logs)?logs:logs.data||[];
+      setHistorial(arr.filter(l=>l.action==="reward"&&l.actor_id===me.id).slice(0,10));
+    }).catch(()=>{});
+  },[]);
+
+  const enviar=async()=>{
+    if(!sel||!amount||parseInt(amount)<=0){showToast("Selecciona un usuario y monto","error");return;}
+    setSending(true);
     try{
-      const item=await api.createItem({
-        nombre:nombre.trim(),descripcion:desc.trim(),
-        precio:parseInt(precio),stock:stock?parseInt(stock):-1,icon
+      await api.bankTransfer({
+        to_user_id:sel.id,amount:parseInt(amount),
+        descripcion:desc.trim()||`${tipo} bancario de ${me.nombre}`,tipo
       });
-      setItems(prev=>[...prev,item]);
-      setNombre("");setDesc("");setPrecio("");setStock("");setIcon("🎁");setForm(false);
-      showToast("Ítem agregado a la tienda ✅");
+      showToast(`Transferido 🪙${amount} a ${sel.nombre}`);
+      setSel(null);setAmount("");setDesc("");
+      // Recargar historial
+      api.auditLog().then(logs=>{
+        const arr=Array.isArray(logs)?logs:logs.data||[];
+        setHistorial(arr.filter(l=>l.action==="reward"&&l.actor_id===me.id).slice(0,10));
+      }).catch(()=>{});
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSending(false);}
+  };
+
+  const filtered=users.filter(u=>
+    u.nombre.toLowerCase().includes(search.toLowerCase())||
+    (u.email||"").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const TIPO_OPTS=[
+    {v:"premio",    l:"🏆 Premio",    col:"#f59e0b"},
+    {v:"salario",   l:"💼 Salario",   col:"#3b82f6"},
+    {v:"beca",      l:"🎓 Beca",      col:"#10b981"},
+    {v:"prestamo",  l:"🏦 Prestamo",  col:"#8b5cf6"},
+    {v:"ajuste",    l:"⚖️ Ajuste",    col:"#64748b"},
+  ];
+
+  return(
+    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
+      <div style={{background:"#10b981",color:"white",padding:"22px 16px 20px",
+        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,0,0,.2)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
+          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",
+            alignItems:"center",justifyContent:"center"}}>←</button>
+          <div>
+            <div style={{fontWeight:900,fontSize:20}}>🏛️ Banco Aubank</div>
+            <div style={{fontSize:11,opacity:.85}}>Transferencias directas desde Tesoreria</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
+        {/* Info pedagógica */}
+        <div style={{background:"white",borderRadius:16,padding:"12px 14px",marginBottom:12,
+          boxShadow:"0 1px 8px rgba(0,0,0,.06)",borderLeft:"4px solid #10b981"}}>
+          <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:4}}>
+            ¿Por qué separar Tesoro y Banco?
+          </div>
+          <div style={{fontSize:11,color:"#555",lineHeight:1.6}}>
+            <b>Tesorería</b> = crea y destruye dinero (mint/burn). Es política monetaria.<br/>
+            <b>Banco</b> = distribuye ese dinero a personas específicas. Es política fiscal.<br/>
+            Los países reales separan esto para evitar que quien crea el dinero decida también quién lo recibe.
+          </div>
+        </div>
+
+        {/* Buscar usuario */}
+        <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,
+          boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+          <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>
+            Destinatario
+          </div>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setSel(null);}}
+            placeholder="Buscar alumno o docente..."
+            style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+              padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",
+              marginBottom:8,color:"#1a1a1a"}}/>
+          {search&&!sel&&(
+            <div style={{maxHeight:180,overflowY:"auto"}}>
+              {filtered.slice(0,8).map(u=>(
+                <div key={u.id} onClick={()=>{setSel(u);setSearch(u.nombre);}}
+                  style={{display:"flex",alignItems:"center",gap:10,padding:"9px 10px",
+                    borderRadius:10,cursor:"pointer",background:"#f9f9f9",marginBottom:4,
+                    border:"1.5px solid transparent",transition:"all .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="#f0f9ff"}
+                  onMouseLeave={e=>e.currentTarget.style.background="#f9f9f9"}>
+                  <Av user={u} sz={32}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:12,color:"#1a1a1a"}}>{u.nombre}</div>
+                    <div style={{fontSize:10,color:"#aaa"}}>{u.rol==="teacher"?"Docente":"Alumno"} · {u.email}</div>
+                  </div>
+                </div>
+              ))}
+              {filtered.length===0&&<div style={{fontSize:12,color:"#aaa",textAlign:"center",padding:8}}>Sin resultados</div>}
+            </div>
+          )}
+          {sel&&(
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
+              background:"#f0fdf4",borderRadius:12,border:"1.5px solid #10b981"}}>
+              <Av user={sel} sz={36}/>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{sel.nombre}</div>
+                <div style={{fontSize:11,color:"#10b981",fontWeight:700}}>{sel.rol==="teacher"?"Docente":"Alumno"}</div>
+              </div>
+              <button onClick={()=>{setSel(null);setSearch("");}}
+                style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:16}}>✕</button>
+            </div>
+          )}
+        </div>
+
+        {/* Tipo de transferencia */}
+        <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,
+          boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+          <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>Tipo</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {TIPO_OPTS.map(t=>(
+              <button key={t.v} onClick={()=>setTipo(t.v)}
+                style={{background:tipo===t.v?t.col:"#f0f0f0",
+                  color:tipo===t.v?"white":"#555",border:"none",borderRadius:99,
+                  padding:"7px 12px",fontSize:11,fontWeight:800,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif",transition:"all .2s"}}>
+                {t.l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Monto y descripción */}
+        <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:12,
+          boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+          <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>Detalle</div>
+          <div style={{display:"flex",gap:8,marginBottom:8}}>
+            <input type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)}
+              placeholder="Monto"
+              style={{width:100,border:"1.5px solid #e8e8e8",borderRadius:12,padding:"10px 12px",
+                fontSize:18,fontWeight:900,outline:"none",color:"#10b981",textAlign:"center",
+                fontFamily:"Nunito,sans-serif"}}/>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
+              {[10,25,50,100,200,500].map(n=>(
+                <button key={n} onClick={()=>setAmount(String(n))}
+                  style={{background:amount===String(n)?"#10b981":"#f0f0f0",
+                    color:amount===String(n)?"white":"#555",border:"none",borderRadius:8,
+                    padding:"5px 8px",fontSize:11,fontWeight:800,cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif"}}>{n}</button>
+              ))}
+            </div>
+          </div>
+          <input value={desc} onChange={e=>setDesc(e.target.value)}
+            placeholder="Descripcion (opcional)..."
+            style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+              padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",color:"#1a1a1a"}}/>
+        </div>
+
+        <button onClick={enviar} disabled={sending||!sel||!amount}
+          style={{width:"100%",background:sending||!sel||!amount?"#ccc":"#10b981",
+            border:"none",borderRadius:50,color:"white",padding:"15px",fontWeight:900,
+            fontSize:15,cursor:sending||!sel||!amount?"not-allowed":"pointer",
+            fontFamily:"Nunito,sans-serif",boxShadow:"0 4px 16px #10b98133",marginBottom:16}}>
+          {sending?"Transfiriendo...":sel&&amount?`Transferir 🪙${amount} a ${sel.nombre}`:"Completá los campos"}
+        </button>
+
+        {/* Historial */}
+        {historial.length>0&&(
+          <>
+            <div style={{fontWeight:800,color:"#1a1a1a",fontSize:13,marginBottom:8}}>
+              Transferencias recientes
+            </div>
+            {historial.map((h,i)=>(
+              <div key={i} style={{background:"white",borderRadius:14,padding:"11px 14px",
+                marginBottom:6,boxShadow:"0 1px 6px rgba(0,0,0,.05)",
+                display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:18}}>🏛️</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:12,color:"#1a1a1a"}}>
+                    {h.target_nombre||"Usuario"}
+                  </div>
+                  <div style={{fontSize:10,color:"#aaa"}}>
+                    {new Date(h.created_at).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                  </div>
+                </div>
+                <div style={{fontWeight:900,fontSize:13,color:"#10b981"}}>
+                  +🪙{h.details?.amount||"?"}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ADMIN TIENDA — CRUD completo con imagen, mensajes ocultos
+// ════════════════════════════════════════════════════════════
+function AdminTienda({showToast}){
+  const [items,setItems]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [editing,setEditing]=useState(null);  // item editándose
+  const [creating,setCreating]=useState(false);
+  const [delConfirm,setDelConfirm]=useState(null); // id a eliminar
+
+  // Form state
+  const [fNombre,setFNombre]=useState("");
+  const [fDesc,setFDesc]=useState("");
+  const [fPrecio,setFPrecio]=useState("");
+  const [fStock,setFStock]=useState("");
+  const [fIcon,setFIcon]=useState("🎁");
+  const [fImagen,setFImagen]=useState("");    // URL de imagen o base64
+  const [fMensaje,setFMensaje]=useState("");  // Mensaje oculto
+  const [fActivo,setFActivo]=useState(true);
+  const [saving,setSaving]=useState(false);
+
+  const load=()=>api.storeItems().then(d=>{
+    setItems(Array.isArray(d)?d:d.data||d||[]);
+  }).finally(()=>setLoading(false));
+
+  useEffect(()=>{ load(); },[]);
+
+  const openEdit=(item)=>{
+    setEditing(item);
+    setFNombre(item.nombre||"");
+    setFDesc(item.descripcion||"");
+    setFPrecio(String(item.precio||""));
+    setFStock(item.stock===-1?"":String(item.stock||""));
+    setFIcon(item.icon||"🎁");
+    setFImagen(item.imagen_url||"");
+    setFMensaje(item.mensaje_oculto||"");
+    setFActivo(item.activo!==false);
+    setCreating(false);
+  };
+
+  const openCreate=()=>{
+    setEditing(null);
+    setFNombre("");setFDesc("");setFPrecio("");setFStock("");
+    setFIcon("🎁");setFImagen("");setFMensaje("");setFActivo(true);
+    setCreating(true);
+  };
+
+  const handleImagen=(e)=>{
+    const file=e.target.files?.[0];
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>setFImagen(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const guardar=async()=>{
+    if(!fNombre.trim()||!fPrecio){showToast("Nombre y precio requeridos","error");return;}
+    setSaving(true);
+    const body={
+      nombre:fNombre.trim(),
+      descripcion:fDesc.trim(),
+      precio:parseInt(fPrecio),
+      stock:fStock?parseInt(fStock):-1,
+      icon:fIcon,
+      imagen_url:fImagen||null,
+      mensaje_oculto:fMensaje.trim()||null,
+      activo:fActivo,
+    };
+    try{
+      if(creating){
+        await api.createItem(body);
+        showToast("Item creado");
+      } else {
+        await api.updateItem(editing.id,body);
+        showToast("Item actualizado");
+      }
+      await load();
+      setCreating(false);setEditing(null);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  const eliminar=async(id)=>{
+    try{
+      await api.deleteItem(id);
+      setItems(prev=>prev.filter(i=>i.id!==id));
+      setDelConfirm(null);
+      showToast("Item eliminado");
     }catch(e){showToast(e.message||"Error","error");}
   };
 
-  if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando...</div>;
+  const FormPanel=()=>(
+    <Sheet title={creating?"Nuevo item":"Editar: "+fNombre} onClose={()=>{setCreating(false);setEditing(null);}}>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {/* Emoji + nombre */}
+        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+          <input value={fIcon} onChange={e=>setFIcon(e.target.value)} maxLength={4}
+            style={{width:56,border:"1.5px solid #e8e8e8",borderRadius:14,
+              padding:"10px",fontSize:24,textAlign:"center",outline:"none",
+              fontFamily:"Nunito,sans-serif"}}/>
+          <div style={{flex:1}}>
+            <Inp val={fNombre} set={setFNombre} ph="Nombre del item"/>
+          </div>
+        </div>
+
+        <Inp val={fDesc} set={setFDesc} ph="Descripcion (visible para todos)" icon="📝"/>
+
+        {/* Precio y stock */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Inp val={fPrecio} set={setFPrecio} ph="Precio en monedas" type="number" icon="🪙"/>
+          <Inp val={fStock} set={setFStock} ph="Stock (vacio=infinito)" type="number" icon="📦"/>
+        </div>
+
+        {/* Imagen desde celular */}
+        <div>
+          <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>
+            📸 Imagen (opcional)
+          </div>
+          {fImagen&&(
+            <div style={{position:"relative",marginBottom:8}}>
+              <img src={fImagen} alt="" style={{width:"100%",height:120,objectFit:"cover",borderRadius:12}}/>
+              <button onClick={()=>setFImagen("")}
+                style={{position:"absolute",top:6,right:6,background:"rgba(0,0,0,.5)",
+                  border:"none",borderRadius:99,color:"white",width:28,height:28,
+                  cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                ✕
+              </button>
+            </div>
+          )}
+          <label style={{display:"block",cursor:"pointer"}}>
+            <input type="file" accept="image/*" onChange={handleImagen} style={{display:"none"}}/>
+            <div style={{border:"1.5px dashed #e8e8e8",borderRadius:12,padding:"12px",
+              textAlign:"center",fontSize:12,color:"#aaa",fontWeight:700}}>
+              {fImagen?"📸 Cambiar imagen":"📱 Subir desde el celular"}
+            </div>
+          </label>
+        </div>
+
+        {/* Mensaje oculto — solo al comprar */}
+        <div>
+          <div style={{fontWeight:700,fontSize:12,color:"#8b5cf6",marginBottom:6}}>
+            🔒 Mensaje oculto (solo visible al comprar)
+          </div>
+          <textarea value={fMensaje} onChange={e=>setFMensaje(e.target.value)}
+            placeholder="Ej: Contraseña para el juego, codigo de descuento, instruccion especial..."
+            rows={3} style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #8b5cf644",
+              borderRadius:12,padding:"10px 14px",fontSize:12,outline:"none",resize:"none",
+              fontFamily:"Nunito,sans-serif",color:"#1a1a1a",background:"#faf5ff"}}/>
+        </div>
+
+        {/* Activo */}
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>setFActivo(a=>!a)}
+            style={{background:fActivo?"#10b981":"#f0f0f0",color:fActivo?"white":"#555",
+              border:"none",borderRadius:99,padding:"7px 16px",fontWeight:800,fontSize:12,
+              cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+            {fActivo?"Activo":"Inactivo"}
+          </button>
+          <span style={{fontSize:11,color:"#aaa"}}>Los inactivos no aparecen en la tienda</span>
+        </div>
+
+        <button onClick={guardar} disabled={saving}
+          style={{background:saving?"#ccc":"#00c1fc",border:"none",borderRadius:50,
+            color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:"pointer",
+            fontFamily:"Nunito,sans-serif"}}>
+          {saving?"Guardando...":creating?"Crear item":"Guardar cambios"}
+        </button>
+      </div>
+    </Sheet>
+  );
 
   return(
     <div>
-      <OHdr title="Tienda 🛒" sub="ADMIN"
-        extra={<button onClick={()=>setForm(true)}
-          style={{marginTop:14,background:"rgba(255,255,255,.22)",border:"1.5px solid rgba(255,255,255,.35)",
-            borderRadius:50,color:"white",padding:"8px 20px",fontWeight:800,fontSize:13,cursor:"pointer"}}>
-          + Nuevo ítem
+      <OHdr title="Tienda" sub="ADMIN"
+        extra={<button onClick={openCreate}
+          style={{marginTop:14,background:"rgba(255,255,255,.22)",
+            border:"1.5px solid rgba(255,255,255,.35)",borderRadius:50,color:"white",
+            padding:"8px 20px",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+          + Nuevo item
         </button>}/>
+
       <div style={{padding:"0 14px",marginTop:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {items.map(item=>(
-            <WCard key={item.id} style={{padding:"14px 12px"}}>
-              <div style={{fontSize:36,marginBottom:8}}>{item.icon||"🎁"}</div>
-              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",lineHeight:1.2}}>{item.nombre}</div>
-              <div style={{fontSize:11,color:"#aaa",margin:"4px 0 10px",minHeight:26}}>{item.descripcion}</div>
-              <div style={{fontWeight:900,color:"#00c1fc",fontSize:13}}>🪙 {item.precio}</div>
-              <div style={{fontSize:10,color:"#ccc",marginTop:4,fontWeight:700}}>
-                Stock: {item.stock===-1?"∞":item.stock}
+        {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
+
+        {items.map(item=>(
+          <div key={item.id} style={{background:"white",borderRadius:16,marginBottom:10,
+            overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",
+            opacity:item.activo!==false?1:.55}}>
+            {/* Imagen */}
+            {item.imagen_url&&(
+              <img src={item.imagen_url} alt={item.nombre}
+                style={{width:"100%",height:100,objectFit:"cover"}}/>
+            )}
+            <div style={{padding:"12px 14px",display:"flex",gap:12,alignItems:"center"}}>
+              <div style={{fontSize:28,flexShrink:0}}>{item.icon||"🎁"}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{item.nombre}</div>
+                {item.descripcion&&<div style={{fontSize:11,color:"#aaa",marginTop:1,
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.descripcion}</div>}
+                <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}>
+                  <span style={{fontWeight:800,color:"#00c1fc",fontSize:12}}>🪙{item.precio}</span>
+                  <span style={{fontSize:10,color:"#ddd"}}>Stock: {item.stock===-1?"∞":item.stock}</span>
+                  {item.mensaje_oculto&&(
+                    <span style={{background:"#8b5cf622",color:"#8b5cf6",borderRadius:99,
+                      padding:"1px 6px",fontSize:9,fontWeight:800}}>🔒 Msg oculto</span>
+                  )}
+                  {item.activo===false&&(
+                    <span style={{background:"#f0f0f0",color:"#aaa",borderRadius:99,
+                      padding:"1px 6px",fontSize:9,fontWeight:800}}>Inactivo</span>
+                  )}
+                </div>
               </div>
-            </WCard>
-          ))}
-        </div>
-        {items.length===0&&(
-          <WCard style={{textAlign:"center",padding:32}}>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <button onClick={()=>openEdit(item)}
+                  style={{background:"#f0f0f0",border:"none",borderRadius:10,padding:"7px 12px",
+                    fontSize:11,fontWeight:800,cursor:"pointer",color:"#555",
+                    fontFamily:"Nunito,sans-serif"}}>
+                  Editar
+                </button>
+                <button onClick={()=>setDelConfirm(item.id)}
+                  style={{background:"#fee2e2",border:"none",borderRadius:10,padding:"7px 12px",
+                    fontSize:11,fontWeight:800,cursor:"pointer",color:"#ef4444",
+                    fontFamily:"Nunito,sans-serif"}}>
+                  Borrar
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {!loading&&items.length===0&&(
+          <div style={{background:"white",borderRadius:16,padding:40,textAlign:"center",
+            boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
             <div style={{fontSize:40}}>🛒</div>
-            <div style={{fontWeight:800,color:"#1a1a1a",marginTop:8}}>Tienda vacía</div>
-          </WCard>
+            <div style={{fontWeight:800,color:"#1a1a1a",marginTop:8}}>Tienda vacia</div>
+            <div style={{fontSize:12,color:"#aaa",marginTop:4}}>Crea el primer item</div>
+          </div>
         )}
       </div>
-      {form&&(
-        <Sheet title="🛒 Nuevo ítem" onClose={()=>setForm(false)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+      {(creating||editing)&&<FormPanel/>}
+
+      {/* Confirmar borrado */}
+      {delConfirm&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:300,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{background:"white",borderRadius:20,padding:"24px",width:"100%",maxWidth:340}}>
+            <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8,textAlign:"center"}}>
+              Eliminar item
+            </div>
+            <div style={{fontSize:13,color:"#555",textAlign:"center",marginBottom:20}}>
+              Esta accion no se puede deshacer. El item desaparecera de la tienda.
+            </div>
             <div style={{display:"flex",gap:10}}>
-              <input value={icon} onChange={e=>setIcon(e.target.value)}
-                style={{width:56,background:"#F7F7F7",border:"1.5px solid #E8E8E8",borderRadius:14,
-                  color:"#1a1a1a",padding:"10px",fontSize:22,textAlign:"center",outline:"none"}}/>
-              <div style={{flex:1}}><Inp val={nombre} set={setNombre} ph="Nombre"/></div>
+              <button onClick={()=>setDelConfirm(null)}
+                style={{flex:1,background:"#f0f0f0",border:"none",borderRadius:50,
+                  padding:"12px",fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                Cancelar
+              </button>
+              <button onClick={()=>eliminar(delConfirm)}
+                style={{flex:1,background:"#ef4444",border:"none",borderRadius:50,color:"white",
+                  padding:"12px",fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                Eliminar
+              </button>
             </div>
-            <Inp val={desc}   set={setDesc}   ph="Descripción (opcional)"/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <Inp val={precio} set={setPrecio} ph="🪙 Precio" type="number"/>
-              <Inp val={stock}  set={setStock}  ph="Stock (-1=∞)" type="number"/>
-            </div>
-            <PBtn label="Agregar ítem" onClick={crear} full color="#10b981"/>
           </div>
-        </Sheet>
+        </div>
       )}
     </div>
   );

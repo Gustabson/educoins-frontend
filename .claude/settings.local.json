@@ -12,7 +12,10 @@
       "Bash(git push:*)",
       "Bash(grep -E \"^App\\\\.js$|^checkin\\\\.js$|010_fixes\")",
       "Bash(grep -iE \"^App\\\\.js$|^checkin\\\\.js$|010_fixes\")",
-      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/010_fixes.sql\")"
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/010_fixes.sql\")",
+      "Bash(grep -iE \"^App\\\\.js$|^admin\\\\.js$|^store\\\\.js$|010_fixes\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/admin.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/admin.js\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/store.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/store.js\")"
     ]
   }
 }
