@@ -3,6 +3,13 @@ import { io } from 'socket.io-client';
 
 // Aubank Frontend — Conectado a API REST + WebSockets
 
+// ── PWA Service Worker ────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+  });
+}
+
 // ── SOCKET SINGLETON ──────────────────────────────────────────
 let _socket = null;
 
@@ -427,6 +434,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [toast,showToast]=useToast();
   const [camOpen,setCamOpen]=useState(false);
   const [dark,setDark]=useState(false);
+  const [notifs,setNotifs]=useState([]);       // notificaciones pendientes
+  const [badges,setBadges]=useState({chat:0}); // badges por sección
 
   // Paleta según modo
   const navBg    = dark?"#1e1b2e":"white";
@@ -440,63 +449,73 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
 
   const hideNav = ["chat","noticias","votaciones","reportes"].includes(tab);
 
+  // ── Escuchar notificaciones por socket ──────────────────────
+  useEffect(()=>{
+    const token = localStorage.getItem("ec_token");
+    if(!token) return;
+    const s = connectSocket(token);
+    const onNotif = (n) => {
+      // Agregar a la lista de notificaciones
+      setNotifs(prev=>[{...n, id:Date.now(), leida:false}, ...prev.slice(0,19)]);
+      // Incrementar badge de la sección correspondiente
+      if(n.type==="chat_personal") {
+        setBadges(b=>({...b, chat: b.chat+1}));
+      }
+      // Mostrar toast
+      const msg = n.type==="reward"
+        ? `Recibiste 🪙${n.amount} — ${n.description}`
+        : n.type==="transfer"
+        ? `Te enviaron 🪙${n.amount}`
+        : n.type==="chat_personal"
+        ? `Nuevo mensaje de ${n.from}`
+        : "Nueva notificacion";
+      showToast(msg);
+      // Refrescar balance si fue pago
+      if(["reward","transfer"].includes(n.type)) refreshBalance();
+    };
+    s.on('notification', onNotif);
+    return () => s.off('notification', onNotif);
+  }, []);
+
+  // Limpiar badge al entrar a la sección
+  const navTo = (dest) => {
+    setTab(dest);
+    if(dest==="chat") setBadges(b=>({...b, chat:0}));
+  };
+
   return(
     <div style={{maxWidth:480,margin:"0 auto",height:"100vh",background:pageBg,
       display:"flex",flexDirection:"column",fontFamily:"Nunito,sans-serif",
       transition:"background .3s",overflow:"hidden"}}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
-      {/* Contenido scrolleable — el header de cada pantalla queda fijo dentro */}
-      <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,
-        animation:"fadeIn .18s ease"}}>
-        {tab==="home"       && <AHome       me={me} balance={balance} onNav={setTab} dark={dark} setDark={setDark}/>}
+      <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
+        {tab==="home"       && <AHome       me={me} balance={balance} onNav={navTo} dark={dark} setDark={setDark} badges={badges}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark}/>}
         {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark}/>}
         {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark}/>}
         {tab==="movimientos"&& <AMovimientos dark={dark}/>}
+        {tab==="ingresar"   && <AIngresar   me={me} dark={dark} onBack={()=>setTab("home")}/>}
         {tab==="perfil"     && <APerfil     me={me} balance={balance} logout={logout} showToast={showToast} setMe={setMe} dark={dark}/>}
         {tab==="ranking"    && <ARanking    dark={dark}/>}
-        {tab==="opciones"   && <AOpciones   me={me} logout={logout} dark={dark}/>}
-        {tab==="chat"       && <AChat       me={me} dark={dark} showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="noticias"   && <ANoticias   me={me} dark={dark} onBack={()=>setTab("home")}/>}
-        {tab==="votaciones" && <AVotaciones me={me} dark={dark} showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="reportes"   && <AReportes   me={me} dark={dark} showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="opciones"   && <AOpciones   me={me} logout={logout} dark={dark} notifs={notifs}/>}
+        {tab==="chat"       && <AChat       me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
+        {tab==="noticias"   && <ANoticias   me={me} dark={dark} onBack={()=>navTo("home")}/>}
+        {tab==="votaciones" && <AVotaciones me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
+        {tab==="reportes"   && <AReportes   me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
       </div>
 
-      {/* Cámara QR sheet */}
-      {camOpen&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:400,
-          display:"flex",alignItems:"flex-end",justifyContent:"center"}}
-          onClick={e=>{if(e.target===e.currentTarget)setCamOpen(false);}}>
-          <div style={{background:dark?"#1e1b2e":"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
-            padding:"20px 24px 44px",animation:"slideUp .25s ease"}}>
-            <div style={{width:36,height:4,background:dark?"#555":"#ddd",borderRadius:2,margin:"0 auto 16px"}}/>
-            <div style={{textAlign:"center",padding:"16px 0"}}>
-              <div style={{fontSize:64,marginBottom:12}}>📷</div>
-              <div style={{fontWeight:900,fontSize:18,color:dark?"#e0e0e0":"#1a1a1a",marginBottom:6}}>Escáner QR</div>
-              <div style={{fontSize:13,color:"#555",marginBottom:24}}>Apuntá la cámara a un código QR</div>
-              <div style={{width:180,height:180,margin:"0 auto",borderRadius:20,
-                border:`3px solid ${camBg}`,display:"flex",alignItems:"center",
-                justifyContent:"center",background:dark?"#2d2a45":"#FFF0F0",fontSize:56}}>🔍</div>
-              <div style={{marginTop:16,fontSize:12,color:"#bbb"}}>Disponible en versión móvil</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Nav — oculto en accesos directos */}
+      {/* Bottom Nav */}
       {!hideNav&&(
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
-        width:"100%",maxWidth:480,zIndex:100}}>
-        {/* Botón cámara flotante — bien abajo, más grande */}
-        <div style={{position:"absolute",top:-20,left:"50%",transform:"translateX(-50%)",zIndex:101}}>
-          <button onClick={()=>setCamOpen(true)} style={{
+      <div style={{position:"sticky",bottom:0,width:"100%",zIndex:100}}>
+        <div style={{position:"absolute",top:-22,left:"50%",transform:"translateX(-50%)",zIndex:101}}>
+          <button onClick={()=>navTo("ingresar")} style={{
             width:68,height:68,borderRadius:"50%",background:camBg,
             border:`4px solid ${camBord}`,display:"flex",alignItems:"center",
-            justifyContent:"center",fontSize:28,cursor:"pointer",
+            justifyContent:"center",fontSize:26,cursor:"pointer",
             boxShadow:dark?"0 4px 20px rgba(82,23,127,.6)":"0 4px 20px rgba(0,193,252,.5)",
             outline:"none",transition:"background .3s"}}>
-            📷
+            ⬇️
           </button>
         </div>
         <div style={{background:navBg,borderTop:`1px solid ${navBord}`,
@@ -512,11 +531,11 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
             if(item.isCam) return <div key="_cam" style={{width:68,flexShrink:0}}/>;
             const on=tab===item.id;
             return(
-              <button key={item.id} onClick={()=>setTab(item.id)} style={{
+              <button key={item.id} onClick={()=>navTo(item.id)} style={{
                 display:"flex",flexDirection:"column",alignItems:"center",gap:3,flex:1,
                 background:"none",border:"none",cursor:"pointer",
                 color:on?navActiv:navInact,fontFamily:"Nunito,sans-serif",padding:"3px 6px",
-                transition:"color .3s"}}>
+                transition:"color .3s",position:"relative"}}>
                 <div style={{width:36,height:30,borderRadius:10,
                   background:on?navPill:"transparent",
                   display:"flex",alignItems:"center",justifyContent:"center",transition:"background .3s"}}>
@@ -533,18 +552,54 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   );
 }
 
-function AOpciones({me,logout,dark=false}){
+function AOpciones({me,logout,dark=false,notifs=[]}){
   const cardBg=dark?"#1e1b2e":"white";
   const txt=dark?"#e0e0e0":"#1a1a1a";
   const sub=dark?"#888":"#555";
+  const accent=dark?"#c084fc":"#00c1fc";
+  const noLeidas=notifs.filter(n=>!n.leida).length;
+
+  const NOTIF_ICON={reward:"🪙",transfer:"💸",chat_personal:"💬"};
+  const NOTIF_TEXT={
+    reward:  n=>`Recibiste 🪙${n.amount} — ${n.description||""}`,
+    transfer:n=>`Te enviaron 🪙${n.amount}`,
+    chat_personal: n=>`Nuevo mensaje de ${n.from||"alguien"}`,
+  };
+
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="☰ Opciones" dark={dark}/>
       <div style={{padding:"0 14px",marginTop:12}}>
+
+        {/* Notificaciones recientes */}
+        {notifs.length>0&&(
+          <div style={{background:cardBg,borderRadius:20,overflow:"hidden",marginBottom:12,
+            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div style={{padding:"12px 16px",borderBottom:`1px solid ${dark?"#2d2a45":"#f0f0f0"}`,
+              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{fontWeight:800,fontSize:13,color:txt}}>🔔 Notificaciones</div>
+              {noLeidas>0&&<span style={{background:"#ef4444",color:"white",borderRadius:99,
+                padding:"2px 8px",fontSize:10,fontWeight:800}}>{noLeidas} nuevas</span>}
+            </div>
+            {notifs.slice(0,5).map((n,i)=>(
+              <div key={n.id||i} style={{padding:"11px 16px",
+                borderBottom:i<Math.min(notifs.length,5)-1?`1px solid ${dark?"#2d2a45":"#f5f5f5"}`:"none",
+                display:"flex",alignItems:"center",gap:10}}>
+                <div style={{fontSize:20,flexShrink:0}}>{NOTIF_ICON[n.type]||"🔔"}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,color:txt,fontWeight:600}}>
+                    {NOTIF_TEXT[n.type]?.(n)||n.type}
+                  </div>
+                  <div style={{fontSize:10,color:sub,marginTop:1}}>Hace un momento</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {[
-          ["🔔","Notificaciones","Próximamente","#f59e0b"],
-          ["❓","Ayuda","¿Cómo funciona Aubank?","#3b82f6"],
-          ["⚙️","Configuración","Ajustes de la cuenta","#94a3b8"],
+          ["❓","Ayuda","Como funciona Aubank","#3b82f6"],
+          ["⚙️","Configuracion","Ajustes de la cuenta","#94a3b8"],
         ].map(([ic,lb,ds,col])=>(
           <div key={lb} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
             cursor:"pointer",marginBottom:8,background:cardBg,borderRadius:20,
@@ -562,7 +617,7 @@ function AOpciones({me,logout,dark=false}){
           <button onClick={logout} style={{width:"100%",background:cardBg,
             border:`1.5px solid ${dark?"#2d2a45":"#E8E8E8"}`,borderRadius:50,color:dark?"#aaa":"#888",
             padding:"14px",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif",transition:"all .3s"}}>
-            Cerrar sesión
+            Cerrar sesion
           </button>
         </div>
       </div>
@@ -570,7 +625,7 @@ function AOpciones({me,logout,dark=false}){
   );
 }
 
-function AHome({me,balance,onNav,dark,setDark}){
+function AHome({me,balance,onNav,dark,setDark,badges={}}){
   const lv=getLv(me.total_earned||0);
   const next=nextLv(me.total_earned||0);
   const prog=next?Math.min(100,((me.total_earned||0)-lv.min)/(next.min-lv.min)*100):100;
@@ -626,8 +681,8 @@ function AHome({me,balance,onNav,dark,setDark}){
           {/* 5 botones acción */}
           <div style={{display:"flex",justifyContent:"space-around",paddingBottom:4}}>
             <CircBtn icon="💸" label="Enviar"   onClick={()=>onNav("enviar")}/>
-            <CircBtn icon="⬇️" label="Ingresar" onClick={()=>onNav("movimientos")}/>
-            <CircBtn icon="💰" label="Cobrar"   onClick={()=>onNav("movimientos")}/>
+            <CircBtn icon="⬇️" label="Ingresar" onClick={()=>onNav("ingresar")}/>
+            <CircBtn icon="💰" label="Cobrar"   onClick={()=>onNav("ingresar")}/>
             <CircBtn icon="⚡" label="Misiones" onClick={()=>onNav("misiones")}/>
             <CircBtn icon="🏆" label="Ranking"  onClick={()=>onNav("ranking")}/>
           </div>
@@ -638,18 +693,27 @@ function AHome({me,balance,onNav,dark,setDark}){
       <div style={{padding:"14px 14px 8px",background:dark?"#12101e":"#F5F5F5",minHeight:"60vh",transition:"background .3s"}}>
         <div style={{fontWeight:900,color:txt,fontSize:15,marginBottom:10,transition:"color .3s"}}>Accesos rápidos</div>
         {[
-          ["💬","Chat",      "Personal · Aula · Global",  "#3b82f6","chat"],
-          ["📰","Noticias",  "Novedades de la escuela",   "#10b981","noticias"],
-          ["🗳️","Votaciones","Participá en encuestas",    "#8b5cf6","votaciones"],
-          ["🚩","Reportes",  "Enviá un reporte",          "#f59e0b","reportes"],
-        ].map(([ic,lb,sb,col,dest])=>(
+          ["💬","Chat",      "Personal · Aula · Global",  "#3b82f6","chat",    badges.chat],
+          ["📰","Noticias",  "Novedades de la escuela",   "#10b981","noticias",0],
+          ["🗳️","Votaciones","Participá en encuestas",    "#8b5cf6","votaciones",0],
+          ["🚩","Reportes",  "Enviá un reporte",          "#f59e0b","reportes", 0],
+        ].map(([ic,lb,sb,col,dest,badge])=>(
           <div key={lb} onClick={()=>onNav(dest)}
             style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",
               marginBottom:8,background:dark?"rgb(69,50,125)":"rgba(35,255,255,0.3)",borderRadius:20,
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
-              transition:"background .3s"}}>
-            <div style={{width:46,height:46,borderRadius:14,background:col+"22",
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{ic}</div>
+              transition:"background .3s",position:"relative"}}>
+            <div style={{position:"relative",flexShrink:0}}>
+              <div style={{width:46,height:46,borderRadius:14,background:col+"22",
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{ic}</div>
+              {badge>0&&(
+                <div style={{position:"absolute",top:-4,right:-4,background:"#ef4444",color:"white",
+                  borderRadius:99,minWidth:18,height:18,fontSize:10,fontWeight:900,
+                  display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>
+                  {badge>9?"9+":badge}
+                </div>
+              )}
+            </div>
             <div style={{flex:1}}>
               <div style={{fontWeight:800,fontSize:14,color:txt,transition:"color .3s"}}>{lb}</div>
               <div style={{fontSize:12,color:sub,marginTop:1,transition:"color .3s"}}>{sb}</div>
@@ -1027,6 +1091,136 @@ function AEnviar({me,balance,showToast,refreshBalance,dark=false}){
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── INGRESAR — CVU + QR ───────────────────────────────────────
+function AIngresar({me, dark, onBack}){
+  const [copied,setCopied] = useState(false);
+  const accent  = dark?"#c084fc":"#00c1fc";
+  const cardBg  = dark?"#1e1b2e":"white";
+  const txt     = dark?"#e0e0e0":"#1a1a1a";
+  const sub     = dark?"#888":"#555";
+  const bg      = dark?"#12101e":"#F0F0F0";
+
+  // CVU = primeros 8 chars del ID del usuario, formateado
+  const cvu = me.id.replace(/-/g,"").toUpperCase().slice(0,22);
+  const cvuFormateado = cvu.match(/.{1,4}/g)?.join(" ") || cvu;
+
+  const copiar = () => {
+    navigator.clipboard?.writeText(cvu).then(()=>{
+      setCopied(true);
+      setTimeout(()=>setCopied(false), 2000);
+    }).catch(()=>{
+      // Fallback para móvil
+      const el = document.createElement("textarea");
+      el.value = cvu;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(()=>setCopied(false), 2000);
+    });
+  };
+
+  // QR visual generado con CSS — matriz de 21x21 con patrón único basado en el ID
+  const qrData = me.id.replace(/-/g,"");
+  const QR_SIZE = 21;
+  const qrMatrix = Array.from({length:QR_SIZE}, (_, row) =>
+    Array.from({length:QR_SIZE}, (_, col) => {
+      // Patrones fijos de esquinas (finder patterns)
+      const inTL = row<7&&col<7;
+      const inTR = row<7&&col>13;
+      const inBL = row>13&&col<7;
+      if(inTL||inTR||inBL){
+        const lr=inTL?row:(inTR?row:row-14);
+        const lc=inTL?col:(inTR?col-14:col);
+        if(lr===0||lr===6||lc===0||lc===6) return 1;
+        if(lr>=2&&lr<=4&&lc>=2&&lc<=4) return 1;
+        return 0;
+      }
+      // Timing patterns
+      if(row===6||col===6) return (row+col)%2===0?1:0;
+      // Datos — generados del ID del usuario
+      const idx = (row*QR_SIZE+col)%qrData.length;
+      const charCode = qrData.charCodeAt(idx);
+      return (charCode+(row*7)+(col*3))%3===0?1:0;
+    })
+  );
+
+  return(
+    <div style={{background:bg,minHeight:"100vh"}}>
+      <OHdrA title="⬇️ Ingresar" dark={dark} onBack={onBack}
+        extra={<div style={{fontSize:12,opacity:.85,marginTop:4,fontWeight:600}}>
+          Tu código para recibir monedas
+        </div>}/>
+
+      <div style={{padding:"16px 14px",display:"flex",flexDirection:"column",gap:12}}>
+
+        {/* QR Code */}
+        <div style={{background:cardBg,borderRadius:24,padding:"24px 20px",textAlign:"center",
+          boxShadow:dark?"0 2px 16px rgba(0,0,0,.4)":"0 2px 16px rgba(0,0,0,.08)"}}>
+          <div style={{fontSize:13,fontWeight:700,color:sub,marginBottom:16}}>
+            Mostrá este QR para recibir monedas
+          </div>
+
+          {/* QR Visual */}
+          <div style={{display:"inline-block",background:"white",padding:12,borderRadius:16,
+            boxShadow:"0 2px 12px rgba(0,0,0,.12)"}}>
+            <div style={{display:"grid",gridTemplateColumns:`repeat(${QR_SIZE},10px)`,gap:0}}>
+              {qrMatrix.flat().map((cell,i)=>(
+                <div key={i} style={{
+                  width:10,height:10,
+                  background:cell?"#1a1a1a":"white"
+                }}/>
+              ))}
+            </div>
+          </div>
+
+          <div style={{marginTop:16,fontWeight:900,fontSize:13,color:txt}}>{me.nombre}</div>
+          <div style={{fontSize:11,color:sub,marginTop:2}}>ID: {me.id.slice(0,8).toUpperCase()}...</div>
+        </div>
+
+        {/* CVU */}
+        <div style={{background:cardBg,borderRadius:20,padding:"18px 16px",
+          boxShadow:dark?"0 2px 16px rgba(0,0,0,.4)":"0 2px 16px rgba(0,0,0,.08)"}}>
+          <div style={{fontSize:11,fontWeight:800,color:sub,letterSpacing:".08em",marginBottom:8}}>
+            TU ID ÚNICO (CVU)
+          </div>
+          <div style={{fontWeight:900,fontSize:17,color:txt,letterSpacing:"2px",
+            fontFamily:"monospace",marginBottom:14,wordBreak:"break-all"}}>
+            {cvuFormateado}
+          </div>
+          <button onClick={copiar} style={{
+            width:"100%",background:copied?"#10b981":accent,border:"none",
+            borderRadius:50,color:"white",padding:"13px",fontWeight:800,fontSize:14,
+            cursor:"pointer",fontFamily:"Nunito,sans-serif",transition:"background .3s",
+            boxShadow:`0 4px 14px ${copied?"#10b981":"#00c1fc"}44`}}>
+            {copied?"✓ Copiado!":"📋 Copiar ID"}
+          </button>
+        </div>
+
+        {/* Instrucciones */}
+        <div style={{background:cardBg,borderRadius:20,padding:"16px",
+          boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+          <div style={{fontWeight:800,color:txt,fontSize:13,marginBottom:10}}>¿Cómo recibir monedas?</div>
+          {[
+            ["1","Compartí tu QR o tu ID con quien te quiera enviar monedas"],
+            ["2","En la pantalla Enviar, el otro alumno pega tu ID en la sección Manual"],
+            ["3","Las monedas llegan instantáneamente a tu cuenta"],
+          ].map(([n,t])=>(
+            <div key={n} style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:8}}>
+              <div style={{width:24,height:24,borderRadius:"50%",background:accent+"22",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:11,fontWeight:900,color:accent,flexShrink:0}}>{n}</div>
+              <div style={{fontSize:12,color:sub,lineHeight:1.5}}>{t}</div>
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
   );
@@ -2666,20 +2860,19 @@ function Maestra({me,logout}){
   const [toast,showToast]=useToast();
 
   return(
-    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#F0F0F0",
-      fontFamily:"Nunito,sans-serif"}}>
+    <div style={{maxWidth:480,margin:"0 auto",height:"100vh",background:"#F0F0F0",
+      fontFamily:"Nunito,sans-serif",display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
-      <div style={{paddingBottom:90}}>
+      <div style={{flex:1,overflowY:"auto",paddingBottom:90,animation:"fadeIn .18s ease"}}>
         {tab==="home"     && <MHome     me={me} onNav={setTab}/>}
         {tab==="misiones" && <MMisiones me={me} showToast={showToast}/>}
         {tab==="aprobar"  && <MAprobar  me={me} showToast={showToast}/>}
         {tab==="perfil"   && <MPerfilSimple me={me} logout={logout}/>}
       </div>
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
-        width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #EFEFEF",
-        padding:"6px 4px 20px",display:"flex",justifyContent:"space-around",
-        boxShadow:"0 -2px 16px rgba(0,0,0,.07)"}}>
+      <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
+        borderTop:"1px solid #EFEFEF",padding:"6px 4px 20px",display:"flex",
+        justifyContent:"space-around",boxShadow:"0 -2px 16px rgba(0,0,0,.07)"}}>
         {[
           {id:"home",    icon:"🏠",label:"Inicio"},
           {id:"misiones",icon:"⚡",label:"Misiones"},
@@ -2692,7 +2885,7 @@ function Maestra({me,logout}){
               display:"flex",flexDirection:"column",alignItems:"center",gap:3,flex:1,
               background:"none",border:"none",cursor:"pointer",color:on?"#00c1fc":"#777777",
               fontFamily:"Nunito,sans-serif",padding:"3px 6px"}}>
-              <div style={{width:36,height:30,borderRadius:10,background:on?"#FFF0F0":"transparent",
+              <div style={{width:36,height:30,borderRadius:10,background:on?"#e0f7fe":"transparent",
                 display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <span style={{fontSize:19}}>{item.icon}</span>
               </div>
@@ -2715,7 +2908,7 @@ function MHome({me,onNav}){
 
   return(
     <div>
-      <div style={{background:"#00c1fc",color:"white",padding:"52px 20px 28px",position:"relative",overflow:"hidden"}}>
+      <div style={{background:"#00c1fc",color:"white",padding:"52px 20px 28px",position:"sticky",top:0,zIndex:50,overflow:"hidden",textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
         <div style={{position:"absolute",width:220,height:220,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-60,right:-50,pointerEvents:"none"}}/>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
@@ -2983,10 +3176,19 @@ function Admin({me,logout}){
 function AdminHome({me,onNav,showToast}){
   const [treasury,setTreasury]=useState(null);
   const [users,setUsers]=useState([]);
+  const [stats,setStats]=useState(null);
 
   useEffect(()=>{
     api.treasury().then(setTreasury).catch(()=>{});
-    api.adminUsers().then(setUsers).catch(()=>{});
+    api.adminUsers().then(u=>{
+      const arr=Array.isArray(u)?u:u.data||u||[];
+      setUsers(arr);
+      // Calcular stats locales
+      const students=arr.filter(x=>x.rol==="student"&&x.activo);
+      const top5=[...students].sort((a,b)=>(b.total_earned||0)-(a.total_earned||0)).slice(0,5);
+      const totalCoins=students.reduce((s,x)=>s+(x.total_earned||0),0);
+      setStats({students,top5,totalCoins});
+    }).catch(()=>{});
   },[]);
 
   const students=users.filter(u=>u.rol==="student"&&u.activo).length;
@@ -2994,43 +3196,74 @@ function AdminHome({me,onNav,showToast}){
 
   return(
     <div>
-      <div style={{background:"#00c1fc",color:"white",padding:"52px 20px 28px",position:"relative",overflow:"hidden"}}>
+      <div style={{background:"#00c1fc",color:"white",padding:"52px 20px 28px",
+        position:"sticky",top:0,zIndex:50,overflow:"hidden",textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
         <div style={{position:"absolute",width:220,height:220,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-60,right:-50,pointerEvents:"none"}}/>
         <div style={{fontWeight:900,fontSize:22,marginBottom:4}}>Panel Admin ⚙️</div>
         <div style={{fontSize:13,opacity:.8}}>Hola, {me.nombre}</div>
       </div>
-      <div style={{padding:"20px 14px",marginTop:-24}}>
+      <div style={{padding:"16px 14px",marginTop:-20}}>
+
+        {/* Stats grid */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-          <WCard style={{textAlign:"center"}}>
-            <div style={{fontSize:28}}>🏦</div>
-            <div style={{fontWeight:900,fontSize:20,color:"#00c1fc"}}>
-              {treasury?treasury.balance.toLocaleString("es-AR"):"..."}
-            </div>
-            <div style={{fontSize:11,color:"#aaa",fontWeight:700}}>Tesorería</div>
-          </WCard>
-          <WCard style={{textAlign:"center"}}>
-            <div style={{fontSize:28}}>👥</div>
-            <div style={{fontWeight:900,fontSize:20,color:"#1a1a1a"}}>{students}</div>
-            <div style={{fontSize:11,color:"#aaa",fontWeight:700}}>Alumnos activos</div>
-          </WCard>
+          {[
+            {icon:"🏦",val:treasury?treasury.balance.toLocaleString("es-AR"):"...",label:"En Tesorería",col:"#00c1fc"},
+            {icon:"👨‍🎓",val:students,label:"Alumnos activos",col:"#10b981"},
+            {icon:"👩‍🏫",val:teachers,label:"Docentes",col:"#8b5cf6"},
+            {icon:"🪙",val:stats?stats.totalCoins.toLocaleString("es-AR"):"...",label:"Coins circulando",col:"#f59e0b"},
+          ].map(s=>(
+            <WCard key={s.label} style={{textAlign:"center",padding:"14px 10px"}}>
+              <div style={{fontSize:24,marginBottom:4}}>{s.icon}</div>
+              <div style={{fontWeight:900,fontSize:18,color:s.col}}>{s.val}</div>
+              <div style={{fontSize:10,color:"#aaa",fontWeight:700,marginTop:2}}>{s.label}</div>
+            </WCard>
+          ))}
         </div>
+
+        {/* Top 5 alumnos */}
+        {stats?.top5?.length>0&&(
+          <WCard style={{marginBottom:12,padding:"14px 16px"}}>
+            <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>
+              🏆 Top alumnos por monedas ganadas
+            </div>
+            {stats.top5.map((u,i)=>{
+              const max=stats.top5[0]?.total_earned||1;
+              const pct=Math.round((u.total_earned||0)/max*100);
+              return(
+                <div key={u.id} style={{marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,
+                    fontWeight:700,color:"#333",marginBottom:3}}>
+                    <span>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`} {u.nombre}</span>
+                    <span style={{color:"#00c1fc"}}>🪙{(u.total_earned||0).toLocaleString("es-AR")}</span>
+                  </div>
+                  <div style={{background:"#f0f0f0",borderRadius:99,height:6}}>
+                    <div style={{width:pct+"%",height:"100%",borderRadius:99,
+                      background:i===0?"#f59e0b":i===1?"#94a3b8":"#cd7c2f",transition:"width .5s"}}/>
+                  </div>
+                </div>
+              );
+            })}
+          </WCard>
+        )}
+
+        {/* Accesos rápidos */}
         {[
           {icon:"👥",title:"Usuarios",         sub:`${students} alumnos · ${teachers} docentes`,dest:"usuarios",  col:"#3b82f6"},
-          {icon:"🏦",title:"Tesorería",         sub:"Mint y burn de monedas",                    dest:"tesoro",    col:"#f59e0b"},
-          {icon:"🛒",title:"Tienda",            sub:"Administrar ítems",                          dest:"tienda",    col:"#10b981"},
-          {icon:"📰",title:"Noticias",          sub:"Crear y moderar publicaciones",              dest:"noticias",  col:"#00c1fc"},
-          {icon:"🗳️",title:"Votaciones",        sub:"Crear encuestas y ver resultados",           dest:"votaciones",col:"#8b5cf6"},
-          {icon:"🚩",title:"Reportes",          sub:"Gestionar reportes de alumnos",              dest:"reportes",  col:"#ef4444"},
-          {icon:"🏫",title:"Aulas",             sub:"Crear aulas y asignar miembros",             dest:"aulas",     col:"#f59e0b"},
-          {icon:"📋",title:"Audit Log",         sub:"Historial de todas las acciones",            dest:"audit",     col:"#64748b"},
+          {icon:"🏦",title:"Tesorería",         sub:"Mint y burn de monedas",                   dest:"tesoro",    col:"#f59e0b"},
+          {icon:"🛒",title:"Tienda",            sub:"Administrar ítems",                         dest:"tienda",    col:"#10b981"},
+          {icon:"📰",title:"Noticias",          sub:"Crear y moderar publicaciones",             dest:"noticias",  col:"#00c1fc"},
+          {icon:"🗳️",title:"Votaciones",        sub:"Crear encuestas y ver resultados",          dest:"votaciones",col:"#8b5cf6"},
+          {icon:"🚩",title:"Reportes",          sub:"Gestionar reportes de alumnos",             dest:"reportes",  col:"#ef4444"},
+          {icon:"🏫",title:"Aulas",             sub:"Crear aulas y asignar miembros",            dest:"aulas",     col:"#f59e0b"},
+          {icon:"📋",title:"Audit Log",         sub:"Historial de todas las acciones",           dest:"audit",     col:"#64748b"},
         ].map(item=>(
           <WCard key={item.dest} onClick={()=>onNav(item.dest)}
-            style={{display:"flex",alignItems:"center",gap:14,padding:"16px",cursor:"pointer",marginBottom:10}}>
-            <div style={{width:50,height:50,borderRadius:14,background:item.col+"18",
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{item.icon}</div>
+            style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:"pointer",marginBottom:8}}>
+            <div style={{width:46,height:46,borderRadius:13,background:item.col+"18",
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{item.icon}</div>
             <div style={{flex:1}}>
-              <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a"}}>{item.title}</div>
+              <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{item.title}</div>
               <div style={{fontSize:12,color:"#555"}}>{item.sub}</div>
             </div>
             <span style={{color:"#ddd",fontSize:18}}>›</span>
