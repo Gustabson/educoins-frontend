@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(cp \"/c/Users/GustavoS/Downloads/App.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-frontend/src/App.js\")",
-      "Bash(cp \"/c/Users/GustavoS/Downloads/customization.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/customization.js\")"
+      "Bash(cp \"/c/Users/GustavoS/Downloads/customization.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/customization.js\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/missions.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/missions.js\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/checkin.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/checkin.js\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/notifications.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/notifications.js\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/app \\(1\\).js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/app.js\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

@@ -59,8 +59,8 @@ const api = {
   submitMission:  (id)                    => apiFetch(`/missions/${id}/submit`,  { method:"POST" }),
   submissions:    ()                      => apiFetch("/missions/submissions?estado=pendiente"),
   allSubmissions: ()                      => apiFetch("/missions/submissions"),
-  approve:        (id)                    => apiFetch(`/missions/submissions/${id}/approve`, { method:"POST" }),
-  reject:         (id, reason)            => apiFetch(`/missions/submissions/${id}/reject`,  { method:"POST", body:{reason} }),
+  approve:        (id,data={})            => apiFetch(`/missions/submissions/${id}/approve`, { method:"POST", body:data }),
+  reject:         (id, data)              => apiFetch(`/missions/submissions/${id}/reject`,  { method:"POST", body:typeof data==="string"?{reason:data}:data }),
   createMission:  (data)                  => apiFetch("/missions",            { method:"POST", body:data }),
   storeItems:     ()                      => apiFetch("/store/items"),
   createItem:     (data)                  => apiFetch("/store/items",         { method:"POST", body:data }),
@@ -103,6 +103,21 @@ const api = {
   customAdminItems:  ()      => apiFetch("/custom/admin/items"),
   customAdminCreate: (data)  => apiFetch("/custom/admin/items",       { method:"POST",  body:data }),
   customAdminUpdate: (id,d)  => apiFetch(`/custom/admin/items/${id}`, { method:"PATCH", body:d }),
+  // ── Check-in ──────────────────────────────────────────────
+  checkin:        ()         => apiFetch("/checkin",          { method:"POST" }),
+  checkinMe:      ()         => apiFetch("/checkin/me"),
+  checkinConfig:  ()         => apiFetch("/checkin/config"),
+  checkinConfigUpdate:(d)    => apiFetch("/checkin/config",   { method:"PATCH", body:d }),
+  // ── Notificaciones ────────────────────────────────────────
+  myNotifs:       ()         => apiFetch("/notifications"),
+  notifReadAll:   ()         => apiFetch("/notifications/read",{ method:"PATCH" }),
+  notifRead:      (id)       => apiFetch(`/notifications/${id}/read`,{ method:"PATCH" }),
+  // ── Misiones avanzadas ────────────────────────────────────
+  teacherMissions:()         => apiFetch("/missions/teacher"),
+  classroomStudents:()       => apiFetch("/missions/classroom-students"),
+  rewardDirect:   (d)        => apiFetch("/missions/reward-direct",{ method:"POST", body:d }),
+  updateMission:  (id,d)     => apiFetch(`/missions/${id}`,   { method:"PATCH", body:d }),
+  allSubmissions: (estado)   => apiFetch(`/missions/submissions${estado?`?estado=${estado}`:""}`),
   // ── Chat ──────────────────────────────────────────────────
   chatGlobalInfo:    ()             => apiFetch("/chat/global/info"),
   chatGlobalMsgs:    ()             => apiFetch("/chat/global/messages"),
@@ -447,7 +462,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [camOpen,setCamOpen]=useState(false);
   const [dark,setDark]=useState(false);
   const [notifs,setNotifs]=useState([]);       // notificaciones pendientes
-  const [badges,setBadges]=useState({chat:0}); // badges por sección
+  const [badges,setBadges]=useState({chat:0,notifs:0});
 
   // Paleta según modo
   const navBg    = dark?"#1e1b2e":"white";
@@ -459,7 +474,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const camBord  = dark?"#1e1b2e":"#F0F0F0";
   const pageBg   = dark?"#12101e":"#F0F0F0";
 
-  const hideNav = ["chat","noticias","votaciones","reportes"].includes(tab);
+  const hideNav = ["chat","noticias","votaciones","reportes","notificaciones"].includes(tab);
 
   // ── Escuchar notificaciones por socket ──────────────────────
   useEffect(()=>{
@@ -467,32 +482,27 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     if(!token) return;
     const s = connectSocket(token);
     const onNotif = (n) => {
-      // Agregar a la lista de notificaciones
       setNotifs(prev=>[{...n, id:Date.now(), leida:false}, ...prev.slice(0,19)]);
-      // Incrementar badge de la sección correspondiente
-      if(n.type==="chat_personal") {
-        setBadges(b=>({...b, chat: b.chat+1}));
-      }
-      // Mostrar toast
-      const msg = n.type==="reward"
-        ? `Recibiste 🪙${n.amount} — ${n.description}`
-        : n.type==="transfer"
-        ? `Te enviaron 🪙${n.amount}`
-        : n.type==="chat_personal"
-        ? `Nuevo mensaje de ${n.from}`
-        : "Nueva notificacion";
+      if(n.type==="chat_personal") setBadges(b=>({...b, chat: b.chat+1}));
+      else setBadges(b=>({...b, notifs: b.notifs+1}));
+      const msg = n.type==="reward"       ? `Recibiste 🪙${n.amount} — ${n.description||""}`
+                : n.type==="transfer"      ? `Te enviaron 🪙${n.amount}`
+                : n.type==="chat_personal" ? `Nuevo mensaje de ${n.from}`
+                : n.type==="mission_approved" ? `Mision aprobada! +🪙${n.amount}`
+                : n.type==="checkin"       ? `Check-in dia ${n.racha}! +🪙${n.recompensa}`
+                : n.type==="gift"          ? `Regalo de ${n.from}! 🎁`
+                : "Nueva notificacion";
       showToast(msg);
-      // Refrescar balance si fue pago
-      if(["reward","transfer"].includes(n.type)) refreshBalance();
+      if(["reward","transfer","checkin","gift"].includes(n.type)) refreshBalance();
     };
     s.on('notification', onNotif);
     return () => s.off('notification', onNotif);
   }, []);
 
-  // Limpiar badge al entrar a la sección
   const navTo = (dest) => {
     setTab(dest);
     if(dest==="chat") setBadges(b=>({...b, chat:0}));
+    if(dest==="notificaciones"||dest==="opciones") setBadges(b=>({...b, notifs:0}));
   };
 
   return(
@@ -511,6 +521,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="perfil"     && <APerfil     me={me} balance={balance} logout={logout} showToast={showToast} setMe={setMe} dark={dark}/>}
         {tab==="ranking"    && <ARanking    dark={dark}/>}
         {tab==="opciones"   && <AOpciones   me={me} logout={logout} dark={dark} notifs={notifs}/>}
+        {tab==="notificaciones"&&<ANotificaciones me={me} dark={dark} onBack={()=>navTo("home")} notifs={notifs} setNotifs={setNotifs}/>}
         {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark} onBack={()=>navTo("home")}/>}
         {tab==="chat"       && <AChat       me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="noticias"   && <ANoticias   me={me} dark={dark} onBack={()=>navTo("home")}/>}
@@ -642,12 +653,26 @@ function AHome({me,balance,onNav,dark,setDark,badges={}}){
   const lv=getLv(me.total_earned||0);
   const next=nextLv(me.total_earned||0);
   const prog=next?Math.min(100,((me.total_earned||0)-lv.min)/(next.min-lv.min)*100):100;
+  const [checkin,setCheckin]=useState(null);
+  const [doingCheckin,setDoingCheckin]=useState(false);
 
-  const headerBg = dark?"#52177f":"#00c1fc";   // violeta oscuro en dark
+  const headerBg = dark?"#52177f":"#00c1fc";
   const cardBg   = dark?"#1e1b2e":"white";
   const txt      = dark?"#e0e0e0":"#1a1a1a";
   const sub      = dark?"#888":"#555";
   const arrow    = dark?"#555":"#ddd";
+
+  useEffect(()=>{ api.checkinMe().then(d=>setCheckin(d.data||d)).catch(()=>{}); },[]);
+
+  const hacerCheckin=async()=>{
+    setDoingCheckin(true);
+    try{
+      const d=await api.checkin();
+      const data=d.data||d;
+      setCheckin(prev=>({...prev, ya_hizo_hoy:true, racha_actual:data.racha, hoy:data}));
+    }catch(e){}
+    finally{setDoingCheckin(false);}
+  };
 
   return(
     <div style={{minHeight:"100vh",transition:"background .3s"}}>
@@ -702,15 +727,52 @@ function AHome({me,balance,onNav,dark,setDark,badges={}}){
         </div>
       </div>
 
-      {/* Accesos rápidos */}
+      {/* Accesos rápidos con check-in */}
       <div style={{padding:"14px 14px 8px",background:dark?"#12101e":"#F5F5F5",minHeight:"60vh",transition:"background .3s"}}>
+
+        {/* Widget check-in */}
+        {checkin&&(
+          <div onClick={!checkin.ya_hizo_hoy&&!doingCheckin?hacerCheckin:undefined}
+            style={{marginBottom:12,borderRadius:20,padding:"14px 16px",cursor:!checkin.ya_hizo_hoy?"pointer":"default",
+              background:checkin.ya_hizo_hoy
+                ?(dark?"#052e16":"#f0fdf4")
+                :(dark?"rgb(69,50,125)":"rgba(35,255,255,0.3)"),
+              border:`1.5px solid ${checkin.ya_hizo_hoy?"#10b981":(dark?"#7c3aed":"#00c1fc")}`,
+              display:"flex",alignItems:"center",gap:12,transition:"all .2s"}}>
+            <div style={{fontSize:32}}>{checkin.ya_hizo_hoy?"✅":"🔥"}</div>
+            <div style={{flex:1}}>
+              {checkin.ya_hizo_hoy?(
+                <>
+                  <div style={{fontWeight:800,fontSize:14,color:"#10b981"}}>Check-in completado</div>
+                  <div style={{fontSize:12,color:sub}}>Racha: {checkin.racha_actual} día{checkin.racha_actual!==1?"s":""} 🔥</div>
+                </>
+              ):(
+                <>
+                  <div style={{fontWeight:800,fontSize:14,color:txt}}>Hacé tu check-in diario</div>
+                  <div style={{fontSize:12,color:sub}}>
+                    {doingCheckin?"Registrando...":
+                     `Racha actual: ${checkin.racha_actual||0} días · Ganás 🪙${checkin.config?.base_reward||5}`}
+                  </div>
+                </>
+              )}
+            </div>
+            {!checkin.ya_hizo_hoy&&!doingCheckin&&(
+              <div style={{background:"#10b981",borderRadius:99,padding:"6px 12px",
+                fontSize:11,fontWeight:800,color:"white"}}>
+                +🪙{checkin.config?.base_reward||5}
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{fontWeight:900,color:txt,fontSize:15,marginBottom:10,transition:"color .3s"}}>Accesos rápidos</div>
         {[
-          ["💬","Chat",          "Personal · Aula · Global",    "#3b82f6","chat",        badges.chat],
-          ["📰","Noticias",      "Novedades de la escuela",     "#10b981","noticias",    0],
-          ["🗳️","Votaciones",    "Participá en encuestas",      "#8b5cf6","votaciones",  0],
-          ["🎨","Personalizar",  "Temas, emojis y más",         "#f59e0b","personalizar",0],
-          ["🚩","Reportes",      "Enviá un reporte",            "#ef4444","reportes",    0],
+          ["💬","Chat",          "Personal · Aula · Global",    "#3b82f6","chat",         badges.chat],
+          ["📰","Noticias",      "Novedades de la escuela",     "#10b981","noticias",     0],
+          ["🗳️","Votaciones",    "Participá en encuestas",      "#8b5cf6","votaciones",   0],
+          ["🎨","Personalizar",  "Temas, emojis y más",         "#f59e0b","personalizar", 0],
+          ["🔔","Notificaciones","Misiones, premios y más",     "#ef4444","notificaciones",badges.notifs],
+          ["🚩","Reportes",      "Enviá un reporte",            "#64748b","reportes",     0],
         ].map(([ic,lb,sb,col,dest,badge])=>(
           <div key={lb} onClick={()=>onNav(dest)}
             style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",
@@ -1627,6 +1689,107 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack}){
                     </button>
                   )}
                 </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── NOTIFICACIONES ────────────────────────────────────────────
+function ANotificaciones({me,dark,onBack,notifs=[],setNotifs}){
+  const [serverNotifs,setServerNotifs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [unread,setUnread]=useState(0);
+
+  const cardBg = dark?"#1e1b2e":"white";
+  const txt    = dark?"#e0e0e0":"#1a1a1a";
+  const sub    = dark?"#888":"#555";
+  const bg     = dark?"#12101e":"#F0F0F0";
+  const accent = dark?"#c084fc":"#00c1fc";
+
+  const NOTIF_ICON={
+    reward:"🪙",transfer:"💸",chat_personal:"💬",mission_approved:"✅",
+    mission_rejected:"❌",checkin:"🔥",gift:"🎁",new_submission:"📬",
+  };
+  const NOTIF_COLOR={
+    reward:"#10b981",transfer:"#3b82f6",chat_personal:"#00c1fc",
+    mission_approved:"#10b981",mission_rejected:"#ef4444",
+    checkin:"#f59e0b",gift:"#ec4899",new_submission:"#8b5cf6",
+  };
+
+  useEffect(()=>{
+    api.myNotifs()
+      .then(d=>{
+        const data=d.data||d;
+        setServerNotifs(data.notifications||[]);
+        setUnread(data.unread||0);
+      })
+      .catch(()=>{})
+      .finally(()=>setLoading(false));
+    // Marcar todas como leídas
+    api.notifReadAll().catch(()=>{});
+    setNotifs(prev=>prev.map(n=>({...n,leida:true})));
+  },[]);
+
+  // Combinar notifs del servidor con las del socket (en tiempo real)
+  const allNotifs=[
+    ...notifs.filter(n=>!n.leida),
+    ...serverNotifs,
+  ].slice(0,30);
+
+  return(
+    <div style={{background:bg,minHeight:"100vh"}}>
+      <OHdrA title="🔔 Notificaciones" dark={dark} onBack={onBack}/>
+      <div style={{padding:"10px 14px"}}>
+        {loading&&<div style={{textAlign:"center",color:sub,padding:24}}>Cargando...</div>}
+        {!loading&&allNotifs.length===0&&(
+          <div style={{background:cardBg,borderRadius:20,padding:40,textAlign:"center",
+            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div style={{fontSize:40,marginBottom:8}}>🔔</div>
+            <div style={{fontWeight:800,color:txt}}>Sin notificaciones</div>
+            <div style={{fontSize:12,color:sub,marginTop:4}}>Aqui apareceran tus premios, misiones y mas</div>
+          </div>
+        )}
+        {allNotifs.map((n,i)=>{
+          const tipo = n.tipo||n.type||"";
+          const icon = NOTIF_ICON[tipo]||"🔔";
+          const col  = NOTIF_COLOR[tipo]||accent;
+          const titulo = n.titulo||(
+            tipo==="reward"?`Recibiste 🪙${n.amount}`:
+            tipo==="mission_approved"?`Mision aprobada! +🪙${n.amount||""}`:
+            tipo==="checkin"?`Check-in dia ${n.racha}! +🪙${n.recompensa||""}`:
+            tipo==="gift"?`Regalo de ${n.from||"alguien"}`:
+            tipo
+          );
+          const cuerpo = n.cuerpo||(
+            tipo==="mission_approved"&&n.feedback?`"${n.feedback}"`:
+            tipo==="mission_rejected"&&n.feedback?`"${n.feedback}"`:
+            null
+          );
+          const isNew = !n.leida;
+          return(
+            <div key={n.id||i} style={{background:cardBg,borderRadius:16,marginBottom:8,
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
+              borderLeft:`4px solid ${isNew?col:"transparent"}`,
+              overflow:"hidden"}}>
+              <div style={{padding:"12px 14px",display:"flex",alignItems:"flex-start",gap:12}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:col+"22",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>
+                  {icon}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:13,color:isNew?col:txt}}>{titulo}</div>
+                  {cuerpo&&<div style={{fontSize:11,color:sub,marginTop:2,lineHeight:1.4}}>{cuerpo}</div>}
+                  <div style={{fontSize:10,color:sub,marginTop:4}}>
+                    {n.created_at
+                      ? new Date(n.created_at).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})
+                      : "Ahora"}
+                  </div>
+                </div>
+                {isNew&&<div style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0,marginTop:6}}/>}
               </div>
             </div>
           );
@@ -3176,19 +3339,40 @@ function Maestra({me,logout}){
 }
 
 function MHome({me,onNav}){
-  const [budget,setBudget]=useState(null);
   const [pending,setPending]=useState([]);
+  const [students,setStudents]=useState([]);
+  const [showStudents,setShowStudents]=useState(false);
+  const [rewardSel,setRewardSel]=useState(null);
+  const [rewardAmt,setRewardAmt]=useState("");
+  const [rewardDesc,setRewardDesc]=useState("");
+  const [rewarding,setRewarding]=useState(false);
+  const [toast,showToast]=useToast();
 
   useEffect(()=>{
-    api.submissions().then(setPending).catch(()=>{});
+    api.submissions("pendiente").then(d=>setPending(d.data||d||[])).catch(()=>{});
+    api.classroomStudents().then(d=>setStudents(d.data||d||[])).catch(()=>{});
   },[]);
+
+  const premiar=async()=>{
+    if(!rewardSel||!rewardAmt||parseInt(rewardAmt)<=0){showToast("Completá los campos","error");return;}
+    setRewarding(true);
+    try{
+      await api.rewardDirect({student_id:rewardSel.id,amount:parseInt(rewardAmt),descripcion:rewardDesc||null});
+      showToast(`Premiaste a ${rewardSel.nombre} con 🪙${rewardAmt}`);
+      setRewardSel(null);setRewardAmt("");setRewardDesc("");
+      api.classroomStudents().then(d=>setStudents(d.data||d||[])).catch(()=>{});
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setRewarding(false);}
+  };
 
   return(
     <div>
-      <div style={{background:"#00c1fc",color:"white",padding:"52px 20px 28px",position:"sticky",top:0,zIndex:50,overflow:"hidden",textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
+      <Toast msg={toast?.msg} type={toast?.type}/>
+      <div style={{background:"#00c1fc",color:"white",padding:"52px 20px 28px",
+        position:"sticky",top:0,zIndex:50,overflow:"hidden",textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
         <div style={{position:"absolute",width:220,height:220,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-60,right:-50,pointerEvents:"none"}}/>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <div style={{width:48,height:48,borderRadius:"50%",background:"rgba(255,255,255,.25)",
             display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>👩‍🏫</div>
           <div>
@@ -3196,29 +3380,106 @@ function MHome({me,onNav}){
             <div style={{fontWeight:900,fontSize:18}}>Hola, {me.nombre.split(" ")[0]} 👋</div>
           </div>
         </div>
-        {pending.length>0&&(
-          <div style={{background:"rgba(255,255,255,.2)",borderRadius:16,padding:"14px 16px"}}>
-            <div style={{fontWeight:800,fontSize:14}}>📬 {pending.length} entrega{pending.length!==1?"s":""} pendiente{pending.length!==1?"s":""}</div>
-            <div style={{fontSize:12,opacity:.85,marginTop:4}}>Necesitan tu aprobación</div>
-          </div>
-        )}
+        {/* Stats rápidas */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+          {[
+            {v:pending.length,l:"Pendientes",c:"#f59e0b"},
+            {v:students.length,l:"Alumnos",c:"#10b981"},
+            {v:students.reduce((s,u)=>s+(u.misiones_completadas||0),0),l:"Completadas",c:"#8b5cf6"},
+          ].map(s=>(
+            <div key={s.l} style={{background:"rgba(255,255,255,.18)",borderRadius:12,padding:"10px 8px",textAlign:"center"}}>
+              <div style={{fontWeight:900,fontSize:20}}>{s.v}</div>
+              <div style={{fontSize:10,opacity:.8,fontWeight:700}}>{s.l}</div>
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{padding:"20px 14px"}}>
+      <div style={{padding:"14px 14px"}}>
         {[
-          {icon:"⚡",title:"Crear misión",sub:"Nuevas actividades para alumnos",dest:"misiones",col:"#f59e0b"},
-          {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,dest:"aprobar",col:"#10b981"},
+          {icon:"⚡",title:"Crear misión",   sub:"Nuevas actividades",         dest:"misiones",col:"#f59e0b"},
+          {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,dest:"aprobar", col:"#10b981"},
+          {icon:"👨‍🎓",title:"Ver alumnos",   sub:`${students.length} en tu aula`,dest:null,    col:"#3b82f6",
+           action:()=>setShowStudents(s=>!s)},
         ].map(item=>(
-          <WCard key={item.dest} onClick={()=>onNav(item.dest)}
-            style={{display:"flex",alignItems:"center",gap:14,padding:"16px",cursor:"pointer",marginBottom:10}}>
-            <div style={{width:50,height:50,borderRadius:14,background:item.col+"18",
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{item.icon}</div>
+          <WCard key={item.title} onClick={item.action||(()=>onNav(item.dest))}
+            style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:"pointer",marginBottom:10}}>
+            <div style={{width:46,height:46,borderRadius:13,background:item.col+"18",
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{item.icon}</div>
             <div style={{flex:1}}>
-              <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a"}}>{item.title}</div>
+              <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{item.title}</div>
               <div style={{fontSize:12,color:"#555"}}>{item.sub}</div>
             </div>
-            <span style={{color:"#ddd",fontSize:18}}>›</span>
+            <span style={{color:"#ddd",fontSize:18}}>{item.dest===null?(showStudents?"▲":"▼"):"›"}</span>
           </WCard>
         ))}
+
+        {/* Panel de alumnos expandible */}
+        {showStudents&&(
+          <div style={{background:"white",borderRadius:20,overflow:"hidden",
+            boxShadow:"0 1px 8px rgba(0,0,0,.06)",marginBottom:10}}>
+            <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",
+              display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>Alumnos del aula</div>
+              <div style={{fontSize:11,color:"#aaa"}}>Toca para premiar</div>
+            </div>
+            {students.map((s,i)=>(
+              <div key={s.id} onClick={()=>setRewardSel(rewardSel?.id===s.id?null:s)}
+                style={{padding:"11px 16px",borderBottom:i<students.length-1?"1px solid #f5f5f5":"none",
+                  cursor:"pointer",background:rewardSel?.id===s.id?"#f0f9ff":"white",
+                  display:"flex",alignItems:"center",gap:10,transition:"background .15s"}}>
+                <Av user={s} sz={34}/>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{s.nombre}</div>
+                  <div style={{fontSize:10,color:"#aaa"}}>
+                    🪙{s.balance} · {s.misiones_completadas||0} misiones · 🔥{s.racha_actual||0}
+                  </div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontWeight:800,fontSize:12,color:"#00c1fc"}}>🪙{s.balance}</div>
+                </div>
+              </div>
+            ))}
+            {students.length===0&&(
+              <div style={{padding:20,textAlign:"center",color:"#aaa",fontSize:13}}>
+                No hay alumnos en tu aula todavia
+              </div>
+            )}
+
+            {/* Panel de premio directo */}
+            {rewardSel&&(
+              <div style={{padding:"14px 16px",background:"#f0f9ff",borderTop:"1px solid #e0f7fe"}}>
+                <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>
+                  Premiar a {rewardSel.nombre}
+                </div>
+                <div style={{display:"flex",gap:8,marginBottom:8}}>
+                  <input type="number" value={rewardAmt} onChange={e=>setRewardAmt(e.target.value)}
+                    placeholder="Monedas" min="1"
+                    style={{flex:1,border:"1.5px solid #e8e8e8",borderRadius:12,padding:"9px 12px",
+                      fontSize:14,fontWeight:800,outline:"none",color:"#00c1fc",fontFamily:"Nunito,sans-serif"}}/>
+                  <div style={{display:"flex",gap:4}}>
+                    {[5,10,25,50].map(n=>(
+                      <button key={n} onClick={()=>setRewardAmt(String(n))}
+                        style={{background:rewardAmt===String(n)?"#00c1fc":"#f0f0f0",
+                          color:rewardAmt===String(n)?"white":"#555",border:"none",borderRadius:8,
+                          padding:"6px 8px",fontSize:11,fontWeight:800,cursor:"pointer",
+                          fontFamily:"Nunito,sans-serif"}}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+                <input value={rewardDesc} onChange={e=>setRewardDesc(e.target.value)}
+                  placeholder="Motivo (opcional)..."
+                  style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+                    padding:"9px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
+                <button onClick={premiar} disabled={rewarding}
+                  style={{width:"100%",background:rewarding?"#ccc":"#00c1fc",border:"none",
+                    borderRadius:50,color:"white",padding:"11px",fontWeight:800,fontSize:13,
+                    cursor:rewarding?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {rewarding?"Enviando...":"Enviar premio 🪙"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3230,61 +3491,123 @@ function MMisiones({me,showToast}){
   const [titulo,setTitulo]=useState("");
   const [desc,setDesc]=useState("");
   const [rec,setRec]=useState("");
-  const [dif,setDif]=useState("fácil");
+  const [dif,setDif]=useState("facil");
+  const [tipo,setTipo]=useState("normal");
+  const [fechaFin,setFechaFin]=useState("");
+  const [durVal,setDurVal]=useState("24");
+  const [durUnidad,setDurUnidad]=useState("horas");
+  const [maxSub,setMaxSub]=useState("");
   const [loading,setLoading]=useState(true);
 
-  useEffect(()=>{
-    api.missions().then(setMissions).finally(()=>setLoading(false));
-  },[]);
+  useEffect(()=>{ api.teacherMissions().then(d=>setMissions(d.data||d||[])).finally(()=>setLoading(false)); },[]);
+
+  const calcFin=()=>{
+    if(tipo!=="limitada"||!durVal) return null;
+    const d=new Date();
+    const v=parseInt(durVal)||1;
+    if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+v);
+    else if(durUnidad==="horas") d.setHours(d.getHours()+v);
+    else d.setDate(d.getDate()+v);
+    return d.toISOString();
+  };
 
   const crear=async()=>{
-    if(!titulo.trim()||!rec){showToast("Completá título y recompensa","error");return;}
+    if(!titulo.trim()||!rec){showToast("Completa titulo y recompensa","error");return;}
     try{
-      const m=await api.createMission({titulo:titulo.trim(),descripcion:desc.trim(),recompensa:parseInt(rec),dificultad:dif});
-      setMissions(prev=>[m,...prev]);
+      const d=await api.createMission({
+        titulo:titulo.trim(),descripcion:desc.trim(),recompensa:parseInt(rec),dificultad:dif,
+        tipo,fecha_fin:calcFin(),
+        max_submissions:tipo==="grupal"&&maxSub?parseInt(maxSub):null,
+      });
+      setMissions(prev=>[d.data||d,...prev]);
       setTitulo("");setDesc("");setRec("");setForm(false);
-      showToast("¡Misión creada! ⚡");
+      showToast("Mision creada!");
     }catch(e){showToast(e.message||"Error","error");}
   };
+
+  const TIPO_COL={normal:"#3b82f6",limitada:"#ef4444",grupal:"#10b981",encadenada:"#8b5cf6"};
+  const TIPO_ICON={normal:"📋",limitada:"⏱",grupal:"👥",encadenada:"🔗"};
 
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando...</div>;
 
   return(
     <div>
-      <OHdr title="Misiones ⚡" sub="EDUCOINS"
+      <OHdr title="Misiones" sub="EDUCOINS"
         extra={<button onClick={()=>setForm(true)}
           style={{marginTop:14,background:"rgba(255,255,255,.22)",border:"1.5px solid rgba(255,255,255,.35)",
             borderRadius:50,color:"white",padding:"8px 20px",fontWeight:800,fontSize:13,cursor:"pointer"}}>
-          + Nueva misión
+          + Nueva
         </button>}/>
       <div style={{padding:"0 14px",marginTop:12}}>
         {missions.map(m=>(
-          <WCard key={m.id} style={{marginBottom:10,borderLeft:`4px solid ${DIFCOL[m.dificultad]||"#ddd"}`}}>
-            <div style={{display:"flex",gap:6,marginBottom:6}}>
+          <WCard key={m.id} style={{marginBottom:10,borderLeft:`4px solid ${TIPO_COL[m.tipo||"normal"]||"#ddd"}`}}>
+            <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
               <Pill text={m.dificultad} col={DIFCOL[m.dificultad]}/>
+              <span style={{background:TIPO_COL[m.tipo||"normal"]+"22",color:TIPO_COL[m.tipo||"normal"],
+                borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>
+                {TIPO_ICON[m.tipo||"normal"]} {m.tipo||"normal"}
+              </span>
+              {m.fecha_fin&&(
+                <span style={{fontSize:10,color:"#ef4444",fontWeight:700}}>
+                  Hasta {new Date(m.fecha_fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                </span>
+              )}
             </div>
-            <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a"}}>{m.titulo}</div>
+            <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{m.titulo}</div>
             {m.descripcion&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{m.descripcion}</div>}
-            <div style={{marginTop:8,fontWeight:800,color:"#00c1fc"}}>🪙 {m.recompensa}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+              <div style={{fontWeight:800,color:"#00c1fc"}}>🪙 {m.recompensa}</div>
+              <div style={{fontSize:11,color:"#aaa"}}>
+                {m.pendientes||0} pendientes · {m.aprobadas||0} aprobadas
+              </div>
+            </div>
           </WCard>
         ))}
       </div>
       {form&&(
-        <Sheet title="⚡ Nueva misión" onClose={()=>setForm(false)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Inp val={titulo} set={setTitulo} ph="Título" icon="⚡"/>
-            <Inp val={desc}   set={setDesc}   ph="Descripción (opcional)" icon="📝"/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <Inp val={rec} set={setRec} ph="🪙 Recompensa" type="number"/>
+        <Sheet title="Nueva mision" onClose={()=>setForm(false)}>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <Inp val={titulo} set={setTitulo} ph="Titulo" icon="⚡"/>
+            <Inp val={desc}   set={setDesc}   ph="Descripcion (opcional)" icon="📝"/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <Inp val={rec} set={setRec} ph="Recompensa" type="number" icon="🪙"/>
               <select value={dif} onChange={e=>setDif(e.target.value)}
                 style={{background:"#F7F7F7",border:"1.5px solid #E8E8E8",borderRadius:14,
-                  color:"#1a1a1a",padding:"12px 14px",fontSize:14,outline:"none",fontWeight:700}}>
-                <option value="fácil">😊 Fácil</option>
-                <option value="media">😤 Media</option>
-                <option value="difícil">🔥 Difícil</option>
+                  color:"#1a1a1a",padding:"12px 14px",fontSize:13,outline:"none",fontWeight:700}}>
+                <option value="facil">Facil</option>
+                <option value="media">Media</option>
+                <option value="dificil">Dificil</option>
               </select>
             </div>
-            <PBtn label="Crear misión ✨" onClick={crear} full/>
+            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:2}}>Tipo de mision</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              {[["normal","📋 Normal"],["limitada","⏱ Tiempo"],["grupal","👥 Grupal"],["encadenada","🔗 Serie"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setTipo(v)}
+                  style={{background:tipo===v?TIPO_COL[v]:"#f0f0f0",color:tipo===v?"white":"#555",
+                    border:"none",borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:11,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
+              ))}
+            </div>
+            {tipo==="limitada"&&(
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input type="number" value={durVal} min="1"
+                  onChange={e=>setDurVal(e.target.value)}
+                  style={{width:60,border:"1.5px solid #e8e8e8",borderRadius:10,padding:"9px 10px",
+                    fontSize:14,fontWeight:800,outline:"none",color:"#ef4444",textAlign:"center",
+                    fontFamily:"Nunito,sans-serif"}}/>
+                <select value={durUnidad} onChange={e=>setDurUnidad(e.target.value)}
+                  style={{flex:1,background:"#f7f7f7",border:"1.5px solid #e8e8e8",borderRadius:10,
+                    padding:"9px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}>
+                  <option value="minutos">minutos</option>
+                  <option value="horas">horas</option>
+                  <option value="dias">dias</option>
+                </select>
+              </div>
+            )}
+            {tipo==="grupal"&&(
+              <Inp val={maxSub} set={setMaxSub} ph="Max. participantes (dejar vacio = ilimitado)" type="number" icon="👥"/>
+            )}
+            <PBtn label="Crear mision" onClick={crear} full/>
           </div>
         </Sheet>
       )}
@@ -3296,82 +3619,99 @@ function MAprobar({me,showToast}){
   const [subs,setSubs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [processing,setProcessing]=useState(null);
-  const [rejectSheet,setRejectSheet]=useState(null);
-  const [reason,setReason]=useState("");
+  const [feedbackSheet,setFeedbackSheet]=useState(null); // {id, action: 'approve'|'reject'}
+  const [feedback,setFeedback]=useState("");
 
-  useEffect(()=>{
-    api.submissions().then(setSubs).finally(()=>setLoading(false));
-  },[]);
+  useEffect(()=>{ api.submissions("pendiente").then(d=>setSubs(d.data||d||[])).finally(()=>setLoading(false)); },[]);
 
-  const approve=async(id)=>{
-    setProcessing(id);
+  const procesar=async()=>{
+    if(!feedbackSheet) return;
+    if(feedbackSheet.action==="reject"&&!feedback.trim()){showToast("Escribi el motivo","error");return;}
+    setProcessing(feedbackSheet.id);
     try{
-      await api.approve(id);
-      setSubs(prev=>prev.filter(s=>s.id!==id));
-      showToast("¡Misión aprobada y monedas acreditadas! ✅");
-    }catch(e){
-      showToast(e.message||"Error al aprobar","error");
-    }finally{setProcessing(null);}
-  };
-
-  const reject=async()=>{
-    if(!reason.trim()){showToast("Escribí un motivo","error");return;}
-    setProcessing(rejectSheet);
-    try{
-      await api.reject(rejectSheet,reason);
-      setSubs(prev=>prev.filter(s=>s.id!==rejectSheet));
-      setRejectSheet(null);setReason("");
-      showToast("Entrega rechazada");
-    }catch(e){
-      showToast(e.message||"Error","error");
-    }finally{setProcessing(null);}
+      if(feedbackSheet.action==="approve"){
+        await api.approve(feedbackSheet.id,{feedback:feedback.trim()||null});
+        showToast("Mision aprobada y monedas acreditadas!");
+      } else {
+        await api.reject(feedbackSheet.id,{feedback:feedback.trim(),reason:feedback.trim()});
+        showToast("Entrega rechazada");
+      }
+      setSubs(prev=>prev.filter(s=>s.id!==feedbackSheet.id));
+      setFeedbackSheet(null);setFeedback("");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setProcessing(null);}
   };
 
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando...</div>;
 
   return(
     <div>
-      <OHdr title="Aprobar entregas 📬" sub="EDUCOINS"/>
+      <OHdr title="Aprobar entregas" sub="EDUCOINS"/>
       <div style={{padding:"0 14px",marginTop:12}}>
         {subs.length===0&&(
           <WCard style={{textAlign:"center",padding:40}}>
             <div style={{fontSize:40}}>✨</div>
-            <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginTop:8}}>Todo al día</div>
+            <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginTop:8}}>Todo al dia</div>
             <div style={{color:"#aaa",fontSize:13,marginTop:4}}>Sin entregas pendientes</div>
           </WCard>
         )}
         {subs.map(s=>(
-          <WCard key={s.id} style={{marginBottom:12,borderTop:"3px solid #f59e0b"}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-              <div style={{width:44,height:44,borderRadius:"50%",background:"#f59e0b18",
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🧑‍🎓</div>
+          <WCard key={s.id} style={{marginBottom:12,borderTop:`3px solid ${DIFCOL[s.dificultad]||"#f59e0b"}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+              <Av user={{nombre:s.alumno_nombre,skin:s.skin,border:s.border}} sz={40}/>
               <div style={{flex:1}}>
                 <div style={{fontWeight:800,color:"#1a1a1a"}}>{s.alumno_nombre}</div>
                 <div style={{fontSize:12,color:"#00c1fc",fontWeight:700}}>{s.titulo}</div>
+                {s.tipo&&s.tipo!=="normal"&&(
+                  <span style={{fontSize:10,color:"#8b5cf6",fontWeight:800}}>{s.tipo}</span>
+                )}
               </div>
               <span style={{fontWeight:900,color:"#00c1fc",fontSize:15}}>🪙 {s.recompensa}</span>
             </div>
+            {s.feedback&&(
+              <div style={{background:"#f7f7f7",borderRadius:10,padding:"8px 12px",fontSize:12,
+                color:"#555",marginBottom:10,fontStyle:"italic"}}>
+                "{s.feedback}"
+              </div>
+            )}
             <div style={{display:"flex",gap:8}}>
-              <PBtn label={processing===s.id?"...":"✅ Aprobar"} onClick={()=>approve(s.id)}
-                disabled={processing===s.id} full color="#10b981" style={{flex:1}}/>
-              <PBtn label="❌ Rechazar" onClick={()=>{setRejectSheet(s.id);setReason("");}}
-                full color="#ef4444" style={{flex:1}}/>
+              <button onClick={()=>{setFeedbackSheet({id:s.id,action:"approve"});setFeedback("");}}
+                disabled={processing===s.id}
+                style={{flex:1,background:"#10b981",border:"none",borderRadius:50,color:"white",
+                  padding:"11px",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                Aprobar
+              </button>
+              <button onClick={()=>{setFeedbackSheet({id:s.id,action:"reject"});setFeedback("");}}
+                disabled={processing===s.id}
+                style={{flex:1,background:"#ef4444",border:"none",borderRadius:50,color:"white",
+                  padding:"11px",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                Rechazar
+              </button>
             </div>
           </WCard>
         ))}
       </div>
-      {rejectSheet&&(
-        <Sheet title="❌ Rechazar entrega" onClose={()=>setRejectSheet(null)}>
+      {feedbackSheet&&(
+        <Sheet title={feedbackSheet.action==="approve"?"Aprobar con feedback":"Rechazar entrega"}
+          onClose={()=>setFeedbackSheet(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Inp val={reason} set={setReason} ph="Motivo del rechazo..." icon="📝"/>
-            <PBtn label="Confirmar rechazo" onClick={reject} full color="#ef4444"/>
+            <textarea value={feedback} onChange={e=>setFeedback(e.target.value)}
+              placeholder={feedbackSheet.action==="approve"
+                ?"Comentario para el alumno (opcional)..."
+                :"Motivo del rechazo (requerido)..."}
+              rows={3} style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+                borderRadius:14,padding:"11px 14px",fontSize:13,outline:"none",resize:"none",
+                fontFamily:"Nunito,sans-serif"}}/>
+            <PBtn
+              label={feedbackSheet.action==="approve"?"Confirmar aprobacion":"Confirmar rechazo"}
+              onClick={procesar} full
+              color={feedbackSheet.action==="approve"?"#10b981":"#ef4444"}/>
           </div>
         </Sheet>
       )}
     </div>
   );
 }
-
 function MPerfilSimple({me,logout}){
   return(
     <div>
@@ -4551,34 +4891,48 @@ function AdminAulas({showToast, onBack}){
 // ════════════════════════════════════════════════════════════
 function AdminConfig({me, logout}){
   const ROL_LABEL={admin:"Administrador",teacher:"Docente",student:"Alumno"};
+  const [checkinCfg,setCheckinCfg]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const [toast,showToast]=useToast();
+
+  useEffect(()=>{ api.checkinConfig().then(d=>setCheckinCfg(d.data||d)).catch(()=>{}); },[]);
+
+  const saveCheckin=async()=>{
+    setSaving(true);
+    try{
+      await api.checkinConfigUpdate(checkinCfg);
+      showToast("Configuracion guardada");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
   const infoItems=[
-    {icon:"👤", label:"Nombre",     value:me.nombre},
-    {icon:"📧", label:"Correo",     value:me.email},
-    {icon:"🔑", label:"Rol",        value:ROL_LABEL[me.rol]||me.rol},
+    {icon:"👤", label:"Nombre",      value:me.nombre},
+    {icon:"📧", label:"Correo",      value:me.email},
+    {icon:"🔑", label:"Rol",         value:ROL_LABEL[me.rol]||me.rol},
     {icon:"🆔", label:"ID de cuenta",value:me.id?.slice(0,8)+"..."},
-    {icon:"🌐", label:"Versión",    value:"Aubank v1.0"},
-    {icon:"🏫", label:"Sistema",    value:"EduCoins — Economía Escolar"},
+    {icon:"🌐", label:"Version",     value:"Aubank v1.0"},
+    {icon:"🏫", label:"Sistema",     value:"EduCoins Economia Escolar"},
   ];
 
   return(
     <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
-      {/* Header */}
+      <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{background:"#00c1fc",position:"sticky",top:0,zIndex:50,
         padding:"22px 20px 40px",color:"white",overflow:"hidden",
         textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
         <div style={{position:"absolute",width:200,height:200,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-60,right:-40,pointerEvents:"none"}}/>
-        <div style={{fontWeight:900,fontSize:22}}>⚙️ Configuración</div>
+        <div style={{fontWeight:900,fontSize:22}}>Config</div>
         <div style={{fontSize:13,opacity:.85,marginTop:2}}>Panel de administrador</div>
       </div>
 
       <div style={{padding:"0 14px 24px",marginTop:-20}}>
-        {/* Card avatar + nombre */}
+        {/* Card avatar */}
         <div style={{background:"white",borderRadius:20,padding:"20px 16px",
           marginBottom:12,boxShadow:"0 1px 8px rgba(0,0,0,.06)",textAlign:"center"}}>
           <div style={{width:72,height:72,borderRadius:"50%",background:"#00c1fc22",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:36,margin:"0 auto 10px"}}>👨‍💼</div>
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,margin:"0 auto 10px"}}>👨‍💼</div>
           <div style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>{me.nombre}</div>
           <div style={{fontSize:12,color:"#777",marginTop:2}}>{me.email}</div>
           <div style={{display:"inline-block",marginTop:8,background:"#00c1fc22",
@@ -4586,6 +4940,50 @@ function AdminConfig({me, logout}){
             {ROL_LABEL[me.rol]}
           </div>
         </div>
+
+        {/* Check-in config */}
+        {checkinCfg&&(
+          <div style={{background:"white",borderRadius:20,padding:"16px",
+            marginBottom:12,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a",marginBottom:12}}>
+              🔥 Configuracion Check-in Diario
+            </div>
+            {[
+              {key:"base_reward",label:"Monedas base por dia",icon:"🪙"},
+              {key:"bonus_3days",label:"Bonus racha 3 dias",icon:"🥉"},
+              {key:"bonus_7days",label:"Bonus racha 7 dias",icon:"🥈"},
+              {key:"bonus_30days",label:"Bonus racha 30 dias",icon:"🥇"},
+            ].map(f=>(
+              <div key={f.key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <span style={{fontSize:18,flexShrink:0}}>{f.icon}</span>
+                <div style={{flex:1,fontSize:12,fontWeight:700,color:"#333"}}>{f.label}</div>
+                <input type="number" min="0"
+                  value={checkinCfg[f.key]||0}
+                  onChange={e=>setCheckinCfg(c=>({...c,[f.key]:parseInt(e.target.value)||0}))}
+                  style={{width:70,border:"1.5px solid #e8e8e8",borderRadius:10,padding:"7px 10px",
+                    fontSize:14,fontWeight:800,outline:"none",color:"#00c1fc",textAlign:"center",
+                    fontFamily:"Nunito,sans-serif"}}/>
+              </div>
+            ))}
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12}}>
+              <span style={{fontSize:16}}>✅</span>
+              <div style={{flex:1,fontSize:12,fontWeight:700,color:"#333"}}>Check-in activo</div>
+              <button onClick={()=>setCheckinCfg(c=>({...c,activo:!c.activo}))}
+                style={{background:checkinCfg.activo?"#10b981":"#f0f0f0",
+                  color:checkinCfg.activo?"white":"#555",border:"none",borderRadius:99,
+                  padding:"6px 14px",fontWeight:800,fontSize:12,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                {checkinCfg.activo?"Activo":"Inactivo"}
+              </button>
+            </div>
+            <button onClick={saveCheckin} disabled={saving}
+              style={{width:"100%",background:saving?"#ccc":"#00c1fc",border:"none",
+                borderRadius:50,color:"white",padding:"12px",fontWeight:800,fontSize:14,
+                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              {saving?"Guardando...":"Guardar configuracion"}
+            </button>
+          </div>
+        )}
 
         {/* Info del sistema */}
         <div style={{background:"white",borderRadius:20,overflow:"hidden",
@@ -4602,38 +5000,18 @@ function AdminConfig({me, logout}){
           ))}
         </div>
 
-        {/* Links útiles */}
-        <div style={{background:"white",borderRadius:20,overflow:"hidden",
-          boxShadow:"0 1px 8px rgba(0,0,0,.06)",marginBottom:20}}>
-          {[
-            {icon:"🔒", label:"Cambiar contraseña", sub:"Próximamente"},
-            {icon:"📊", label:"Exportar datos",      sub:"Próximamente"},
-            {icon:"🛡️", label:"Permisos del sistema",sub:"Próximamente"},
-          ].map((item,i,arr)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:12,
-              padding:"13px 16px",borderBottom:i<arr.length-1?"1px solid #f0f0f0":"none",
-              opacity:.5}}>
-              <span style={{fontSize:18,flexShrink:0}}>{item.icon}</span>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,color:"#1a1a1a",fontWeight:700}}>{item.label}</div>
-                <div style={{fontSize:11,color:"#aaa"}}>{item.sub}</div>
-              </div>
-              <span style={{color:"#ddd",fontSize:16}}>›</span>
-            </div>
-          ))}
-        </div>
-
         {/* Cerrar sesión */}
         <button onClick={logout} style={{width:"100%",background:"#fee2e2",border:"none",
           borderRadius:16,color:"#ef4444",padding:"14px",fontWeight:900,fontSize:15,
           cursor:"pointer",fontFamily:"Nunito,sans-serif",
           boxShadow:"0 2px 8px rgba(239,68,68,.2)"}}>
-          🚪 Cerrar sesión
+          Cerrar sesion
         </button>
       </div>
     </div>
   );
 }
+
 
 // ════════════════════════════════════════════════════════════
 // ADMIN — TIENDA CUSTOM (precios, items, activar/desactivar)
