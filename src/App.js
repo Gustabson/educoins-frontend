@@ -91,6 +91,18 @@ const api = {
   commentReplies: (pid, cid)              => apiFetch(`/polls/${pid}/comments/${cid}/replies`),
   reactComment:   (pid, cid, tipo)        => apiFetch(`/polls/${pid}/comments/${cid}/react`, { method:"POST", body:{tipo} }),
   deleteComment:  (pid, cid)              => apiFetch(`/polls/${pid}/comments/${cid}`, { method:"DELETE" }),
+  // ── Personalización ───────────────────────────────────────
+  customShop:     (tipo)     => apiFetch(`/custom/shop${tipo?`?tipo=${tipo}`:""}`),
+  customMe:       ()         => apiFetch("/custom/me"),
+  customUser:     (id)       => apiFetch(`/custom/user/${id}`),
+  customBuy:      (item_id)  => apiFetch("/custom/buy",    { method:"POST", body:{item_id} }),
+  customEquip:    (tipo,item_id) => apiFetch("/custom/equip",{ method:"POST", body:{tipo,item_id} }),
+  customGift:     (data)     => apiFetch("/custom/gift",   { method:"POST", body:data }),
+  customGifts:    ()         => apiFetch("/custom/gifts"),
+  customGiftRead: (id)       => apiFetch(`/custom/gifts/${id}/read`, { method:"PATCH" }),
+  customAdminItems:  ()      => apiFetch("/custom/admin/items"),
+  customAdminCreate: (data)  => apiFetch("/custom/admin/items",       { method:"POST",  body:data }),
+  customAdminUpdate: (id,d)  => apiFetch(`/custom/admin/items/${id}`, { method:"PATCH", body:d }),
   // ── Chat ──────────────────────────────────────────────────
   chatGlobalInfo:    ()             => apiFetch("/chat/global/info"),
   chatGlobalMsgs:    ()             => apiFetch("/chat/global/messages"),
@@ -499,6 +511,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="perfil"     && <APerfil     me={me} balance={balance} logout={logout} showToast={showToast} setMe={setMe} dark={dark}/>}
         {tab==="ranking"    && <ARanking    dark={dark}/>}
         {tab==="opciones"   && <AOpciones   me={me} logout={logout} dark={dark} notifs={notifs}/>}
+        {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark} onBack={()=>navTo("home")}/>}
         {tab==="chat"       && <AChat       me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="noticias"   && <ANoticias   me={me} dark={dark} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
@@ -693,10 +706,11 @@ function AHome({me,balance,onNav,dark,setDark,badges={}}){
       <div style={{padding:"14px 14px 8px",background:dark?"#12101e":"#F5F5F5",minHeight:"60vh",transition:"background .3s"}}>
         <div style={{fontWeight:900,color:txt,fontSize:15,marginBottom:10,transition:"color .3s"}}>Accesos rápidos</div>
         {[
-          ["💬","Chat",      "Personal · Aula · Global",  "#3b82f6","chat",    badges.chat],
-          ["📰","Noticias",  "Novedades de la escuela",   "#10b981","noticias",0],
-          ["🗳️","Votaciones","Participá en encuestas",    "#8b5cf6","votaciones",0],
-          ["🚩","Reportes",  "Enviá un reporte",          "#f59e0b","reportes", 0],
+          ["💬","Chat",          "Personal · Aula · Global",    "#3b82f6","chat",        badges.chat],
+          ["📰","Noticias",      "Novedades de la escuela",     "#10b981","noticias",    0],
+          ["🗳️","Votaciones",    "Participá en encuestas",      "#8b5cf6","votaciones",  0],
+          ["🎨","Personalizar",  "Temas, emojis y más",         "#f59e0b","personalizar",0],
+          ["🚩","Reportes",      "Enviá un reporte",            "#ef4444","reportes",    0],
         ].map(([ic,lb,sb,col,dest,badge])=>(
           <div key={lb} onClick={()=>onNav(dest)}
             style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",
@@ -1354,6 +1368,269 @@ function AMovimientos({dark=false}){
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// TIENDA DE PERSONALIZACIÓN
+// ════════════════════════════════════════════════════════════
+function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack}){
+  const [sec,setSec]     = useState("temas");    // temas|colores|emojis|efectos
+  const [items,setItems] = useState([]);
+  const [owned,setOwned] = useState([]);
+  const [active,setActive]= useState(null);
+  const [gifts,setGifts] = useState([]);
+  const [loading,setLoading]=useState(true);
+  const [buying,setBuying]=useState(null);
+  const [giftOpen,setGiftOpen]=useState(null); // item para regalar
+  const [giftTo,setGiftTo]=useState("");
+  const [giftMsg,setGiftMsg]=useState("");
+
+  const cardBg = dark?"#1e1b2e":"white";
+  const txt    = dark?"#e0e0e0":"#1a1a1a";
+  const sub    = dark?"#888":"#555";
+  const bg     = dark?"#12101e":"#F0F0F0";
+  const accent = dark?"#c084fc":"#00c1fc";
+  const inputBg= dark?"#2d2a45":"#F7F7F7";
+  const inputBd= dark?"#3d3a55":"#E8E8E8";
+
+  const TIPO_MAP={temas:"theme",colores:"name_color",emojis:"emoji_pack",efectos:"title_effect,name_effect"};
+  const SECS=[["temas","🎨 Temas"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"]];
+
+  const loadAll=async()=>{
+    setLoading(true);
+    try{
+      const [shop,me2,g]=await Promise.all([api.customShop(),api.customMe(),api.customGifts()]);
+      setItems(Array.isArray(shop)?shop:shop.data||[]);
+      setOwned((me2.data||me2)?.owned||[]);
+      setActive((me2.data||me2)?.active||null);
+      setGifts((g.data||g||[]).filter(x=>!x.leido));
+    }catch(e){}
+    setLoading(false);
+  };
+  useEffect(()=>{ loadAll(); },[]);
+
+  const comprar=async(item)=>{
+    if(item.precio>balance){showToast("Saldo insuficiente","error");return;}
+    setBuying(item.id);
+    try{
+      await api.customBuy(item.id);
+      showToast(`Compraste: ${item.nombre} ✅`);
+      await refreshBalance();
+      await loadAll();
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setBuying(null);}
+  };
+
+  const equipar=async(tipo,item_id)=>{
+    const isActive = active?.[`${tipo}_id`]===item_id;
+    try{
+      const d=await api.customEquip(tipo, isActive?null:item_id);
+      setActive(d.data||d);
+      showToast(isActive?"Desequipado":"Equipado ✅");
+    }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  const regalar=async()=>{
+    if(!giftTo.trim()){showToast("Ingresá el ID del destinatario","error");return;}
+    try{
+      await api.customGift({to_user_id:giftTo.trim(),item_id:giftOpen.id,mensaje:giftMsg.trim()||null});
+      showToast(`Regalaste ${giftOpen.nombre}! 🎁`);
+      setGiftOpen(null);setGiftTo("");setGiftMsg("");
+    }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  const ownedIds=new Set(owned.map(o=>o.id));
+
+  const filteredItems=items.filter(i=>{
+    if(sec==="temas")   return i.tipo==="theme";
+    if(sec==="colores") return i.tipo==="name_color";
+    if(sec==="emojis")  return i.tipo==="emoji_pack";
+    if(sec==="efectos") return ["title_effect","name_effect","avatar_frame"].includes(i.tipo);
+    return true;
+  });
+
+  // Modal de regalo
+  if(giftOpen) return(
+    <div style={{background:bg,minHeight:"100vh"}}>
+      <OHdrA title="🎁 Regalar" dark={dark} onBack={()=>setGiftOpen(null)}/>
+      <div style={{padding:"16px 14px"}}>
+        <div style={{background:cardBg,borderRadius:20,padding:16,
+          boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+          <div style={{textAlign:"center",marginBottom:16}}>
+            <div style={{fontSize:48}}>{giftOpen.preview||"🎁"}</div>
+            <div style={{fontWeight:800,color:txt,fontSize:16}}>{giftOpen.nombre}</div>
+            <div style={{fontSize:12,color:sub,marginTop:2}}>
+              Regalás este item a otro alumno
+            </div>
+          </div>
+          <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:6}}>ID del destinatario</div>
+          <input value={giftTo} onChange={e=>setGiftTo(e.target.value)}
+            placeholder="Pegá el ID del alumno..."
+            style={{width:"100%",boxSizing:"border-box",background:inputBg,border:`1.5px solid ${inputBd}`,
+              borderRadius:12,padding:"10px 14px",fontSize:13,outline:"none",color:txt,
+              fontFamily:"Nunito,sans-serif",fontWeight:600,marginBottom:8}}/>
+          <textarea value={giftMsg} onChange={e=>setGiftMsg(e.target.value)}
+            placeholder="Mensaje opcional..."
+            rows={2} style={{width:"100%",boxSizing:"border-box",background:inputBg,
+              border:`1.5px solid ${inputBd}`,borderRadius:12,padding:"10px 14px",fontSize:13,
+              outline:"none",color:txt,fontFamily:"Nunito,sans-serif",resize:"none",marginBottom:12}}/>
+          <button onClick={regalar} style={{width:"100%",background:accent,border:"none",
+            borderRadius:50,color:"white",padding:"13px",fontWeight:800,fontSize:14,
+            cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+            Enviar regalo 🎁
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{background:bg,minHeight:"100vh"}}>
+      <OHdrA title="🎨 Personalización" dark={dark} onBack={onBack}/>
+
+      {/* Regalos pendientes */}
+      {gifts.length>0&&(
+        <div style={{margin:"10px 14px 0",background:dark?"#2d1a4e":"#fff7ed",borderRadius:16,
+          padding:"12px 14px",border:`1.5px solid ${accent}44`}}>
+          <div style={{fontWeight:800,color:accent,fontSize:13,marginBottom:6}}>
+            🎁 {gifts.length} regalo{gifts.length!==1?"s":""} sin leer
+          </div>
+          {gifts.map(g=>(
+            <div key={g.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <span style={{fontSize:18}}>{g.item_preview||"🪙"}</span>
+              <div style={{flex:1}}>
+                <span style={{fontWeight:700,color:txt,fontSize:12}}>{g.from_nombre}</span>
+                <span style={{color:sub,fontSize:12}}> te regaló {g.item_nombre||`🪙${g.coins}`}</span>
+                {g.mensaje&&<div style={{fontSize:11,color:sub,fontStyle:"italic"}}>"{g.mensaje}"</div>}
+              </div>
+              <button onClick={()=>api.customGiftRead(g.id).then(loadAll)}
+                style={{background:"none",border:"none",color:accent,fontWeight:800,
+                  fontSize:11,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>OK</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div style={{display:"flex",background:cardBg,
+        borderBottom:`1px solid ${dark?"#2d2a45":"#eee"}`,margin:"10px 0 0"}}>
+        {SECS.map(([id,label])=>(
+          <button key={id} onClick={()=>setSec(id)}
+            style={{flex:1,padding:"10px 2px",background:"none",border:"none",
+              fontWeight:800,fontSize:11,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+              color:sec===id?accent:sub,
+              borderBottom:`2.5px solid ${sec===id?accent:"transparent"}`,
+              transition:"all .2s"}}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{padding:"10px 14px"}}>
+        {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
+
+        {filteredItems.map(item=>{
+          const isOwned   = ownedIds.has(item.id)||item.precio===0;
+          const isFree    = item.precio===0;
+          const isEquipped= active&&Object.values(active).includes(item.id);
+          const tipoMap   = {theme:"theme",name_color:"name_color",emoji_pack:"emoji_pack",
+                             title_effect:"title_effect",name_effect:"name_effect",avatar_frame:"avatar_frame"};
+
+          return(
+            <div key={item.id} style={{background:cardBg,borderRadius:18,marginBottom:10,
+              overflow:"hidden",boxShadow:isEquipped?`0 2px 12px ${accent}33`:"0 1px 8px rgba(0,0,0,.06)",
+              border:`1.5px solid ${isEquipped?accent:dark?"#2d2a45":"transparent"}`}}>
+
+              {/* Preview visual según tipo */}
+              {item.tipo==="theme"&&(
+                <div style={{height:40,background:`linear-gradient(135deg,${item.config.primary},${item.config.accent})`,
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>
+                  {item.config.icon||"🎨"}
+                </div>
+              )}
+              {item.tipo==="name_color"&&(
+                <div style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",
+                  background:dark?"#2d2a45":"#f8f8f8"}}>
+                  <span style={{fontWeight:900,fontSize:18,
+                    color:item.config.rainbow?"transparent":item.config.color,
+                    background:item.config.rainbow?"linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)":"none",
+                    WebkitBackgroundClip:item.config.rainbow?"text":"none",
+                    WebkitTextFillColor:item.config.rainbow?"transparent":"unset"}}>
+                    Tu Nombre
+                  </span>
+                </div>
+              )}
+              {item.tipo==="emoji_pack"&&(
+                <div style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",
+                  gap:4,background:dark?"#2d2a45":"#f8f8f8",fontSize:20}}>
+                  {(item.config.emojis||[]).slice(0,6).map((e,i)=><span key={i}>{e}</span>)}
+                </div>
+              )}
+              {["title_effect","name_effect"].includes(item.tipo)&&(
+                <div style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",
+                  background:dark?"#2d2a45":"#f8f8f8"}}>
+                  <span style={{fontWeight:900,fontSize:16,color:accent,
+                    textShadow:item.tipo==="title_effect"?item.config.css?.split(":")?.[1]?.trim():"none"}}>
+                    {item.config.label||item.nombre}
+                  </span>
+                </div>
+              )}
+
+              <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:14,color:txt}}>{item.nombre}</div>
+                  {item.descripcion&&<div style={{fontSize:11,color:sub,marginTop:1}}>{item.descripcion}</div>}
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
+                    {isFree
+                      ? <span style={{background:"#10b98122",color:"#10b981",borderRadius:99,
+                          padding:"2px 8px",fontSize:10,fontWeight:800}}>Gratis</span>
+                      : <span style={{fontWeight:800,color:accent,fontSize:13}}>🪙{item.precio}</span>
+                    }
+                    {isEquipped&&<span style={{background:accent+"22",color:accent,borderRadius:99,
+                      padding:"2px 8px",fontSize:10,fontWeight:800}}>✅ Activo</span>}
+                    {isOwned&&!isEquipped&&<span style={{background:"#10b98122",color:"#10b981",
+                      borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>Tenés</span>}
+                  </div>
+                </div>
+
+                <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                  {/* Equipar */}
+                  {isOwned&&(
+                    <button onClick={()=>equipar(tipoMap[item.tipo],item.id)}
+                      style={{background:isEquipped?"#ef444422":accent+"22",
+                        color:isEquipped?"#ef4444":accent,border:"none",borderRadius:99,
+                        padding:"6px 12px",fontSize:11,fontWeight:800,cursor:"pointer",
+                        fontFamily:"Nunito,sans-serif"}}>
+                      {isEquipped?"Quitar":"Equipar"}
+                    </button>
+                  )}
+                  {/* Comprar */}
+                  {!isOwned&&!isFree&&(
+                    <button onClick={()=>comprar(item)} disabled={buying===item.id||item.precio>balance}
+                      style={{background:buying===item.id?"#ccc":item.precio>balance?"#f0f0f0":accent,
+                        color:item.precio>balance?"#aaa":"white",border:"none",borderRadius:99,
+                        padding:"6px 12px",fontSize:11,fontWeight:800,cursor:"pointer",
+                        fontFamily:"Nunito,sans-serif"}}>
+                      {buying===item.id?"...":item.precio>balance?"Sin saldo":"Comprar"}
+                    </button>
+                  )}
+                  {/* Regalar (si lo tenés) */}
+                  {isOwned&&(
+                    <button onClick={()=>setGiftOpen(item)}
+                      style={{background:dark?"#2d2a45":"#f0f0f0",color:sub,border:"none",
+                        borderRadius:99,padding:"5px 10px",fontSize:10,fontWeight:700,
+                        cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      🎁 Regalar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -3140,6 +3417,7 @@ function Admin({me,logout}){
         {tab==="votaciones"&& <AdminVotaciones showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="reportes"  && <AdminReportes  showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="aulas"     && <AdminAulas     showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="custom"    && <AdminCustomShop showToast={showToast} onBack={()=>setTab("home")}/>}
       </div>
       {!hideNav&&(
       <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
@@ -3256,6 +3534,7 @@ function AdminHome({me,onNav,showToast}){
           {icon:"🗳️",title:"Votaciones",        sub:"Crear encuestas y ver resultados",          dest:"votaciones",col:"#8b5cf6"},
           {icon:"🚩",title:"Reportes",          sub:"Gestionar reportes de alumnos",             dest:"reportes",  col:"#ef4444"},
           {icon:"🏫",title:"Aulas",             sub:"Crear aulas y asignar miembros",            dest:"aulas",     col:"#f59e0b"},
+          {icon:"🎨",title:"Tienda Custom",     sub:"Temas, emojis, colores, efectos",           dest:"custom",    col:"#ec4899"},
           {icon:"📋",title:"Audit Log",         sub:"Historial de todas las acciones",           dest:"audit",     col:"#64748b"},
         ].map(item=>(
           <WCard key={item.dest} onClick={()=>onNav(item.dest)}
@@ -4351,6 +4630,155 @@ function AdminConfig({me, logout}){
           boxShadow:"0 2px 8px rgba(239,68,68,.2)"}}>
           🚪 Cerrar sesión
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ADMIN — TIENDA CUSTOM (precios, items, activar/desactivar)
+// ════════════════════════════════════════════════════════════
+function AdminCustomShop({showToast, onBack}){
+  const [items,setItems]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [editing,setEditing]=useState(null); // {id, precio, activo, nombre}
+  const [saving,setSaving]=useState(false);
+  const [sec,setSec]=useState("all");
+
+  const TIPO_LABEL={theme:"Tema",name_color:"Color nombre",emoji_pack:"Pack emoji",
+    title_effect:"Efecto titulo",name_effect:"Efecto nombre",avatar_frame:"Marco avatar"};
+
+  const load=()=>{
+    api.customAdminItems()
+      .then(d=>setItems(d.data||d||[]))
+      .catch(()=>[])
+      .finally(()=>setLoading(false));
+  };
+  useEffect(()=>{ load(); },[]);
+
+  const guardar=async()=>{
+    setSaving(true);
+    try{
+      await api.customAdminUpdate(editing.id,{
+        precio:parseInt(editing.precio)||0,
+        activo:editing.activo,
+        nombre:editing.nombre,
+      });
+      showToast("Guardado");
+      setEditing(null);
+      load();
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  const filtered=sec==="all"?items:items.filter(i=>i.tipo===sec);
+  const SECS=[["all","Todos"],["theme","Temas"],["name_color","Colores"],
+              ["emoji_pack","Emojis"],["title_effect","Efectos"],["name_effect","Animacion"]];
+
+  return(
+    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
+      <div style={{background:"#ec4899",color:"white",padding:"22px 16px 16px",
+        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,0,0,.3)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {"\u2190"}</button>
+          <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:20}}>
+            Tienda Custom
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,overflowX:"auto"}}>
+          {SECS.map(([v,l])=>(
+            <button key={v} onClick={()=>setSec(v)} style={{
+              background:sec===v?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
+              border:"1.5px solid "+(sec===v?"rgba(255,255,255,.7)":"rgba(255,255,255,.2)"),
+              borderRadius:99,padding:"4px 11px",fontSize:10,fontWeight:800,color:"white",
+              cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Nunito,sans-serif",flexShrink:0}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Modal edicion */}
+      {editing&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
+          display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          onClick={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
+          <div style={{background:"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
+            padding:"20px 20px 40px"}}>
+            <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 16px"}}/>
+            <div style={{fontWeight:800,fontSize:16,color:"#1a1a1a",marginBottom:14}}>
+              Editar: {editing.nombre}
+            </div>
+            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:4}}>Nombre</div>
+            <input value={editing.nombre} onChange={e=>setEditing(ed=>({...ed,nombre:e.target.value}))}
+              style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+                padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",marginBottom:12}}/>
+            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:4}}>Precio (monedas)</div>
+            <input type="number" value={editing.precio} min="0"
+              onChange={e=>setEditing(ed=>({...ed,precio:e.target.value}))}
+              style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+                padding:"10px 14px",fontSize:16,fontWeight:800,outline:"none",
+                fontFamily:"Nunito,sans-serif",color:"#ec4899",marginBottom:12}}/>
+            <div style={{display:"flex",gap:10,marginBottom:16}}>
+              {[true,false].map(v=>(
+                <button key={v?1:0} onClick={()=>setEditing(ed=>({...ed,activo:v}))}
+                  style={{flex:1,background:editing.activo===v?(v?"#10b981":"#ef4444"):"#f0f0f0",
+                    color:editing.activo===v?"white":"#555",border:"none",borderRadius:12,
+                    padding:"10px",fontWeight:800,fontSize:13,cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif"}}>
+                  {v?"Activo":"Inactivo"}
+                </button>
+              ))}
+            </div>
+            <button onClick={guardar} disabled={saving}
+              style={{width:"100%",background:saving?"#ccc":"#ec4899",border:"none",
+                borderRadius:50,color:"white",padding:"13px",fontWeight:800,fontSize:14,
+                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              {saving?"Guardando...":"Guardar cambios"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{padding:"12px 14px"}}>
+        {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
+        {filtered.map(item=>(
+          <div key={item.id} style={{background:"white",borderRadius:16,marginBottom:8,
+            overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",
+            opacity:item.activo?1:.5}}>
+            {item.tipo==="theme"&&(
+              <div style={{height:8,background:`linear-gradient(90deg,${item.config.primary||"#00c1fc"},${item.config.accent||"#00c1fc"})`}}/>
+            )}
+            {item.tipo==="name_color"&&(
+              <div style={{height:8,background:item.config.rainbow
+                ?"linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)"
+                :item.config.color||"#00c1fc"}}/>
+            )}
+            <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+              <div style={{fontSize:24,flexShrink:0}}>{item.preview||"🎨"}</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{item.nombre}</div>
+                <div style={{display:"flex",gap:6,marginTop:3,alignItems:"center"}}>
+                  <span style={{background:"#f0f0f0",borderRadius:99,padding:"2px 7px",
+                    fontSize:9,fontWeight:800,color:"#666"}}>{TIPO_LABEL[item.tipo]||item.tipo}</span>
+                  <span style={{fontWeight:800,fontSize:12,color:"#ec4899"}}>
+                    {item.precio===0?"Gratis":`🪙${item.precio}`}
+                  </span>
+                  <span style={{fontSize:10,color:"#aaa"}}>{item.total_vendidos||0} vendidos</span>
+                </div>
+              </div>
+              <button onClick={()=>setEditing({...item})}
+                style={{background:"#f0f0f0",border:"none",borderRadius:10,
+                  padding:"7px 12px",fontSize:12,fontWeight:800,cursor:"pointer",
+                  color:"#555",fontFamily:"Nunito,sans-serif",flexShrink:0}}>
+                Editar
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
