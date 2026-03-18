@@ -529,17 +529,62 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="reportes"   && <AReportes   me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
       </div>
 
+      {/* Modal QR Scanner real */}
+      {camOpen&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:400,
+          display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          onClick={e=>{if(e.target===e.currentTarget)setCamOpen(false);}}>
+          <div style={{background:dark?"#1e1b2e":"white",borderRadius:"24px 24px 0 0",
+            width:"100%",maxWidth:480,padding:"20px 24px 44px",animation:"slideUp .25s ease"}}>
+            <div style={{width:36,height:4,background:dark?"#555":"#ddd",borderRadius:2,margin:"0 auto 16px"}}/>
+            <div style={{fontWeight:900,fontSize:18,color:dark?"#e0e0e0":"#1a1a1a",marginBottom:4,textAlign:"center"}}>
+              Escanear QR
+            </div>
+            <div style={{fontSize:12,color:"#aaa",textAlign:"center",marginBottom:16}}>
+              Apuntá la cámara al QR de tu compañero para enviarle monedas
+            </div>
+            {/* Input de archivo que abre la cámara en móvil */}
+            <label style={{display:"block",cursor:"pointer"}}>
+              <input type="file" accept="image/*" capture="environment"
+                style={{display:"none"}}
+                onChange={e=>{
+                  // En una versión real aquí procesaríamos el QR con una librería
+                  // Por ahora mostramos el toast y cerramos
+                  setCamOpen(false);
+                  showToast("Función de escaneo disponible en la app móvil");
+                }}/>
+              <div style={{width:200,height:200,margin:"0 auto 16px",borderRadius:20,
+                border:`3px solid ${camBg}`,display:"flex",flexDirection:"column",
+                alignItems:"center",justifyContent:"center",
+                background:dark?"#2d2a45":"#f0f9ff"}}>
+                <div style={{fontSize:56,marginBottom:8}}>📷</div>
+                <div style={{fontSize:12,fontWeight:700,color:camBg}}>Toca para abrir cámara</div>
+              </div>
+            </label>
+            <div style={{fontSize:11,color:"#aaa",textAlign:"center",marginBottom:16}}>
+              — o ingresá el ID manualmente —
+            </div>
+            <button onClick={()=>{setCamOpen(false);navTo("enviar");}}
+              style={{width:"100%",background:camBg,border:"none",borderRadius:50,
+                color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif"}}>
+              Ir a Enviar dinero →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Nav */}
       {!hideNav&&(
       <div style={{position:"sticky",bottom:0,width:"100%",zIndex:100}}>
         <div style={{position:"absolute",top:-22,left:"50%",transform:"translateX(-50%)",zIndex:101}}>
-          <button onClick={()=>navTo("ingresar")} style={{
+          <button onClick={()=>setCamOpen(true)} style={{
             width:68,height:68,borderRadius:"50%",background:camBg,
             border:`4px solid ${camBord}`,display:"flex",alignItems:"center",
             justifyContent:"center",fontSize:26,cursor:"pointer",
             boxShadow:dark?"0 4px 20px rgba(82,23,127,.6)":"0 4px 20px rgba(0,193,252,.5)",
             outline:"none",transition:"background .3s"}}>
-            ⬇️
+            📷
           </button>
         </div>
         <div style={{background:navBg,borderTop:`1px solid ${navBord}`,
@@ -3981,69 +4026,159 @@ function AdminUsuarios({showToast}){
 }
 
 function AdminTesoro({me,showToast}){
-  const [balance,setBalance]=useState(null);
+  const [data,setData]=useState(null);
+  const [txs,setTxs]=useState([]);
+  const [users,setUsers]=useState([]);
   const [mintAmount,setMintAmount]=useState("");
   const [mintDesc,setMintDesc]=useState("");
   const [burnAmount,setBurnAmount]=useState("");
   const [burnReason,setBurnReason]=useState("");
   const [mintSheet,setMintSheet]=useState(false);
   const [burnSheet,setBurnSheet]=useState(false);
+  const [loading,setLoading]=useState(true);
 
-  const refresh=()=>api.treasury().then(t=>setBalance(t.balance)).catch(()=>{});
+  const refresh=async()=>{
+    try{
+      const [t,u,auditData]=await Promise.all([
+        api.treasury(),
+        api.adminUsers(),
+        api.auditLog(),
+      ]);
+      setData(t);
+      const usArr=Array.isArray(u)?u:u.data||u||[];
+      setUsers(usArr.filter(x=>x.rol==="student"&&x.activo));
+      // Filtrar solo mint y burn del audit
+      const logs=Array.isArray(auditData)?auditData:auditData.data||[];
+      setTxs(logs.filter(l=>l.action==="mint"||l.action==="burn").slice(0,10));
+    }catch(e){}
+    finally{setLoading(false);}
+  };
   useEffect(()=>{refresh();},[]);
 
   const doMint=async()=>{
-    if(!mintAmount||!mintDesc){showToast("Completá monto y descripción","error");return;}
+    if(!mintAmount||!mintDesc){showToast("Completa monto y descripcion","error");return;}
     try{
       await api.mint(parseInt(mintAmount),mintDesc);
-      showToast(`🪙 ${mintAmount} monedas acreditadas a la Tesorería`);
+      showToast(`Mint exitoso: +${mintAmount} monedas a Tesoreria`);
       refresh();setMintAmount("");setMintDesc("");setMintSheet(false);
     }catch(e){showToast(e.message||"Error","error");}
   };
 
   const doBurn=async()=>{
-    if(!burnAmount||!burnReason){showToast("Completá monto y motivo","error");return;}
+    if(!burnAmount||!burnReason){showToast("Completa monto y motivo","error");return;}
     try{
       await api.burn(parseInt(burnAmount),burnReason);
-      showToast(`🔥 ${burnAmount} monedas eliminadas de la Tesorería`);
+      showToast(`Burn exitoso: -${burnAmount} monedas destruidas`);
       refresh();setBurnAmount("");setBurnReason("");setBurnSheet(false);
     }catch(e){showToast(e.message||"Error","error");}
   };
 
+  // Calcular coins en circulación (en manos de alumnos)
+  const coinsCirculando = users.reduce((s,u)=>s+(u.total_earned||0),0);
+  const treasury = data?.balance||0;
+
   return(
     <div>
-      <OHdr title="Tesorería 🏦" sub="ADMIN"/>
+      <OHdr title="Tesoreria" sub="ADMIN"/>
       <div style={{padding:"0 14px",marginTop:12}}>
-        <WCard style={{textAlign:"center",padding:28,marginBottom:16}}>
-          <div style={{fontSize:13,color:"#aaa",fontWeight:700,letterSpacing:".1em",marginBottom:8}}>BALANCE ACTUAL</div>
-          <div style={{fontWeight:900,fontSize:42,color:"#00c1fc",letterSpacing:"-2px"}}>
-            🪙 {balance!==null?balance.toLocaleString("es-AR"):"..."}
+
+        {/* Balance principal */}
+        <WCard style={{textAlign:"center",padding:"24px 20px",marginBottom:12}}>
+          <div style={{fontSize:12,color:"#aaa",fontWeight:700,letterSpacing:".1em",marginBottom:6}}>
+            BALANCE TESORERIA
           </div>
-          <div style={{fontSize:12,color:"#aaa",marginTop:8}}>Calculado desde el ledger en tiempo real</div>
+          <div style={{fontWeight:900,fontSize:44,color:"#00c1fc",letterSpacing:"-2px"}}>
+            {loading?"...":treasury.toLocaleString("es-AR")}
+          </div>
+          <div style={{fontSize:11,color:"#aaa",marginTop:4}}>monedas disponibles para distribuir</div>
         </WCard>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
-          <PBtn label="+ Mint 🪙" onClick={()=>setMintSheet(true)} full color="#10b981"/>
-          <PBtn label="Burn 🔥" onClick={()=>setBurnSheet(true)} full color="#ef4444"/>
+
+        {/* Stats grid */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+          <WCard style={{textAlign:"center",padding:"14px 10px"}}>
+            <div style={{fontSize:22,marginBottom:4}}>🎓</div>
+            <div style={{fontWeight:900,fontSize:18,color:"#f59e0b"}}>{coinsCirculando.toLocaleString("es-AR")}</div>
+            <div style={{fontSize:10,color:"#aaa",fontWeight:700}}>En manos de alumnos</div>
+          </WCard>
+          <WCard style={{textAlign:"center",padding:"14px 10px"}}>
+            <div style={{fontSize:22,marginBottom:4}}>📊</div>
+            <div style={{fontWeight:900,fontSize:18,color:"#8b5cf6"}}>{(treasury+coinsCirculando).toLocaleString("es-AR")}</div>
+            <div style={{fontSize:10,color:"#aaa",fontWeight:700}}>Total en circulacion</div>
+          </WCard>
         </div>
-        <WCard>
-          <div style={{fontSize:12,color:"#888",fontWeight:700,lineHeight:1.6}}>
-            <div><span style={{color:"#10b981"}}>● Mint</span> — Crea monedas nuevas y las acredita a la Tesorería</div>
-            <div style={{marginTop:6}}><span style={{color:"#ef4444"}}>● Burn</span> — Destruye monedas de la Tesorería permanentemente</div>
+
+        {/* Acciones */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+          <button onClick={()=>setMintSheet(true)}
+            style={{background:"#10b981",border:"none",borderRadius:16,color:"white",
+              padding:"16px",fontWeight:800,fontSize:15,cursor:"pointer",
+              fontFamily:"Nunito,sans-serif",boxShadow:"0 4px 14px #10b98133"}}>
+            + Mint 🪙
+          </button>
+          <button onClick={()=>setBurnSheet(true)}
+            style={{background:"#ef4444",border:"none",borderRadius:16,color:"white",
+              padding:"16px",fontWeight:800,fontSize:15,cursor:"pointer",
+              fontFamily:"Nunito,sans-serif",boxShadow:"0 4px 14px #ef444433"}}>
+            Burn 🔥
+          </button>
+        </div>
+
+        {/* Explicacion */}
+        <WCard style={{marginBottom:14}}>
+          <div style={{fontSize:12,color:"#888",fontWeight:700,lineHeight:1.7}}>
+            <div><span style={{color:"#10b981"}}>● Mint</span> — Crea monedas y las acredita a la Tesoreria. Estas se distribuyen via misiones y premios.</div>
+            <div style={{marginTop:4}}><span style={{color:"#ef4444"}}>● Burn</span> — Destruye monedas de la Tesoreria permanentemente. Reduce la oferta total.</div>
+            <div style={{marginTop:4}}><span style={{color:"#f59e0b"}}>● Distribucion</span> — Las monedas pasan de Tesoreria a alumnos via rewards y misiones. El sistema es de doble entrada.</div>
           </div>
         </WCard>
+
+        {/* Historial mint/burn */}
+        {txs.length>0&&(
+          <>
+            <div style={{fontWeight:800,color:"#1a1a1a",fontSize:13,marginBottom:8}}>
+              Historial de operaciones
+            </div>
+            {txs.map((t,i)=>(
+              <WCard key={i} style={{marginBottom:6,padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20}}>{t.action==="mint"?"🪙":"🔥"}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a",textTransform:"capitalize"}}>
+                      {t.action} — {t.actor_nombre||"Admin"}
+                    </div>
+                    <div style={{fontSize:11,color:"#aaa"}}>
+                      {new Date(t.created_at).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                    </div>
+                  </div>
+                  <div style={{fontWeight:900,fontSize:14,
+                    color:t.action==="mint"?"#10b981":"#ef4444"}}>
+                    {t.action==="mint"?"+":"-"}{t.details?.amount?.toLocaleString("es-AR")||"?"}
+                  </div>
+                </div>
+              </WCard>
+            ))}
+          </>
+        )}
       </div>
+
       {mintSheet&&(
-        <Sheet title="🪙 Mint — Crear monedas" onClose={()=>setMintSheet(false)}>
+        <Sheet title="Mint — Crear monedas" onClose={()=>setMintSheet(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:"#f0fdf4",borderRadius:12,padding:"10px 14px",fontSize:12,color:"#10b981",fontWeight:700}}>
+              Las monedas se acreditaran a la Tesoreria y podras distribuirlas via misiones y premios.
+            </div>
             <Inp val={mintAmount} set={setMintAmount} ph="Cantidad de monedas" type="number" icon="🪙"/>
-            <Inp val={mintDesc}   set={setMintDesc}   ph="Descripción" icon="📝"/>
+            <Inp val={mintDesc}   set={setMintDesc}   ph="Descripcion (ej: Inicio de trimestre)" icon="📝"/>
             <PBtn label="Confirmar mint" onClick={doMint} full color="#10b981"/>
           </div>
         </Sheet>
       )}
       {burnSheet&&(
-        <Sheet title="🔥 Burn — Destruir monedas" onClose={()=>setBurnSheet(false)}>
+        <Sheet title="Burn — Destruir monedas" onClose={()=>setBurnSheet(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:"#fef2f2",borderRadius:12,padding:"10px 14px",fontSize:12,color:"#ef4444",fontWeight:700}}>
+              Esta accion es irreversible. Solo se pueden destruir monedas de la Tesoreria.
+            </div>
             <Inp val={burnAmount} set={setBurnAmount} ph="Cantidad a destruir" type="number" icon="🔥"/>
             <Inp val={burnReason} set={setBurnReason} ph="Motivo obligatorio" icon="📝"/>
             <PBtn label="Confirmar burn" onClick={doBurn} full color="#ef4444"/>

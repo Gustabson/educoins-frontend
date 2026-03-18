@@ -9,7 +9,10 @@
       "Bash(cp \"/c/Users/GustavoS/Downloads/app \\(1\\).js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/app.js\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(grep -E \"^App\\\\.js$|^checkin\\\\.js$|010_fixes\")",
+      "Bash(grep -iE \"^App\\\\.js$|^checkin\\\\.js$|010_fixes\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/010_fixes.sql\")"
     ]
   }
 }
