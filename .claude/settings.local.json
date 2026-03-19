@@ -20,7 +20,8 @@
       "Bash(grep -iE \"^App\\\\.js$|^admin\\\\.js$|^store\\\\.js$|^profile\\\\.js$|^auth\\\\.js$|^ledger\\\\.js$|010_fixes\")",
       "Bash(cp \"/c/Users/GustavoS/Downloads/profile.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/profile.js\")",
       "Bash(cp \"/c/Users/GustavoS/Downloads/auth.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/auth.js\")",
-      "Bash(cp \"/c/Users/GustavoS/Downloads/ledger.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/services/ledger.js\")"
+      "Bash(cp \"/c/Users/GustavoS/Downloads/ledger.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/services/ledger.js\")",
+      "Bash(grep -iE \"^App\\\\.js$|^admin\\\\.js$\")"
     ]
   }
 }

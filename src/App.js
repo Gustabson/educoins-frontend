@@ -501,6 +501,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
                 : n.type==="mission_approved" ? `Mision aprobada! +🪙${n.amount}`
                 : n.type==="checkin"       ? `Check-in dia ${n.racha}! +🪙${n.recompensa}`
                 : n.type==="gift"          ? `Regalo de ${n.from}! 🎁`
+                : n.type==="tax"           ? `Impuesto: -🪙${n.amount} — ${n.motivo||""}`
                 : "Nueva notificacion";
       showToast(msg);
       if(["reward","transfer","checkin","gift"].includes(n.type)) refreshBalance();
@@ -638,11 +639,20 @@ function AOpciones({me,logout,dark=false,notifs=[]}){
   const accent=dark?"#c084fc":"#00c1fc";
   const noLeidas=notifs.filter(n=>!n.leida).length;
 
-  const NOTIF_ICON={reward:"🪙",transfer:"💸",chat_personal:"💬"};
+  const NOTIF_ICON={
+    reward:"🪙", transfer:"💸", chat_personal:"💬",
+    mission_approved:"✅", mission_rejected:"❌",
+    checkin:"🔥", gift:"🎁", tax:"⚖️",
+  };
   const NOTIF_TEXT={
-    reward:  n=>`Recibiste 🪙${n.amount} — ${n.description||""}`,
-    transfer:n=>`Te enviaron 🪙${n.amount}`,
-    chat_personal: n=>`Nuevo mensaje de ${n.from||"alguien"}`,
+    reward:       n=>`Recibiste 🪙${n.amount} — ${n.description||""}`,
+    transfer:     n=>`Te enviaron 🪙${n.amount}`,
+    chat_personal:n=>`Nuevo mensaje de ${n.from||"alguien"}`,
+    mission_approved:n=>`Mision aprobada! +🪙${n.amount||""}${n.feedback?` — "${n.feedback}"`:""}`,
+    mission_rejected:n=>`Necesita mejoras: ${n.feedback||""}`,
+    checkin:      n=>`Check-in dia ${n.racha}! +🪙${n.recompensa||""}`,
+    gift:         n=>`Regalo de ${n.from||"alguien"}! 🎁`,
+    tax:          n=>`Impuesto aplicado: -🪙${n.amount} — ${n.motivo||""}`,
   };
 
   return(
@@ -1552,10 +1562,25 @@ function AMovimientos({dark=false}){
 }
 
 // ── Panel de Apodo ────────────────────────────────────────────
-function ApodoPanel({me,owned,dark,showToast,onRefresh,cardBg,txt,sub,accent,inputBg,inputBd}){
+function ApodoPanel({me,owned,items,balance,dark,showToast,onRefresh,onRefreshBalance,cardBg,txt,sub,accent,inputBg,inputBd}){
   const hasPermiso = owned.some(o=>o.tipo==="nickname");
+  const nicknameItem = items.find(i=>i.tipo==="nickname");
   const [apodoVal, setApodoVal] = useState(me.apodo||"");
   const [saving, setSaving] = useState(false);
+  const [buying, setBuying] = useState(false);
+
+  const comprar=async()=>{
+    if(!nicknameItem){showToast("Item no disponible","error");return;}
+    if(balance<nicknameItem.precio){showToast("Saldo insuficiente","error");return;}
+    setBuying(true);
+    try{
+      await api.customBuy(nicknameItem.id);
+      showToast("Permiso de apodo desbloqueado!");
+      await onRefreshBalance();
+      onRefresh();
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setBuying(false);}
+  };
 
   const guardar=async()=>{
     if(!apodoVal.trim()){showToast("Escribe un apodo","error");return;}
@@ -1567,6 +1592,7 @@ function ApodoPanel({me,owned,dark,showToast,onRefresh,cardBg,txt,sub,accent,inp
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSaving(false);}
   };
+
   const borrar=async()=>{
     setSaving(true);
     try{
@@ -1579,18 +1605,32 @@ function ApodoPanel({me,owned,dark,showToast,onRefresh,cardBg,txt,sub,accent,inp
   };
 
   if(!hasPermiso) return(
-    <div style={{background:cardBg,borderRadius:20,padding:28,textAlign:"center",
+    <div style={{background:cardBg,borderRadius:20,padding:24,
       boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-      <div style={{fontSize:44,marginBottom:10}}>🏷️</div>
-      <div style={{fontWeight:800,fontSize:16,color:txt,marginBottom:6}}>Cambio de Apodo</div>
-      <div style={{fontSize:12,color:sub,lineHeight:1.6,marginBottom:16}}>
-        Con un apodo todos te veran por ese nombre en el chat, ranking y perfil.
-        Tu nombre real no cambia. Comprá el permiso para activarlo.
+      <div style={{textAlign:"center",marginBottom:16}}>
+        <div style={{fontSize:48,marginBottom:8}}>🏷️</div>
+        <div style={{fontWeight:800,fontSize:16,color:txt,marginBottom:6}}>Cambio de Apodo</div>
+        <div style={{fontSize:12,color:sub,lineHeight:1.6}}>
+          Elegis como te ven todos en el chat, ranking y perfil.
+          Tu nombre real no cambia.
+        </div>
       </div>
-      <div style={{background:accent+"18",borderRadius:12,padding:"10px 16px",
-        fontSize:12,color:accent,fontWeight:700}}>
-        Precio: 🪙300 — Compralo en la sección Apodo de la tienda
-      </div>
+      {nicknameItem?(
+        <button onClick={comprar} disabled={buying||balance<nicknameItem.precio}
+          style={{width:"100%",background:buying||balance<nicknameItem.precio?"#ccc":accent,
+            border:"none",borderRadius:50,color:"white",padding:"14px",fontWeight:900,
+            fontSize:15,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+            boxShadow:`0 4px 14px ${accent}44`}}>
+          {buying?"Comprando...":balance<nicknameItem.precio
+            ?`Sin saldo (necesitas 🪙${nicknameItem.precio})`
+            :`Comprar por 🪙${nicknameItem.precio}`}
+        </button>
+      ):(
+        <div style={{background:dark?"#2d2a45":"#f0f0f0",borderRadius:12,padding:"12px 16px",
+          fontSize:12,color:sub,textAlign:"center"}}>
+          El administrador aun no habilitó este item en la tienda
+        </div>
+      )}
     </div>
   );
 
@@ -1604,7 +1644,7 @@ function ApodoPanel({me,owned,dark,showToast,onRefresh,cardBg,txt,sub,accent,inp
       {me.apodo&&(
         <div style={{background:accent+"18",borderRadius:12,padding:"10px 14px",
           marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontWeight:900,fontSize:16,color:accent}}>{me.apodo}</span>
+          <span style={{fontWeight:900,fontSize:18,color:accent}}>{me.apodo}</span>
           <span style={{fontSize:11,color:sub}}>— tu apodo actual</span>
         </div>
       )}
@@ -1794,7 +1834,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack}){
         {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
 
         {/* Sección especial de apodo */}
-        {sec==="apodo"&&!loading&&<ApodoPanel me={me} owned={owned} dark={dark} showToast={showToast} onRefresh={loadAll} cardBg={cardBg} txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}/>}
+        {sec==="apodo"&&!loading&&<ApodoPanel me={me} owned={owned} items={items} balance={balance} dark={dark} showToast={showToast} onRefresh={loadAll} onRefreshBalance={refreshBalance} cardBg={cardBg} txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}/>}
 
         {sec!=="apodo"&&filteredItems.map(item=>{
           const isOwned   = ownedIds.has(item.id)||item.precio===0;
@@ -1914,12 +1954,12 @@ function ANotificaciones({me,dark,onBack,notifs=[],setNotifs}){
 
   const NOTIF_ICON={
     reward:"🪙",transfer:"💸",chat_personal:"💬",mission_approved:"✅",
-    mission_rejected:"❌",checkin:"🔥",gift:"🎁",new_submission:"📬",
+    mission_rejected:"❌",checkin:"🔥",gift:"🎁",new_submission:"📬",tax:"⚖️",
   };
   const NOTIF_COLOR={
     reward:"#10b981",transfer:"#3b82f6",chat_personal:"#00c1fc",
     mission_approved:"#10b981",mission_rejected:"#ef4444",
-    checkin:"#f59e0b",gift:"#ec4899",new_submission:"#8b5cf6",
+    checkin:"#f59e0b",gift:"#ec4899",new_submission:"#8b5cf6",tax:"#f97316",
   };
 
   useEffect(()=>{
@@ -4911,25 +4951,44 @@ function AdminBanco({me,showToast,onBack}){
         {/* ── HISTORIAL ── */}
         {sec==="historial"&&(
           <>
+            <div style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:10,
+              boxShadow:"0 1px 8px rgba(0,0,0,.06)",fontSize:11,color:"#555",lineHeight:1.6}}>
+              💡 Toca el icono 📋 de cualquier transaccion para copiar su ID y usarlo en "Revertir".
+            </div>
             {historial.length===0&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Sin historial todavia</div>}
-            {historial.map((h,i)=>(
-              <div key={i} style={{background:"white",borderRadius:14,padding:"12px 14px",
-                marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,.05)",
-                display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:20}}>{h.details?.tax?"⚖️":"🏛️"}</span>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:700,fontSize:12,color:"#1a1a1a"}}>
-                    {h.target_nombre||h.details?.to||"Usuarios"}
-                  </div>
-                  <div style={{fontSize:10,color:"#aaa"}}>
-                    {new Date(h.created_at).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+            {historial.map((h,i)=>{
+              const txId = h.details?.transaction_id||h.id||"";
+              return(
+                <div key={i} style={{background:"white",borderRadius:14,padding:"12px 14px",
+                  marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:20}}>{h.details?.tax?"⚖️":"🏛️"}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:12,color:"#1a1a1a"}}>
+                        → {h.target_nombre||"Varios usuarios"}
+                      </div>
+                      <div style={{fontSize:10,color:"#aaa"}}>
+                        {new Date(h.created_at).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                      </div>
+                      {txId&&(
+                        <div style={{display:"flex",alignItems:"center",gap:4,marginTop:3}}>
+                          <span style={{fontSize:9,color:"#bbb",fontFamily:"monospace"}}>
+                            {txId.slice(0,18)}...
+                          </span>
+                          <button onClick={()=>{
+                            navigator.clipboard?.writeText(txId);
+                            showToast("ID copiado");
+                          }} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:2}}>📋</button>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{fontWeight:900,fontSize:13,color:h.details?.tax?"#f97316":"#10b981",textAlign:"right"}}>
+                      {h.details?.tax?"-":"+"} 🪙{h.details?.amount||"?"}
+                    </div>
                   </div>
                 </div>
-                <div style={{fontWeight:900,fontSize:13,color:h.details?.tax?"#f97316":"#10b981"}}>
-                  {h.details?.tax?"-":"+"} 🪙{h.details?.amount||"?"}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </>
         )}
       </div>
@@ -4937,6 +4996,106 @@ function AdminBanco({me,showToast,onBack}){
   );
 }
 
+
+// ── StoreItemForm — componente propio para evitar re-mount bug ─
+function StoreItemForm({creating, editing, onClose, onSaved, showToast}){
+  const [fNombre,setFNombre] = useState(editing?.nombre||"");
+  const [fDesc,setFDesc]     = useState(editing?.descripcion||"");
+  const [fPrecio,setFPrecio] = useState(editing?String(editing.precio):"");
+  const [fStock,setFStock]   = useState(editing?.stock===-1?"":String(editing?.stock||""));
+  const [fIcon,setFIcon]     = useState(editing?.icon||"🎁");
+  const [fImagen,setFImagen] = useState(editing?.imagen_url||"");
+  const [fMensaje,setFMensaje]=useState(editing?.mensaje_oculto||"");
+  const [fActivo,setFActivo] = useState(editing?.activo!==false);
+  const [saving,setSaving]   = useState(false);
+
+  const handleImg=(e)=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=ev=>setFImagen(ev.target.result);
+    r.readAsDataURL(f);
+  };
+
+  const guardar=async()=>{
+    if(!fNombre.trim()||!fPrecio){showToast("Nombre y precio requeridos","error");return;}
+    setSaving(true);
+    const body={
+      nombre:fNombre.trim(), descripcion:fDesc.trim(),
+      precio:parseInt(fPrecio)||0, stock:fStock?parseInt(fStock):-1,
+      icon:fIcon, imagen_url:fImagen||null,
+      mensaje_oculto:fMensaje.trim()||null, activo:fActivo,
+    };
+    try{
+      if(creating) await api.createItem(body);
+      else await api.updateItem(editing.id,body);
+      showToast(creating?"Item creado ✅":"Item actualizado ✅");
+      onSaved();
+    }catch(e){showToast(e.message||"Error al guardar","error");}
+    finally{setSaving(false);}
+  };
+
+  return(
+    <Sheet title={creating?"Nuevo item":fNombre} onClose={onClose}>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+          <input value={fIcon} onChange={e=>setFIcon(e.target.value)} maxLength={4}
+            style={{width:54,border:"1.5px solid #e8e8e8",borderRadius:12,padding:"10px",
+              fontSize:22,textAlign:"center",outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+          <div style={{flex:1}}><Inp val={fNombre} set={setFNombre} ph="Nombre del item"/></div>
+        </div>
+        <Inp val={fDesc} set={setFDesc} ph="Descripcion visible" icon="📝"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Inp val={fPrecio} set={setFPrecio} ph="Precio 🪙" type="number"/>
+          <Inp val={fStock}  set={setFStock}  ph="Stock (vacio=∞)" type="number"/>
+        </div>
+        <div>
+          <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>📸 Imagen (opcional)</div>
+          {fImagen&&(
+            <div style={{position:"relative",marginBottom:8}}>
+              <img src={fImagen} alt="" style={{width:"100%",height:100,objectFit:"cover",borderRadius:10}}/>
+              <button onClick={()=>setFImagen("")}
+                style={{position:"absolute",top:5,right:5,background:"rgba(0,0,0,.6)",border:"none",
+                  borderRadius:"50%",color:"white",width:26,height:26,cursor:"pointer",fontSize:13,
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            </div>
+          )}
+          <label style={{display:"block",cursor:"pointer"}}>
+            <input type="file" accept="image/*" onChange={handleImg} style={{display:"none"}}/>
+            <div style={{border:"1.5px dashed #ddd",borderRadius:10,padding:"10px",
+              textAlign:"center",fontSize:12,color:"#aaa",fontWeight:700}}>
+              {fImagen?"📸 Cambiar imagen":"📱 Subir imagen del celular"}
+            </div>
+          </label>
+        </div>
+        <div>
+          <div style={{fontWeight:700,fontSize:12,color:"#8b5cf6",marginBottom:6}}>
+            🔒 Mensaje oculto (solo visible al comprar)
+          </div>
+          <textarea value={fMensaje} onChange={e=>setFMensaje(e.target.value)} rows={3}
+            placeholder="Contraseña, codigo, instruccion secreta..."
+            style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e0d4ff",
+              borderRadius:10,padding:"9px 12px",fontSize:12,outline:"none",resize:"none",
+              fontFamily:"Nunito,sans-serif",color:"#1a1a1a",background:"#faf5ff"}}/>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>setFActivo(a=>!a)}
+            style={{background:fActivo?"#10b981":"#f0f0f0",color:fActivo?"white":"#555",
+              border:"none",borderRadius:99,padding:"7px 14px",fontWeight:800,fontSize:12,
+              cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+            {fActivo?"Activo":"Inactivo"}
+          </button>
+          <span style={{fontSize:11,color:"#aaa"}}>Los inactivos no aparecen en la tienda</span>
+        </div>
+        <button onClick={guardar} disabled={saving}
+          style={{background:saving?"#ccc":"#00c1fc",border:"none",borderRadius:50,
+            color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:"pointer",
+            fontFamily:"Nunito,sans-serif"}}>
+          {saving?"Guardando...":creating?"Crear item":"Guardar cambios"}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
 
 function AdminTienda({showToast}){
   const [items,setItems]=useState([]);
