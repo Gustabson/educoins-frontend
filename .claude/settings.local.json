@@ -15,7 +15,12 @@
       "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/010_fixes.sql\")",
       "Bash(grep -iE \"^App\\\\.js$|^admin\\\\.js$|^store\\\\.js$|010_fixes\")",
       "Bash(cp \"/c/Users/GustavoS/Downloads/admin.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/admin.js\")",
-      "Bash(cp \"/c/Users/GustavoS/Downloads/store.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/store.js\")"
+      "Bash(cp \"/c/Users/GustavoS/Downloads/store.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/store.js\")",
+      "Bash(grep \"^store\\\\.js$\")",
+      "Bash(grep -iE \"^App\\\\.js$|^admin\\\\.js$|^store\\\\.js$|^profile\\\\.js$|^auth\\\\.js$|^ledger\\\\.js$|010_fixes\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/profile.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/profile.js\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/auth.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/routes/auth.js\")",
+      "Bash(cp \"/c/Users/GustavoS/Downloads/ledger.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/services/ledger.js\")"
     ]
   }
 }

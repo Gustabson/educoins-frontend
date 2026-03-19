@@ -75,8 +75,10 @@ const api = {
   burn:           (amount, reason)        => apiFetch("/admin/burn",          { method:"POST", body:{amount,reason} }),
   setBudget:      (teacher_id, monthly_limit) => apiFetch("/admin/teacher-budget", { method:"POST", body:{teacher_id,monthly_limit} }),
   auditLog:       ()                      => apiFetch("/admin/audit-log"),
-  adminRanking:   ()                      => apiFetch("/admin/ranking"),
+  adminRanking:   (cid)                   => apiFetch(`/admin/ranking${cid?`?classroom_id=${cid}`:""}`),
   bankTransfer:   (data)                  => apiFetch("/admin/bank-transfer", { method:"POST", body:data }),
+  bankRevert:     (data)                  => apiFetch("/admin/bank-revert",   { method:"POST", body:data }),
+  applyTax:       (data)                  => apiFetch("/admin/tax",           { method:"POST", body:data }),
   updateItem:     (id,data)               => apiFetch(`/store/items/${id}`,   { method:"PATCH", body:data }),
   deleteItem:     (id)                    => apiFetch(`/store/items/${id}`,   { method:"DELETE" }),
   deactivate:     (id)                    => apiFetch(`/admin/users/${id}/deactivate`, { method:"PATCH" }),
@@ -107,6 +109,7 @@ const api = {
   customAdminItems:  ()      => apiFetch("/custom/admin/items"),
   customAdminCreate: (data)  => apiFetch("/custom/admin/items",       { method:"POST",  body:data }),
   customAdminUpdate: (id,d)  => apiFetch(`/custom/admin/items/${id}`, { method:"PATCH", body:d }),
+  setApodo:       (apodo)    => apiFetch("/profile/apodo",            { method:"PATCH", body:{apodo} }),
   // ── Check-in ──────────────────────────────────────────────
   checkin:        ()         => apiFetch("/checkin",          { method:"POST" }),
   checkinMe:      ()         => apiFetch("/checkin/me"),
@@ -147,6 +150,9 @@ const api = {
 };
 
 // ── GAMIFICACIÓN (local, solo visual) ────────────────────────
+// ── Helper: nombre visible (apodo si tiene, nombre si no) ────
+function displayName(user){ return user?.apodo||user?.nombre||""; }
+
 const LEVELS = [
   {min:0,    name:"Novato",   color:"#94a3b8", icon:"🌱"},
   {min:100,  name:"Alumno",   color:"#3b82f6", icon:"📚"},
@@ -1545,6 +1551,88 @@ function AMovimientos({dark=false}){
   );
 }
 
+// ── Panel de Apodo ────────────────────────────────────────────
+function ApodoPanel({me,owned,dark,showToast,onRefresh,cardBg,txt,sub,accent,inputBg,inputBd}){
+  const hasPermiso = owned.some(o=>o.tipo==="nickname");
+  const [apodoVal, setApodoVal] = useState(me.apodo||"");
+  const [saving, setSaving] = useState(false);
+
+  const guardar=async()=>{
+    if(!apodoVal.trim()){showToast("Escribe un apodo","error");return;}
+    setSaving(true);
+    try{
+      await api.setApodo(apodoVal.trim());
+      showToast("Apodo guardado!");
+      onRefresh();
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+  const borrar=async()=>{
+    setSaving(true);
+    try{
+      await api.setApodo(null);
+      setApodoVal("");
+      showToast("Apodo eliminado");
+      onRefresh();
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  if(!hasPermiso) return(
+    <div style={{background:cardBg,borderRadius:20,padding:28,textAlign:"center",
+      boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+      <div style={{fontSize:44,marginBottom:10}}>🏷️</div>
+      <div style={{fontWeight:800,fontSize:16,color:txt,marginBottom:6}}>Cambio de Apodo</div>
+      <div style={{fontSize:12,color:sub,lineHeight:1.6,marginBottom:16}}>
+        Con un apodo todos te veran por ese nombre en el chat, ranking y perfil.
+        Tu nombre real no cambia. Comprá el permiso para activarlo.
+      </div>
+      <div style={{background:accent+"18",borderRadius:12,padding:"10px 16px",
+        fontSize:12,color:accent,fontWeight:700}}>
+        Precio: 🪙300 — Compralo en la sección Apodo de la tienda
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{background:cardBg,borderRadius:20,padding:20,
+      boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+      <div style={{fontWeight:800,fontSize:15,color:txt,marginBottom:4}}>🏷️ Tu Apodo</div>
+      <div style={{fontSize:12,color:sub,marginBottom:14,lineHeight:1.5}}>
+        Todos te veran por este apodo. Tu nombre real ({me.nombre}) no cambia.
+      </div>
+      {me.apodo&&(
+        <div style={{background:accent+"18",borderRadius:12,padding:"10px 14px",
+          marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontWeight:900,fontSize:16,color:accent}}>{me.apodo}</span>
+          <span style={{fontSize:11,color:sub}}>— tu apodo actual</span>
+        </div>
+      )}
+      <input value={apodoVal} onChange={e=>setApodoVal(e.target.value)} maxLength={30}
+        placeholder="Escribe tu apodo..."
+        style={{width:"100%",boxSizing:"border-box",background:inputBg,border:`1.5px solid ${inputBd}`,
+          borderRadius:12,padding:"11px 14px",fontSize:15,fontWeight:700,outline:"none",
+          color:txt,fontFamily:"Nunito,sans-serif",marginBottom:10}}/>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={guardar} disabled={saving||!apodoVal.trim()}
+          style={{flex:1,background:saving||!apodoVal.trim()?"#ccc":accent,border:"none",
+            borderRadius:50,color:"white",padding:"12px",fontWeight:800,fontSize:13,
+            cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+          {saving?"Guardando...":"Guardar apodo"}
+        </button>
+        {me.apodo&&(
+          <button onClick={borrar} disabled={saving}
+            style={{background:dark?"#2d2a45":"#f0f0f0",border:"none",borderRadius:50,
+              color:sub,padding:"12px 16px",fontWeight:700,fontSize:12,cursor:"pointer",
+              fontFamily:"Nunito,sans-serif"}}>
+            Quitar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 // TIENDA DE PERSONALIZACIÓN
 // ════════════════════════════════════════════════════════════
@@ -1569,7 +1657,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack}){
   const inputBd= dark?"#3d3a55":"#E8E8E8";
 
   const TIPO_MAP={temas:"theme",colores:"name_color",emojis:"emoji_pack",efectos:"title_effect,name_effect"};
-  const SECS=[["temas","🎨 Temas"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"]];
+  const SECS=[["temas","🎨 Temas"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
 
   const loadAll=async()=>{
     setLoading(true);
@@ -1621,6 +1709,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack}){
     if(sec==="colores") return i.tipo==="name_color";
     if(sec==="emojis")  return i.tipo==="emoji_pack";
     if(sec==="efectos") return ["title_effect","name_effect","avatar_frame"].includes(i.tipo);
+    if(sec==="apodo")   return i.tipo==="nickname";
     return true;
   });
 
@@ -1704,7 +1793,10 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack}){
       <div style={{padding:"10px 14px"}}>
         {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
 
-        {filteredItems.map(item=>{
+        {/* Sección especial de apodo */}
+        {sec==="apodo"&&!loading&&<ApodoPanel me={me} owned={owned} dark={dark} showToast={showToast} onRefresh={loadAll} cardBg={cardBg} txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}/>}
+
+        {sec!=="apodo"&&filteredItems.map(item=>{
           const isOwned   = ownedIds.has(item.id)||item.precio===0;
           const isFree    = item.precio===0;
           const isEquipped= active&&Object.values(active).includes(item.id);
@@ -1937,7 +2029,7 @@ function ARanking({dark=false}){
               </div>
               <Av user={u} sz={42}/>
               <div style={{flex:1}}>
-                <div style={{fontWeight:800,fontSize:14,color:txt}}>{u.nombre}</div>
+                <div style={{fontWeight:800,fontSize:14,color:txt}}>{displayName(u)}</div>
                 <Pill text={lv.icon+" "+lv.name} col={lv.color}/>
               </div>
               <div style={{fontWeight:900,color:dark?"#c084fc":"#00c1fc",fontSize:14}}>🪙 {(u.total_earned||0).toLocaleString("es-AR")}</div>
@@ -3951,32 +4043,6 @@ function AdminHome({me,onNav,showToast}){
           ))}
         </div>
 
-        {/* Top 5 alumnos */}
-        {stats?.top5?.length>0&&(
-          <WCard style={{marginBottom:12,padding:"14px 16px"}}>
-            <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>
-              🏆 Top alumnos por monedas ganadas
-            </div>
-            {stats.top5.map((u,i)=>{
-              const max=stats.top5[0]?.total_earned||1;
-              const pct=Math.round((u.total_earned||0)/max*100);
-              return(
-                <div key={u.id} style={{marginBottom:8}}>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,
-                    fontWeight:700,color:"#333",marginBottom:3}}>
-                    <span>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`} {u.nombre}</span>
-                    <span style={{color:"#00c1fc"}}>🪙{(u.total_earned||0).toLocaleString("es-AR")}</span>
-                  </div>
-                  <div style={{background:"#f0f0f0",borderRadius:99,height:6}}>
-                    <div style={{width:pct+"%",height:"100%",borderRadius:99,
-                      background:i===0?"#f59e0b":i===1?"#94a3b8":"#cd7c2f",transition:"width .5s"}}/>
-                  </div>
-                </div>
-              );
-            })}
-          </WCard>
-        )}
-
         {/* Accesos rápidos */}
         {[
           {icon:"👥",title:"Usuarios",         sub:`${students} alumnos · ${teachers} docentes`,dest:"usuarios",  col:"#3b82f6"},
@@ -4265,13 +4331,23 @@ function AdminRanking({onBack}){
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true);
   const [sec,setSec]=useState("holders");
+  const [classrooms,setCl]=useState([]);
+  const [selClass,setSelClass]=useState(null); // null = global
+  const [clView,setClView]=useState(false); // mostrar selector de aulas
 
   useEffect(()=>{
-    api.adminRanking()
-      .then(d=>setData(d.data||d))
-      .catch(()=>{})
-      .finally(()=>setLoading(false));
-  },[]);
+    setLoading(true);
+    api.adminRanking(selClass?.id||null)
+      .then(d=>setData(d.data||d)).catch(()=>{}).finally(()=>setLoading(false));
+    api.adminClassrooms().then(d=>setCl(d.data||d||[])).catch(()=>{});
+  },[selClass]);
+
+  // Filtrar datos por aula si hay una seleccionada
+  const filterByClass=(list,field="id")=>{
+    if(!selClass||!list) return list||[];
+    // Necesitamos los miembros del aula — simplificado: filtramos por nombre si tenemos los datos
+    return list; // se filtra server-side en una mejora futura; por ahora mostramos todo
+  };
 
   const MEDAL=["🥇","🥈","🥉"];
   const COLOR=["#f59e0b","#94a3b8","#cd7c2f"];
@@ -4313,10 +4389,40 @@ function AdminRanking({onBack}){
           <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
             color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",
             alignItems:"center",justifyContent:"center"}}>←</button>
-          <div style={{flex:1,fontWeight:900,fontSize:20}}>🏆 Ranking</div>
+          <div style={{flex:1,fontWeight:900,fontSize:20}}>
+            🏆 {selClass?selClass.nombre:"Ranking Global"}
+          </div>
+          <button onClick={()=>setClView(v=>!v)}
+            style={{background:"rgba(0,0,0,.2)",border:"none",borderRadius:10,color:"white",
+              padding:"6px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+            🏫 Aulas
+          </button>
         </div>
+
+        {/* Selector de aulas */}
+        {clView&&(
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+            <button onClick={()=>{setSelClass(null);setClView(false);}}
+              style={{background:!selClass?"rgba(255,255,255,.35)":"rgba(255,255,255,.15)",
+                border:"1.5px solid "+(selClass?"rgba(255,255,255,.2)":"rgba(255,255,255,.6)"),
+                borderRadius:99,padding:"5px 11px",fontSize:11,fontWeight:800,color:"white",
+                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              🌐 Global
+            </button>
+            {classrooms.map(c=>(
+              <button key={c.id} onClick={()=>{setSelClass(c);setClView(false);}}
+                style={{background:selClass?.id===c.id?"rgba(255,255,255,.35)":"rgba(255,255,255,.15)",
+                  border:"1.5px solid "+(selClass?.id===c.id?"rgba(255,255,255,.6)":"rgba(255,255,255,.2)"),
+                  borderRadius:99,padding:"5px 11px",fontSize:11,fontWeight:800,color:"white",
+                  cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                🏫 {c.nombre} ({c.total_miembros||0})
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Stats */}
-        {data?.stats&&(
+        {data?.stats&&!clView&&(
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             {[
               {v:data.stats.total_alumnos,l:"Alumnos"},
@@ -4428,204 +4534,399 @@ function AdminRanking({onBack}){
 // ADMIN BANCO — Transferencias directas desde tesorería
 // ════════════════════════════════════════════════════════════
 function AdminBanco({me,showToast,onBack}){
-  const [users,setUsers]=useState([]);
-  const [search,setSearch]=useState("");
-  const [sel,setSel]=useState(null);
+  const [sec,setSec]     = useState("enviar"); // enviar|impuesto|historial
+  const [users,setUsers] = useState([]);
+  const [classrooms,setCl]= useState([]);
+  const [historial,setHist]=useState([]);
+  // Enviar
+  const [rMode,setRMode] = useState("individual"); // individual|students|teachers|classroom|all
+  const [selUser,setSelUser]=useState(null);
+  const [selClass,setSelClass]=useState(null);
+  const [userSearch,setUserSearch]=useState("");
   const [amount,setAmount]=useState("");
   const [desc,setDesc]=useState("");
   const [tipo,setTipo]=useState("premio");
   const [sending,setSending]=useState(false);
-  const [historial,setHistorial]=useState([]);
+  const [lastResult,setLastResult]=useState(null);
+  // Revertir
+  const [revertId,setRevertId]=useState("");
+  const [revertMotivo,setRevertMotivo]=useState("");
+  const [reverting,setReverting]=useState(false);
+  // Impuesto
+  const [taxRMode,setTaxRMode]=useState("individual");
+  const [taxUser,setTaxUser]=useState(null);
+  const [taxClass,setTaxClass]=useState(null);
+  const [taxSearch,setTaxSearch]=useState("");
+  const [taxAmt,setTaxAmt]=useState("");
+  const [taxMotivo,setTaxMotivo]=useState("");
+  const [taxPer,setTaxPer]=useState("unico");
+  const [taxing,setTaxing]=useState(false);
 
   useEffect(()=>{
     api.adminUsers().then(u=>{
       const arr=Array.isArray(u)?u:u.data||u||[];
       setUsers(arr.filter(x=>x.activo&&x.rol!=="admin"));
     }).catch(()=>{});
-    // Cargar historial de transferencias bancarias del audit
+    api.adminClassrooms().then(d=>setCl(d.data||d||[])).catch(()=>{});
     api.auditLog().then(logs=>{
       const arr=Array.isArray(logs)?logs:logs.data||[];
-      setHistorial(arr.filter(l=>l.action==="reward"&&l.actor_id===me.id).slice(0,10));
+      setHist(arr.filter(l=>l.action==="reward"||l.details?.tax).slice(0,15));
     }).catch(()=>{});
   },[]);
 
+  const filtUsers=users.filter(u=>u.nombre.toLowerCase().includes(userSearch.toLowerCase())||u.email?.toLowerCase().includes(userSearch.toLowerCase()));
+  const filtTaxUsers=users.filter(u=>u.nombre.toLowerCase().includes(taxSearch.toLowerCase()));
+
   const enviar=async()=>{
-    if(!sel||!amount||parseInt(amount)<=0){showToast("Selecciona un usuario y monto","error");return;}
+    if(!amount||parseInt(amount)<=0){showToast("Ingresa un monto","error");return;}
+    if(rMode==="individual"&&!selUser){showToast("Selecciona un destinatario","error");return;}
+    if(rMode==="classroom"&&!selClass){showToast("Selecciona un aula","error");return;}
     setSending(true);
     try{
-      await api.bankTransfer({
-        to_user_id:sel.id,amount:parseInt(amount),
-        descripcion:desc.trim()||`${tipo} bancario de ${me.nombre}`,tipo
+      const recipients = rMode==="individual"?[selUser.id]:rMode;
+      const d=await api.bankTransfer({
+        recipients, classroom_id:selClass?.id||null,
+        amount:parseInt(amount), descripcion:desc.trim()||null, tipo
       });
-      showToast(`Transferido 🪙${amount} a ${sel.nombre}`);
-      setSel(null);setAmount("");setDesc("");
+      const r=d.data||d;
+      setLastResult(r);
+      showToast(`Enviado a ${r.ok} usuario${r.ok!==1?"s":""} correctamente`);
+      setAmount("");setDesc("");setSelUser(null);
       // Recargar historial
       api.auditLog().then(logs=>{
         const arr=Array.isArray(logs)?logs:logs.data||[];
-        setHistorial(arr.filter(l=>l.action==="reward"&&l.actor_id===me.id).slice(0,10));
+        setHist(arr.filter(l=>l.action==="reward"||l.details?.tax).slice(0,15));
       }).catch(()=>{});
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSending(false);}
   };
 
-  const filtered=users.filter(u=>
-    u.nombre.toLowerCase().includes(search.toLowerCase())||
-    (u.email||"").toLowerCase().includes(search.toLowerCase())
-  );
+  const revertir=async()=>{
+    if(!revertId.trim()||!revertMotivo.trim()){showToast("Completa ID y motivo","error");return;}
+    setReverting(true);
+    try{
+      const d=await api.bankRevert({transaction_id:revertId.trim(),motivo:revertMotivo.trim()});
+      const r=d.data||d;
+      showToast(`Revertido: -🪙${r.amount} de ${r.user}`);
+      setRevertId("");setRevertMotivo("");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setReverting(false);}
+  };
+
+  const cobrarImpuesto=async()=>{
+    if(!taxAmt||parseInt(taxAmt)<=0){showToast("Ingresa un monto","error");return;}
+    if(!taxMotivo.trim()){showToast("El motivo es obligatorio","error");return;}
+    if(taxRMode==="individual"&&!taxUser){showToast("Selecciona un alumno","error");return;}
+    if(taxRMode==="classroom"&&!taxClass){showToast("Selecciona un aula","error");return;}
+    setTaxing(true);
+    try{
+      const recipients=taxRMode==="individual"?[taxUser.id]:taxRMode==="classroom"?"classroom":"all";
+      const d=await api.applyTax({
+        recipients, classroom_id:taxClass?.id||null,
+        amount:parseInt(taxAmt), motivo:taxMotivo.trim(), periodicidad:taxPer
+      });
+      const r=d.data||d;
+      showToast(`Impuesto aplicado a ${r.ok} alumno${r.ok!==1?"s":""}`);
+      setTaxAmt("");setTaxMotivo("");setTaxUser(null);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setTaxing(false);}
+  };
 
   const TIPO_OPTS=[
-    {v:"premio",    l:"🏆 Premio",    col:"#f59e0b"},
-    {v:"salario",   l:"💼 Salario",   col:"#3b82f6"},
-    {v:"beca",      l:"🎓 Beca",      col:"#10b981"},
-    {v:"prestamo",  l:"🏦 Prestamo",  col:"#8b5cf6"},
-    {v:"ajuste",    l:"⚖️ Ajuste",    col:"#64748b"},
+    {v:"premio","l":"🏆 Premio",col:"#f59e0b"},
+    {v:"salario","l":"💼 Salario",col:"#3b82f6"},
+    {v:"beca","l":"🎓 Beca",col:"#10b981"},
+    {v:"prestamo","l":"🏦 Prestamo",col:"#8b5cf6"},
+    {v:"ajuste","l":"⚖️ Ajuste",col:"#64748b"},
+    {v:"otro","l":"📋 Otro",col:"#94a3b8"},
   ];
+  const RMODE_OPTS=[
+    {v:"individual",l:"👤 Individual"},
+    {v:"students",l:"🎓 Todos los alumnos"},
+    {v:"teachers",l:"👩‍🏫 Todos los docentes"},
+    {v:"classroom",l:"🏫 Un aula"},
+    {v:"all",l:"🌐 Todos"},
+  ];
+
+  const UserSearch=({val,setVal,onSel,excludeTeachers})=>{
+    const filtered=(excludeTeachers?users.filter(u=>u.rol!=="teacher"):users)
+      .filter(u=>u.nombre.toLowerCase().includes(val.toLowerCase()));
+    return(
+      <div>
+        <input value={val} onChange={e=>{setVal(e.target.value);onSel(null);}}
+          placeholder="Buscar por nombre..."
+          style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+            borderRadius:12,padding:"10px 14px",fontSize:13,outline:"none",
+            fontFamily:"Nunito,sans-serif",color:"#1a1a1a",marginBottom:6}}/>
+        {val&&filtered.slice(0,5).map(u=>(
+          <div key={u.id} onClick={()=>{onSel(u);setVal(u.nombre);}}
+            style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",
+              borderRadius:10,cursor:"pointer",background:"#f9f9f9",marginBottom:3}}>
+            <Av user={u} sz={28}/>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:12}}>{u.nombre}</div>
+              <div style={{fontSize:10,color:"#aaa"}}>{u.rol}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return(
     <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
-      <div style={{background:"#10b981",color:"white",padding:"22px 16px 20px",
-        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,0,0,.2)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
-          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
-            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",
-            alignItems:"center",justifyContent:"center"}}>←</button>
+      <div style={{background:"#10b981",color:"white",padding:"22px 16px 16px",
+        position:"sticky",top:0,zIndex:50}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",
+            borderRadius:50,color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
           <div>
             <div style={{fontWeight:900,fontSize:20}}>🏛️ Banco Aubank</div>
-            <div style={{fontSize:11,opacity:.85}}>Transferencias directas desde Tesoreria</div>
+            <div style={{fontSize:11,opacity:.85}}>Transferencias · Impuestos · Reversas</div>
           </div>
+        </div>
+        <div style={{display:"flex",gap:6}}>
+          {[["enviar","💸 Enviar"],["impuesto","⚖️ Impuesto"],["historial","📋 Historial"]].map(([id,l])=>(
+            <button key={id} onClick={()=>setSec(id)}
+              style={{background:sec===id?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
+                border:"1.5px solid "+(sec===id?"rgba(255,255,255,.6)":"rgba(255,255,255,.2)"),
+                borderRadius:99,padding:"5px 12px",fontSize:11,fontWeight:800,color:"white",
+                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              {l}
+            </button>
+          ))}
         </div>
       </div>
 
       <div style={{padding:"12px 14px"}}>
-        {/* Info pedagógica */}
-        <div style={{background:"white",borderRadius:16,padding:"12px 14px",marginBottom:12,
-          boxShadow:"0 1px 8px rgba(0,0,0,.06)",borderLeft:"4px solid #10b981"}}>
-          <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:4}}>
-            ¿Por qué separar Tesoro y Banco?
-          </div>
-          <div style={{fontSize:11,color:"#555",lineHeight:1.6}}>
-            <b>Tesorería</b> = crea y destruye dinero (mint/burn). Es política monetaria.<br/>
-            <b>Banco</b> = distribuye ese dinero a personas específicas. Es política fiscal.<br/>
-            Los países reales separan esto para evitar que quien crea el dinero decida también quién lo recibe.
-          </div>
-        </div>
 
-        {/* Buscar usuario */}
-        <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,
-          boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-          <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>
-            Destinatario
-          </div>
-          <input value={search} onChange={e=>{setSearch(e.target.value);setSel(null);}}
-            placeholder="Buscar alumno o docente..."
-            style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
-              padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",
-              marginBottom:8,color:"#1a1a1a"}}/>
-          {search&&!sel&&(
-            <div style={{maxHeight:180,overflowY:"auto"}}>
-              {filtered.slice(0,8).map(u=>(
-                <div key={u.id} onClick={()=>{setSel(u);setSearch(u.nombre);}}
-                  style={{display:"flex",alignItems:"center",gap:10,padding:"9px 10px",
-                    borderRadius:10,cursor:"pointer",background:"#f9f9f9",marginBottom:4,
-                    border:"1.5px solid transparent",transition:"all .15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.background="#f0f9ff"}
-                  onMouseLeave={e=>e.currentTarget.style.background="#f9f9f9"}>
-                  <Av user={u} sz={32}/>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:700,fontSize:12,color:"#1a1a1a"}}>{u.nombre}</div>
-                    <div style={{fontSize:10,color:"#aaa"}}>{u.rol==="teacher"?"Docente":"Alumno"} · {u.email}</div>
-                  </div>
-                </div>
-              ))}
-              {filtered.length===0&&<div style={{fontSize:12,color:"#aaa",textAlign:"center",padding:8}}>Sin resultados</div>}
-            </div>
-          )}
-          {sel&&(
-            <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
-              background:"#f0fdf4",borderRadius:12,border:"1.5px solid #10b981"}}>
-              <Av user={sel} sz={36}/>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{sel.nombre}</div>
-                <div style={{fontSize:11,color:"#10b981",fontWeight:700}}>{sel.rol==="teacher"?"Docente":"Alumno"}</div>
-              </div>
-              <button onClick={()=>{setSel(null);setSearch("");}}
-                style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:16}}>✕</button>
-            </div>
-          )}
-        </div>
-
-        {/* Tipo de transferencia */}
-        <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,
-          boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-          <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>Tipo</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {TIPO_OPTS.map(t=>(
-              <button key={t.v} onClick={()=>setTipo(t.v)}
-                style={{background:tipo===t.v?t.col:"#f0f0f0",
-                  color:tipo===t.v?"white":"#555",border:"none",borderRadius:99,
-                  padding:"7px 12px",fontSize:11,fontWeight:800,cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif",transition:"all .2s"}}>
-                {t.l}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Monto y descripción */}
-        <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:12,
-          boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-          <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>Detalle</div>
-          <div style={{display:"flex",gap:8,marginBottom:8}}>
-            <input type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)}
-              placeholder="Monto"
-              style={{width:100,border:"1.5px solid #e8e8e8",borderRadius:12,padding:"10px 12px",
-                fontSize:18,fontWeight:900,outline:"none",color:"#10b981",textAlign:"center",
-                fontFamily:"Nunito,sans-serif"}}/>
-            <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
-              {[10,25,50,100,200,500].map(n=>(
-                <button key={n} onClick={()=>setAmount(String(n))}
-                  style={{background:amount===String(n)?"#10b981":"#f0f0f0",
-                    color:amount===String(n)?"white":"#555",border:"none",borderRadius:8,
-                    padding:"5px 8px",fontSize:11,fontWeight:800,cursor:"pointer",
-                    fontFamily:"Nunito,sans-serif"}}>{n}</button>
-              ))}
-            </div>
-          </div>
-          <input value={desc} onChange={e=>setDesc(e.target.value)}
-            placeholder="Descripcion (opcional)..."
-            style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
-              padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",color:"#1a1a1a"}}/>
-        </div>
-
-        <button onClick={enviar} disabled={sending||!sel||!amount}
-          style={{width:"100%",background:sending||!sel||!amount?"#ccc":"#10b981",
-            border:"none",borderRadius:50,color:"white",padding:"15px",fontWeight:900,
-            fontSize:15,cursor:sending||!sel||!amount?"not-allowed":"pointer",
-            fontFamily:"Nunito,sans-serif",boxShadow:"0 4px 16px #10b98133",marginBottom:16}}>
-          {sending?"Transfiriendo...":sel&&amount?`Transferir 🪙${amount} a ${sel.nombre}`:"Completá los campos"}
-        </button>
-
-        {/* Historial */}
-        {historial.length>0&&(
+        {/* ── ENVIAR ── */}
+        {sec==="enviar"&&(
           <>
-            <div style={{fontWeight:800,color:"#1a1a1a",fontSize:13,marginBottom:8}}>
-              Transferencias recientes
+            {/* Info pedagógica */}
+            <div style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:10,
+              boxShadow:"0 1px 8px rgba(0,0,0,.06)",borderLeft:"4px solid #10b981",fontSize:11,
+              color:"#555",lineHeight:1.6}}>
+              <b>Tesoro</b> crea/destruye monedas. <b>Banco</b> distribuye esas monedas a personas específicas.
+              Esta separación pedagógica refleja cómo funciona la economía real.
             </div>
+
+            {/* Tipo de envío */}
+            <div style={{background:"white",borderRadius:14,padding:"14px",marginBottom:10,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>Destinatarios</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+                {RMODE_OPTS.map(opt=>(
+                  <button key={opt.v} onClick={()=>{setRMode(opt.v);setSelUser(null);setSelClass(null);setUserSearch("");}}
+                    style={{background:rMode===opt.v?"#10b981":"#f0f0f0",
+                      color:rMode===opt.v?"white":"#555",border:"none",borderRadius:99,
+                      padding:"6px 12px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    {opt.l}
+                  </button>
+                ))}
+              </div>
+              {rMode==="individual"&&(
+                <UserSearch val={userSearch} setVal={setUserSearch} onSel={setSelUser}/>
+              )}
+              {rMode==="classroom"&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {classrooms.map(c=>(
+                    <button key={c.id} onClick={()=>setSelClass(c)}
+                      style={{background:selClass?.id===c.id?"#10b981":"#f0f0f0",
+                        color:selClass?.id===c.id?"white":"#555",border:"none",borderRadius:10,
+                        padding:"7px 12px",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {c.nombre} ({c.total_miembros||0})
+                    </button>
+                  ))}
+                </div>
+              )}
+              {rMode!=="individual"&&rMode!=="classroom"&&(
+                <div style={{background:"#f0fdf4",borderRadius:10,padding:"8px 12px",fontSize:11,color:"#10b981",fontWeight:700}}>
+                  {rMode==="students"?`Se enviará a todos los alumnos activos (${users.filter(u=>u.rol==="student").length})`
+                   :rMode==="teachers"?`Se enviará a todos los docentes (${users.filter(u=>u.rol==="teacher").length})`
+                   :`Se enviará a todos los usuarios (${users.length})`}
+                </div>
+              )}
+            </div>
+
+            {/* Tipo de transferencia */}
+            <div style={{background:"white",borderRadius:14,padding:"14px",marginBottom:10,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:8}}>Tipo</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {TIPO_OPTS.map(t=>(
+                  <button key={t.v} onClick={()=>setTipo(t.v)}
+                    style={{background:tipo===t.v?t.col:"#f0f0f0",color:tipo===t.v?"white":"#555",
+                      border:"none",borderRadius:99,padding:"6px 12px",fontSize:11,fontWeight:800,
+                      cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Monto */}
+            <div style={{background:"white",borderRadius:14,padding:"14px",marginBottom:10,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:8}}>Monto y descripcion</div>
+              <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
+                <input type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)}
+                  placeholder="🪙"
+                  style={{width:80,border:"1.5px solid #e8e8e8",borderRadius:12,padding:"10px",
+                    fontSize:18,fontWeight:900,outline:"none",color:"#10b981",textAlign:"center",
+                    fontFamily:"Nunito,sans-serif"}}/>
+                {[5,10,25,50,100,200,500].map(n=>(
+                  <button key={n} onClick={()=>setAmount(String(n))}
+                    style={{background:amount===String(n)?"#10b981":"#f0f0f0",
+                      color:amount===String(n)?"white":"#555",border:"none",borderRadius:8,
+                      padding:"6px 8px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{n}</button>
+                ))}
+              </div>
+              <input value={desc} onChange={e=>setDesc(e.target.value)}
+                placeholder="Descripcion (opcional)..."
+                style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+                  padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",color:"#1a1a1a"}}/>
+            </div>
+
+            <button onClick={enviar} disabled={sending||!amount}
+              style={{width:"100%",background:sending||!amount?"#ccc":"#10b981",
+                border:"none",borderRadius:50,color:"white",padding:"15px",fontWeight:900,
+                fontSize:15,cursor:sending||!amount?"not-allowed":"pointer",
+                fontFamily:"Nunito,sans-serif",boxShadow:"0 4px 16px #10b98133",marginBottom:10}}>
+              {sending?"Enviando...":"Enviar transferencia"}
+            </button>
+
+            {lastResult&&(
+              <div style={{background:"#f0fdf4",borderRadius:14,padding:"12px 14px",
+                border:"1.5px solid #10b981",fontSize:12,color:"#10b981",fontWeight:700}}>
+                ✅ Enviado a {lastResult.ok}/{lastResult.total} usuarios
+                {lastResult.failed>0&&<span style={{color:"#ef4444"}}> · {lastResult.failed} fallidos</span>}
+              </div>
+            )}
+
+            {/* Revertir */}
+            <div style={{background:"white",borderRadius:14,padding:"14px",marginTop:12,
+              boxShadow:"0 1px 8px rgba(0,0,0,.06)",borderLeft:"4px solid #ef4444"}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:4}}>↩️ Revertir transaccion</div>
+              <div style={{fontSize:11,color:"#aaa",marginBottom:10}}>Pega el ID de la transaccion a revertir (visible en Audit Log)</div>
+              <input value={revertId} onChange={e=>setRevertId(e.target.value)}
+                placeholder="UUID de la transaccion..."
+                style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #fecaca",borderRadius:12,
+                  padding:"9px 14px",fontSize:12,outline:"none",fontFamily:"Nunito,sans-serif",
+                  color:"#1a1a1a",marginBottom:6,fontFamily:"monospace"}}/>
+              <input value={revertMotivo} onChange={e=>setRevertMotivo(e.target.value)}
+                placeholder="Motivo de la reversa..."
+                style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #fecaca",borderRadius:12,
+                  padding:"9px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",
+                  color:"#1a1a1a",marginBottom:8}}/>
+              <button onClick={revertir} disabled={reverting||!revertId||!revertMotivo}
+                style={{width:"100%",background:reverting||!revertId||!revertMotivo?"#ccc":"#ef4444",
+                  border:"none",borderRadius:50,color:"white",padding:"11px",fontWeight:800,
+                  fontSize:13,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                {reverting?"Revirtiendo...":"Confirmar reversa"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── IMPUESTO ── */}
+        {sec==="impuesto"&&(
+          <>
+            <div style={{background:"#fff7ed",borderRadius:14,padding:"12px 14px",marginBottom:10,
+              border:"1.5px solid #fed7aa",fontSize:11,color:"#92400e",lineHeight:1.6}}>
+              <b>Impuesto / Penalidad</b> — descuenta monedas de los alumnos y las devuelve al Tesoro.
+              El alumno recibe una notificación con el motivo.
+            </div>
+
+            {/* Destinatarios */}
+            <div style={{background:"white",borderRadius:14,padding:"14px",marginBottom:10,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>Destinatarios</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+                {[{v:"individual",l:"👤 Individual"},{v:"classroom",l:"🏫 Un aula"},{v:"all",l:"🎓 Todos los alumnos"}].map(opt=>(
+                  <button key={opt.v} onClick={()=>{setTaxRMode(opt.v);setTaxUser(null);setTaxClass(null);setTaxSearch("");}}
+                    style={{background:taxRMode===opt.v?"#f97316":"#f0f0f0",
+                      color:taxRMode===opt.v?"white":"#555",border:"none",borderRadius:99,
+                      padding:"6px 12px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    {opt.l}
+                  </button>
+                ))}
+              </div>
+              {taxRMode==="individual"&&(
+                <UserSearch val={taxSearch} setVal={setTaxSearch} onSel={setTaxUser} excludeTeachers/>
+              )}
+              {taxRMode==="classroom"&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {classrooms.map(c=>(
+                    <button key={c.id} onClick={()=>setTaxClass(c)}
+                      style={{background:taxClass?.id===c.id?"#f97316":"#f0f0f0",
+                        color:taxClass?.id===c.id?"white":"#555",border:"none",borderRadius:10,
+                        padding:"7px 12px",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {c.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Monto, motivo, periodicidad */}
+            <div style={{background:"white",borderRadius:14,padding:"14px",marginBottom:10,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:8}}>Detalle</div>
+              <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+                <input type="number" min="1" value={taxAmt} onChange={e=>setTaxAmt(e.target.value)}
+                  placeholder="🪙"
+                  style={{width:80,border:"1.5px solid #fed7aa",borderRadius:12,padding:"10px",
+                    fontSize:18,fontWeight:900,outline:"none",color:"#f97316",textAlign:"center",
+                    fontFamily:"Nunito,sans-serif"}}/>
+                {[5,10,25,50,100].map(n=>(
+                  <button key={n} onClick={()=>setTaxAmt(String(n))}
+                    style={{background:taxAmt===String(n)?"#f97316":"#f0f0f0",
+                      color:taxAmt===String(n)?"white":"#555",border:"none",borderRadius:8,
+                      padding:"6px 8px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{n}</button>
+                ))}
+              </div>
+              <input value={taxMotivo} onChange={e=>setTaxMotivo(e.target.value)}
+                placeholder="Motivo obligatorio (visible para el alumno)..."
+                style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #fed7aa",borderRadius:12,
+                  padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",
+                  color:"#1a1a1a",marginBottom:8}}/>
+              <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Periodicidad</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[["unico","📌 Unico"],["diario","📅 Diario"],["semanal","📆 Semanal"],["mensual","🗓️ Mensual"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setTaxPer(v)}
+                    style={{background:taxPer===v?"#f97316":"#f0f0f0",color:taxPer===v?"white":"#555",
+                      border:"none",borderRadius:99,padding:"6px 12px",fontSize:11,fontWeight:800,
+                      cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={cobrarImpuesto} disabled={taxing||!taxAmt||!taxMotivo}
+              style={{width:"100%",background:taxing||!taxAmt||!taxMotivo?"#ccc":"#f97316",
+                border:"none",borderRadius:50,color:"white",padding:"15px",fontWeight:900,
+                fontSize:15,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                boxShadow:"0 4px 16px #f9731633"}}>
+              {taxing?"Aplicando...":"Aplicar impuesto/penalidad"}
+            </button>
+          </>
+        )}
+
+        {/* ── HISTORIAL ── */}
+        {sec==="historial"&&(
+          <>
+            {historial.length===0&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Sin historial todavia</div>}
             {historial.map((h,i)=>(
-              <div key={i} style={{background:"white",borderRadius:14,padding:"11px 14px",
-                marginBottom:6,boxShadow:"0 1px 6px rgba(0,0,0,.05)",
+              <div key={i} style={{background:"white",borderRadius:14,padding:"12px 14px",
+                marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,.05)",
                 display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:18}}>🏛️</span>
+                <span style={{fontSize:20}}>{h.details?.tax?"⚖️":"🏛️"}</span>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:12,color:"#1a1a1a"}}>
-                    {h.target_nombre||"Usuario"}
+                    {h.target_nombre||h.details?.to||"Usuarios"}
                   </div>
                   <div style={{fontSize:10,color:"#aaa"}}>
                     {new Date(h.created_at).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
                   </div>
                 </div>
-                <div style={{fontWeight:900,fontSize:13,color:"#10b981"}}>
-                  +🪙{h.details?.amount||"?"}
+                <div style={{fontWeight:900,fontSize:13,color:h.details?.tax?"#f97316":"#10b981"}}>
+                  {h.details?.tax?"-":"+"} 🪙{h.details?.amount||"?"}
                 </div>
               </div>
             ))}
@@ -4636,270 +4937,82 @@ function AdminBanco({me,showToast,onBack}){
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// ADMIN TIENDA — CRUD completo con imagen, mensajes ocultos
-// ════════════════════════════════════════════════════════════
+
 function AdminTienda({showToast}){
   const [items,setItems]=useState([]);
   const [loading,setLoading]=useState(true);
-  const [editing,setEditing]=useState(null);  // item editándose
-  const [creating,setCreating]=useState(false);
-  const [delConfirm,setDelConfirm]=useState(null); // id a eliminar
+  const [mode,setMode]=useState(null); // null | {type:'create'} | {type:'edit',item}
+  const [delConfirm,setDelConfirm]=useState(null);
 
-  // Form state
-  const [fNombre,setFNombre]=useState("");
-  const [fDesc,setFDesc]=useState("");
-  const [fPrecio,setFPrecio]=useState("");
-  const [fStock,setFStock]=useState("");
-  const [fIcon,setFIcon]=useState("🎁");
-  const [fImagen,setFImagen]=useState("");    // URL de imagen o base64
-  const [fMensaje,setFMensaje]=useState("");  // Mensaje oculto
-  const [fActivo,setFActivo]=useState(true);
-  const [saving,setSaving]=useState(false);
-
-  const load=()=>api.storeItems().then(d=>{
-    setItems(Array.isArray(d)?d:d.data||d||[]);
-  }).finally(()=>setLoading(false));
-
+  const load=()=>{ setLoading(true); api.storeItems().then(d=>setItems(Array.isArray(d)?d:d.data||d||[])).finally(()=>setLoading(false)); };
   useEffect(()=>{ load(); },[]);
 
-  const openEdit=(item)=>{
-    setEditing(item);
-    setFNombre(item.nombre||"");
-    setFDesc(item.descripcion||"");
-    setFPrecio(String(item.precio||""));
-    setFStock(item.stock===-1?"":String(item.stock||""));
-    setFIcon(item.icon||"🎁");
-    setFImagen(item.imagen_url||"");
-    setFMensaje(item.mensaje_oculto||"");
-    setFActivo(item.activo!==false);
-    setCreating(false);
-  };
-
-  const openCreate=()=>{
-    setEditing(null);
-    setFNombre("");setFDesc("");setFPrecio("");setFStock("");
-    setFIcon("🎁");setFImagen("");setFMensaje("");setFActivo(true);
-    setCreating(true);
-  };
-
-  const handleImagen=(e)=>{
-    const file=e.target.files?.[0];
-    if(!file) return;
-    const reader=new FileReader();
-    reader.onload=ev=>setFImagen(ev.target.result);
-    reader.readAsDataURL(file);
-  };
-
-  const guardar=async()=>{
-    if(!fNombre.trim()||!fPrecio){showToast("Nombre y precio requeridos","error");return;}
-    setSaving(true);
-    const body={
-      nombre:fNombre.trim(),
-      descripcion:fDesc.trim(),
-      precio:parseInt(fPrecio),
-      stock:fStock?parseInt(fStock):-1,
-      icon:fIcon,
-      imagen_url:fImagen||null,
-      mensaje_oculto:fMensaje.trim()||null,
-      activo:fActivo,
-    };
-    try{
-      if(creating){
-        await api.createItem(body);
-        showToast("Item creado");
-      } else {
-        await api.updateItem(editing.id,body);
-        showToast("Item actualizado");
-      }
-      await load();
-      setCreating(false);setEditing(null);
-    }catch(e){showToast(e.message||"Error","error");}
-    finally{setSaving(false);}
-  };
-
   const eliminar=async(id)=>{
-    try{
-      await api.deleteItem(id);
-      setItems(prev=>prev.filter(i=>i.id!==id));
-      setDelConfirm(null);
-      showToast("Item eliminado");
-    }catch(e){showToast(e.message||"Error","error");}
+    try{ await api.deleteItem(id); setItems(prev=>prev.filter(i=>i.id!==id)); setDelConfirm(null); showToast("Item eliminado"); }
+    catch(e){ showToast(e.message||"Error","error"); }
   };
-
-  const FormPanel=()=>(
-    <Sheet title={creating?"Nuevo item":"Editar: "+fNombre} onClose={()=>{setCreating(false);setEditing(null);}}>
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        {/* Emoji + nombre */}
-        <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          <input value={fIcon} onChange={e=>setFIcon(e.target.value)} maxLength={4}
-            style={{width:56,border:"1.5px solid #e8e8e8",borderRadius:14,
-              padding:"10px",fontSize:24,textAlign:"center",outline:"none",
-              fontFamily:"Nunito,sans-serif"}}/>
-          <div style={{flex:1}}>
-            <Inp val={fNombre} set={setFNombre} ph="Nombre del item"/>
-          </div>
-        </div>
-
-        <Inp val={fDesc} set={setFDesc} ph="Descripcion (visible para todos)" icon="📝"/>
-
-        {/* Precio y stock */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <Inp val={fPrecio} set={setFPrecio} ph="Precio en monedas" type="number" icon="🪙"/>
-          <Inp val={fStock} set={setFStock} ph="Stock (vacio=infinito)" type="number" icon="📦"/>
-        </div>
-
-        {/* Imagen desde celular */}
-        <div>
-          <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>
-            📸 Imagen (opcional)
-          </div>
-          {fImagen&&(
-            <div style={{position:"relative",marginBottom:8}}>
-              <img src={fImagen} alt="" style={{width:"100%",height:120,objectFit:"cover",borderRadius:12}}/>
-              <button onClick={()=>setFImagen("")}
-                style={{position:"absolute",top:6,right:6,background:"rgba(0,0,0,.5)",
-                  border:"none",borderRadius:99,color:"white",width:28,height:28,
-                  cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                ✕
-              </button>
-            </div>
-          )}
-          <label style={{display:"block",cursor:"pointer"}}>
-            <input type="file" accept="image/*" onChange={handleImagen} style={{display:"none"}}/>
-            <div style={{border:"1.5px dashed #e8e8e8",borderRadius:12,padding:"12px",
-              textAlign:"center",fontSize:12,color:"#aaa",fontWeight:700}}>
-              {fImagen?"📸 Cambiar imagen":"📱 Subir desde el celular"}
-            </div>
-          </label>
-        </div>
-
-        {/* Mensaje oculto — solo al comprar */}
-        <div>
-          <div style={{fontWeight:700,fontSize:12,color:"#8b5cf6",marginBottom:6}}>
-            🔒 Mensaje oculto (solo visible al comprar)
-          </div>
-          <textarea value={fMensaje} onChange={e=>setFMensaje(e.target.value)}
-            placeholder="Ej: Contraseña para el juego, codigo de descuento, instruccion especial..."
-            rows={3} style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #8b5cf644",
-              borderRadius:12,padding:"10px 14px",fontSize:12,outline:"none",resize:"none",
-              fontFamily:"Nunito,sans-serif",color:"#1a1a1a",background:"#faf5ff"}}/>
-        </div>
-
-        {/* Activo */}
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <button onClick={()=>setFActivo(a=>!a)}
-            style={{background:fActivo?"#10b981":"#f0f0f0",color:fActivo?"white":"#555",
-              border:"none",borderRadius:99,padding:"7px 16px",fontWeight:800,fontSize:12,
-              cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-            {fActivo?"Activo":"Inactivo"}
-          </button>
-          <span style={{fontSize:11,color:"#aaa"}}>Los inactivos no aparecen en la tienda</span>
-        </div>
-
-        <button onClick={guardar} disabled={saving}
-          style={{background:saving?"#ccc":"#00c1fc",border:"none",borderRadius:50,
-            color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:"pointer",
-            fontFamily:"Nunito,sans-serif"}}>
-          {saving?"Guardando...":creating?"Crear item":"Guardar cambios"}
-        </button>
-      </div>
-    </Sheet>
-  );
 
   return(
     <div>
       <OHdr title="Tienda" sub="ADMIN"
-        extra={<button onClick={openCreate}
-          style={{marginTop:14,background:"rgba(255,255,255,.22)",
-            border:"1.5px solid rgba(255,255,255,.35)",borderRadius:50,color:"white",
-            padding:"8px 20px",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+        extra={<button onClick={()=>setMode({type:"create"})}
+          style={{marginTop:14,background:"rgba(255,255,255,.22)",border:"1.5px solid rgba(255,255,255,.35)",
+            borderRadius:50,color:"white",padding:"8px 20px",fontWeight:800,fontSize:13,cursor:"pointer"}}>
           + Nuevo item
         </button>}/>
-
       <div style={{padding:"0 14px",marginTop:12}}>
         {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
-
         {items.map(item=>(
           <div key={item.id} style={{background:"white",borderRadius:16,marginBottom:10,
-            overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",
-            opacity:item.activo!==false?1:.55}}>
-            {/* Imagen */}
-            {item.imagen_url&&(
-              <img src={item.imagen_url} alt={item.nombre}
-                style={{width:"100%",height:100,objectFit:"cover"}}/>
-            )}
+            overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",opacity:item.activo!==false?1:.55}}>
+            {item.imagen_url&&<img src={item.imagen_url} alt={item.nombre} style={{width:"100%",height:100,objectFit:"cover"}}/>}
             <div style={{padding:"12px 14px",display:"flex",gap:12,alignItems:"center"}}>
               <div style={{fontSize:28,flexShrink:0}}>{item.icon||"🎁"}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{item.nombre}</div>
-                {item.descripcion&&<div style={{fontSize:11,color:"#aaa",marginTop:1,
-                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.descripcion}</div>}
-                <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}>
+                {item.descripcion&&<div style={{fontSize:11,color:"#aaa",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.descripcion}</div>}
+                <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap",alignItems:"center"}}>
                   <span style={{fontWeight:800,color:"#00c1fc",fontSize:12}}>🪙{item.precio}</span>
-                  <span style={{fontSize:10,color:"#ddd"}}>Stock: {item.stock===-1?"∞":item.stock}</span>
-                  {item.mensaje_oculto&&(
-                    <span style={{background:"#8b5cf622",color:"#8b5cf6",borderRadius:99,
-                      padding:"1px 6px",fontSize:9,fontWeight:800}}>🔒 Msg oculto</span>
-                  )}
-                  {item.activo===false&&(
-                    <span style={{background:"#f0f0f0",color:"#aaa",borderRadius:99,
-                      padding:"1px 6px",fontSize:9,fontWeight:800}}>Inactivo</span>
-                  )}
+                  <span style={{fontSize:10,color:"#ddd"}}>Stock:{item.stock===-1?"∞":item.stock}</span>
+                  {item.mensaje_oculto&&<span style={{background:"#8b5cf622",color:"#8b5cf6",borderRadius:99,padding:"1px 6px",fontSize:9,fontWeight:800}}>🔒 Oculto</span>}
+                  {item.activo===false&&<span style={{background:"#f0f0f0",color:"#aaa",borderRadius:99,padding:"1px 6px",fontSize:9,fontWeight:800}}>Inactivo</span>}
                 </div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <button onClick={()=>openEdit(item)}
-                  style={{background:"#f0f0f0",border:"none",borderRadius:10,padding:"7px 12px",
-                    fontSize:11,fontWeight:800,cursor:"pointer",color:"#555",
-                    fontFamily:"Nunito,sans-serif"}}>
-                  Editar
-                </button>
+                <button onClick={()=>setMode({type:"edit",item})}
+                  style={{background:"#f0f0f0",border:"none",borderRadius:10,padding:"7px 12px",fontSize:11,fontWeight:800,cursor:"pointer",color:"#555",fontFamily:"Nunito,sans-serif"}}>Editar</button>
                 <button onClick={()=>setDelConfirm(item.id)}
-                  style={{background:"#fee2e2",border:"none",borderRadius:10,padding:"7px 12px",
-                    fontSize:11,fontWeight:800,cursor:"pointer",color:"#ef4444",
-                    fontFamily:"Nunito,sans-serif"}}>
-                  Borrar
-                </button>
+                  style={{background:"#fee2e2",border:"none",borderRadius:10,padding:"7px 12px",fontSize:11,fontWeight:800,cursor:"pointer",color:"#ef4444",fontFamily:"Nunito,sans-serif"}}>Borrar</button>
               </div>
             </div>
           </div>
         ))}
-
         {!loading&&items.length===0&&(
-          <div style={{background:"white",borderRadius:16,padding:40,textAlign:"center",
-            boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+          <div style={{background:"white",borderRadius:16,padding:40,textAlign:"center",boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
             <div style={{fontSize:40}}>🛒</div>
             <div style={{fontWeight:800,color:"#1a1a1a",marginTop:8}}>Tienda vacia</div>
-            <div style={{fontSize:12,color:"#aaa",marginTop:4}}>Crea el primer item</div>
           </div>
         )}
       </div>
 
-      {(creating||editing)&&<FormPanel/>}
+      {mode?.type==="create"&&(
+        <StoreItemForm creating={true} editing={null}
+          onClose={()=>setMode(null)} onSaved={()=>{setMode(null);load();}} showToast={showToast}/>
+      )}
+      {mode?.type==="edit"&&(
+        <StoreItemForm creating={false} editing={mode.item}
+          onClose={()=>setMode(null)} onSaved={()=>{setMode(null);load();}} showToast={showToast}/>
+      )}
 
-      {/* Confirmar borrado */}
       {delConfirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:300,
           display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
           <div style={{background:"white",borderRadius:20,padding:"24px",width:"100%",maxWidth:340}}>
-            <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8,textAlign:"center"}}>
-              Eliminar item
-            </div>
-            <div style={{fontSize:13,color:"#555",textAlign:"center",marginBottom:20}}>
-              Esta accion no se puede deshacer. El item desaparecera de la tienda.
-            </div>
+            <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8,textAlign:"center"}}>Eliminar item</div>
+            <div style={{fontSize:13,color:"#555",textAlign:"center",marginBottom:20}}>Esta accion no se puede deshacer.</div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setDelConfirm(null)}
-                style={{flex:1,background:"#f0f0f0",border:"none",borderRadius:50,
-                  padding:"12px",fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                Cancelar
-              </button>
-              <button onClick={()=>eliminar(delConfirm)}
-                style={{flex:1,background:"#ef4444",border:"none",borderRadius:50,color:"white",
-                  padding:"12px",fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                Eliminar
-              </button>
+              <button onClick={()=>setDelConfirm(null)} style={{flex:1,background:"#f0f0f0",border:"none",borderRadius:50,padding:"12px",fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Cancelar</button>
+              <button onClick={()=>eliminar(delConfirm)} style={{flex:1,background:"#ef4444",border:"none",borderRadius:50,color:"white",padding:"12px",fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Eliminar</button>
             </div>
           </div>
         </div>
