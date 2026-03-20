@@ -201,6 +201,8 @@ input::placeholder{color:#bbb;}
 @keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes balUp{0%{color:#10b981;transform:scale(1.18)}60%{color:#10b981;transform:scale(1.06)}100%{color:inherit;transform:scale(1)}}
+@keyframes balDown{0%{color:#ef4444;transform:scale(.92)}60%{color:#ef4444;transform:scale(.96)}100%{color:inherit;transform:scale(1)}}
 `;
 
 // ── COMPONENTES BASE ──────────────────────────────────────────
@@ -310,9 +312,8 @@ function OHdr({title,sub,onBack,extra}){
 }
 
 // Header para pantallas de alumno — soporta dark mode
-function OHdrA({title,sub,extra,dark=false,onBack=null}){
-  const bg=dark?"#52177f":"#00c1fc";
-  // En white mode el celeste es claro, texto necesita sombra para contrastar
+function OHdrA({title,sub,extra,dark=false,onBack=null,themeAccent=null}){
+  const bg = themeAccent||(dark?"#52177f":"#00c1fc");
   const titleStyle={
     fontWeight:900,letterSpacing:"-.5px",
     color:"white",
@@ -327,8 +328,7 @@ function OHdrA({title,sub,extra,dark=false,onBack=null}){
           <div style={{display:"flex",alignItems:"center",position:"relative",minHeight:32}}>
             <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",
               borderRadius:50,color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
-              display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,zIndex:1,
-              textShadow:dark?"none":"0 1px 3px rgba(0,60,100,.4)"}}>←</button>
+              display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,zIndex:1}}>←</button>
             <div style={{position:"absolute",left:0,right:0,textAlign:"center",
               pointerEvents:"none",...titleStyle,fontSize:20}}>
               {title}
@@ -471,20 +471,57 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [toast,showToast]=useToast();
   const [camOpen,setCamOpen]=useState(false);
   const [dark,setDark]=useState(false);
-  const [notifs,setNotifs]=useState([]);       // notificaciones pendientes
+  const [notifs,setNotifs]=useState([]);
   const [badges,setBadges]=useState({chat:0,notifs:0});
+  const [customActive,setCustomActive]=useState(null); // personalización activa
+  const [prevBalance,setPrevBalance]=useState(balance);
+  const [balanceAnim,setBalanceAnim]=useState(null); // 'up'|'down'|null
 
-  // Paleta según modo
+  // ── Cargar personalización al inicio ────────────────────────
+  useEffect(()=>{
+    api.customMe().then(d=>{
+      const data=d.data||d;
+      setCustomActive(data?.active||null);
+    }).catch(()=>{});
+  },[]);
+
+  // ── Derivar colores del tema activo ─────────────────────────
+  const themeConfig = customActive?.theme_config ? (
+    typeof customActive.theme_config==="string"
+      ? JSON.parse(customActive.theme_config)
+      : customActive.theme_config
+  ) : null;
+  const nameColorConfig = customActive?.name_color_config ? (
+    typeof customActive.name_color_config==="string"
+      ? JSON.parse(customActive.name_color_config)
+      : customActive.name_color_config
+  ) : null;
+
+  // Colores del tema: si hay tema activo usarlo, si no default
+  const themeAccent  = themeConfig?.primary  || (dark?"#52177f":"#00c1fc");
+  const themeAccent2 = themeConfig?.accent    || themeAccent;
+  const themeDarkBg  = themeConfig?.dark_bg   || "#12101e";
+
+  // Paleta según modo + tema
   const navBg    = dark?"#1e1b2e":"white";
   const navBord  = dark?"#2d2a45":"#EFEFEF";
-  const navActiv = dark?"#52177f":"#00c1fc";
+  const navActiv = dark ? (themeAccent2||"#52177f") : themeAccent;
   const navInact = dark?"#555":"#777777";
   const navPill  = dark?"#2d2a45":"#FFF0F0";
-  const camBg    = dark?"#52177f":"#00c1fc";
+  const camBg    = dark?(themeAccent2||"#52177f"):themeAccent;
   const camBord  = dark?"#1e1b2e":"#F0F0F0";
-  const pageBg   = dark?"#12101e":"#F0F0F0";
+  const pageBg   = dark?(themeDarkBg||"#12101e"):"#F0F0F0";
 
   const hideNav = ["chat","noticias","votaciones","reportes","notificaciones"].includes(tab);
+
+  // ── Animación de balance al cambiar ─────────────────────────
+  useEffect(()=>{
+    if(balance===prevBalance) return;
+    setBalanceAnim(balance>prevBalance?"up":"down");
+    setPrevBalance(balance);
+    const t=setTimeout(()=>setBalanceAnim(null),1800);
+    return ()=>clearTimeout(t);
+  },[balance]);
 
   // ── Escuchar notificaciones por socket ──────────────────────
   useEffect(()=>{
@@ -523,18 +560,18 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
-        {tab==="home"       && <AHome       me={me} balance={balance} onNav={navTo} dark={dark} setDark={setDark} badges={badges}/>}
-        {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark}/>}
-        {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark}/>}
-        {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark}/>}
-        {tab==="movimientos"&& <AMovimientos dark={dark}/>}
-        {tab==="ingresar"   && <AIngresar   me={me} dark={dark} onBack={()=>setTab("home")}/>}
-        {tab==="perfil"     && <APerfil     me={me} balance={balance} logout={logout} showToast={showToast} setMe={setMe} dark={dark}/>}
-        {tab==="ranking"    && <ARanking    dark={dark}/>}
-        {tab==="opciones"   && <AOpciones   me={me} logout={logout} dark={dark} notifs={notifs}/>}
+        {tab==="home"       && <AHome       me={me} balance={balance} onNav={navTo} dark={dark} setDark={setDark} badges={badges} balanceAnim={balanceAnim} themeAccent={themeAccent}/>}
+        {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark} themeAccent={themeAccent}/>}
+        {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark} themeAccent={themeAccent}/>}
+        {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark} themeAccent={themeAccent}/>}
+        {tab==="movimientos"&& <AMovimientos dark={dark} themeAccent={themeAccent}/>}
+        {tab==="ingresar"   && <AIngresar   me={me} dark={dark} onBack={()=>setTab("home")} themeAccent={themeAccent}/>}
+        {tab==="perfil"     && <APerfil     me={me} balance={balance} logout={logout} showToast={showToast} setMe={setMe} dark={dark} themeAccent={themeAccent}/>}
+        {tab==="ranking"    && <ARanking    dark={dark} themeAccent={themeAccent} nameColorConfig={nameColorConfig}/>}
+        {tab==="opciones"   && <AOpciones   me={me} logout={logout} dark={dark} notifs={notifs} themeAccent={themeAccent}/>}
         {tab==="notificaciones"&&<ANotificaciones me={me} dark={dark} onBack={()=>navTo("home")} notifs={notifs} setNotifs={setNotifs}/>}
-        {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark} onBack={()=>navTo("home")}/>}
-        {tab==="chat"       && <AChat       me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
+        {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} dark={dark} onBack={()=>navTo("home")} onCustomChange={setCustomActive}/>}
+        {tab==="chat"       && <AChat       me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig}/>}
         {tab==="noticias"   && <ANoticias   me={me} dark={dark} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="reportes"   && <AReportes   me={me} dark={dark} showToast={showToast} onBack={()=>navTo("home")}/>}
@@ -632,7 +669,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   );
 }
 
-function AOpciones({me,logout,dark=false,notifs=[]}){
+function AOpciones({me,logout,dark=false,notifs=[],themeAccent}){
   const cardBg=dark?"#1e1b2e":"white";
   const txt=dark?"#e0e0e0":"#1a1a1a";
   const sub=dark?"#888":"#555";
@@ -657,7 +694,7 @@ function AOpciones({me,logout,dark=false,notifs=[]}){
 
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="☰ Opciones" dark={dark}/>
+      <OHdrA title="☰ Opciones" dark={dark} themeAccent={themeAccent}/>
       <div style={{padding:"0 14px",marginTop:12}}>
 
         {/* Notificaciones recientes */}
@@ -714,18 +751,19 @@ function AOpciones({me,logout,dark=false,notifs=[]}){
   );
 }
 
-function AHome({me,balance,onNav,dark,setDark,badges={}}){
+function AHome({me,balance,onNav,dark,setDark,badges={},balanceAnim,themeAccent}){
   const lv=getLv(me.total_earned||0);
   const next=nextLv(me.total_earned||0);
   const prog=next?Math.min(100,((me.total_earned||0)-lv.min)/(next.min-lv.min)*100):100;
   const [checkin,setCheckin]=useState(null);
   const [doingCheckin,setDoingCheckin]=useState(false);
 
-  const headerBg = dark?"#52177f":"#00c1fc";
-  const cardBg   = dark?"#1e1b2e":"white";
-  const txt      = dark?"#e0e0e0":"#1a1a1a";
-  const sub      = dark?"#888":"#555";
-  const arrow    = dark?"#555":"#ddd";
+  const accent     = themeAccent||(dark?"#52177f":"#00c1fc");
+  const headerBg   = accent;
+  const cardBg     = dark?"#1e1b2e":"white";
+  const txt        = dark?"#e0e0e0":"#1a1a1a";
+  const sub        = dark?"#888":"#555";
+  const arrow      = dark?"#555":"#ddd";
 
   useEffect(()=>{ api.checkinMe().then(d=>setCheckin(d.data||d)).catch(()=>{}); },[]);
 
@@ -766,8 +804,17 @@ function AHome({me,balance,onNav,dark,setDark,badges={}}){
           <div style={{background:"rgba(255,255,255,.18)",borderRadius:22,padding:"16px 20px 14px",
             border:"1.5px solid rgba(255,255,255,.25)",marginBottom:18}}>
             <div style={{fontSize:11,opacity:.8,fontWeight:700,letterSpacing:".1em",marginBottom:4}}>CAJA DE AHORRO</div>
-            <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1}}>
+            <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1,
+              animation:balanceAnim==="up"?"balUp 1.4s ease":balanceAnim==="down"?"balDown 1.4s ease":"none",
+              display:"flex",alignItems:"center",gap:8}}>
               🪙 {balance.toLocaleString("es-AR")}
+              {balanceAnim&&(
+                <span style={{fontSize:16,fontWeight:900,
+                  color:balanceAnim==="up"?"#a7f3d0":"#fca5a5",
+                  animation:"fadeIn .3s ease"}}>
+                  {balanceAnim==="up"?"▲":"▼"}
+                </span>
+              )}
             </div>
             <div style={{marginTop:10}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:11,opacity:.8,fontWeight:700,marginBottom:4}}>
@@ -900,7 +947,7 @@ function AMisiones({me,balance,showToast,refreshBalance,dark=false}){
 
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="Misiones ⚡" dark={dark}/>
+      <OHdrA title="Misiones ⚡" dark={dark} themeAccent={themeAccent}/>
       <div style={{padding:"0 14px",marginTop:12}}>
         {missions.length===0&&(
           <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center"}}>
@@ -938,15 +985,16 @@ function AMisiones({me,balance,showToast,refreshBalance,dark=false}){
   );
 }
 
-function ATienda({me,balance,showToast,refreshBalance,dark=false}){
+function ATienda({me,balance,showToast,refreshBalance,dark=false,themeAccent}){
   const [items,setItems]=useState([]);
   const [loading,setLoading]=useState(true);
   const [buying,setBuying]=useState(null);
-  const [revealed,setRevealed]=useState(null); // item con mensaje revelado
+  const [revealed,setRevealed]=useState(null);
+  const [lightbox,setLightbox]=useState(null); // imagen ampliada
   const cardBg=dark?"#1e1b2e":"white";
   const txt=dark?"#e0e0e0":"#1a1a1a";
   const subTxt=dark?"#888":"#666";
-  const accent=dark?"#c084fc":"#00c1fc";
+  const accent=themeAccent||(dark?"#c084fc":"#00c1fc");
   const bg=dark?"#12101e":"#F0F0F0";
 
   useEffect(()=>{
@@ -963,24 +1011,38 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
       const updated=await api.storeItems();
       const arr=Array.isArray(updated)?updated:updated.data||updated||[];
       setItems(arr);
-      // Si tiene mensaje oculto, mostrarlo
       const freshItem=arr.find(i=>i.id===item.id);
       if(freshItem?.mensaje_oculto) setRevealed(freshItem);
-    }catch(e){
-      showToast(e.message||"Error al comprar","error");
-    }finally{setBuying(null);}
+    }catch(e){showToast(e.message||"Error al comprar","error");}
+    finally{setBuying(null);}
   };
 
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando tienda...</div>;
 
   return(
     <div style={{background:bg,minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="Tienda" dark={dark}
+      <OHdrA title="Tienda" dark={dark} themeAccent={themeAccent}
         extra={<div style={{marginTop:8,fontSize:13,opacity:.9,fontWeight:700}}>
           Tu saldo: 🪙 {balance.toLocaleString("es-AR")}
         </div>}/>
 
-      {/* Modal mensaje oculto revelado */}
+      {/* Lightbox */}
+      {lightbox&&(
+        <div onClick={()=>setLightbox(null)}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.92)",zIndex:500,
+            display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"80vh",
+            borderRadius:16,objectFit:"contain"}}/>
+          <button onClick={()=>setLightbox(null)}
+            style={{position:"absolute",top:20,right:20,background:"rgba(255,255,255,.2)",
+              border:"none",borderRadius:"50%",color:"white",width:40,height:40,
+              cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Modal mensaje oculto */}
       {revealed&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:300,
           display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
@@ -988,14 +1050,11 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
             textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,.3)"}}>
             <div style={{fontSize:48,marginBottom:12}}>{revealed.icon||"🎁"}</div>
             <div style={{fontWeight:900,fontSize:16,color:txt,marginBottom:4}}>{revealed.nombre}</div>
-            <div style={{fontSize:12,color:subTxt,marginBottom:16}}>Compraste este item. Aca esta tu recompensa:</div>
+            <div style={{fontSize:12,color:subTxt,marginBottom:16}}>Tu recompensa secreta:</div>
             <div style={{background:dark?"#2d2a45":"#faf5ff",border:`1.5px solid ${accent}44`,
               borderRadius:14,padding:"14px 16px",fontSize:13,color:txt,fontWeight:700,
               lineHeight:1.6,marginBottom:20,textAlign:"left"}}>
               🔒 {revealed.mensaje_oculto}
-            </div>
-            <div style={{fontSize:11,color:subTxt,marginBottom:16}}>
-              Podes ver este mensaje de nuevo visitando la tienda
             </div>
             <button onClick={()=>setRevealed(null)}
               style={{background:accent,border:"none",borderRadius:50,color:"white",
@@ -1016,11 +1075,24 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
           return(
             <div key={item.id} style={{marginBottom:12,background:cardBg,borderRadius:20,
               overflow:"hidden",opacity:sinStock?.5:1,
-              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
-              transition:"background .3s"}}>
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              {/* Imagen clicable con aspect ratio correcto */}
               {hasImg&&(
-                <img src={item.imagen_url} alt={item.nombre}
-                  style={{width:"100%",height:120,objectFit:"cover"}}/>
+                <div onClick={()=>setLightbox(item.imagen_url)}
+                  style={{cursor:"pointer",position:"relative",
+                    paddingBottom:"52%", // aspect ratio 52% ≈ landscape
+                    background:dark?"#2d2a45":"#f5f5f5",overflow:"hidden"}}>
+                  <img src={item.imagen_url} alt={item.nombre}
+                    style={{position:"absolute",inset:0,width:"100%",height:"100%",
+                      objectFit:"cover",transition:"transform .2s"}}
+                    onMouseEnter={e=>e.target.style.transform="scale(1.04)"}
+                    onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
+                  <div style={{position:"absolute",bottom:8,right:8,
+                    background:"rgba(0,0,0,.4)",borderRadius:99,padding:"3px 8px",
+                    fontSize:10,color:"white",fontWeight:700}}>
+                    🔍 Ver completa
+                  </div>
+                </div>
               )}
               <div style={{padding:"14px 14px",display:"flex",gap:12,alignItems:"center"}}>
                 {!hasImg&&<div style={{fontSize:36,flexShrink:0}}>{item.icon||"🎁"}</div>}
@@ -1028,13 +1100,13 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
                   <div style={{fontWeight:800,fontSize:14,color:txt}}>{item.nombre}</div>
                   {item.descripcion&&<div style={{fontSize:12,color:subTxt,marginTop:2}}>{item.descripcion}</div>}
                   {hasMensaje&&(
-                    <div style={{marginTop:4,display:"flex",alignItems:"center",gap:4}}>
+                    <div style={{marginTop:4}}>
                       <span style={{background:accent+"22",color:accent,borderRadius:99,
-                        padding:"2px 8px",fontSize:10,fontWeight:800}}>🔒 Contiene mensaje secreto</span>
+                        padding:"2px 8px",fontSize:10,fontWeight:800}}>🔒 Mensaje secreto incluido</span>
                     </div>
                   )}
                   {item.stock!==-1&&<div style={{fontSize:10,color:dark?"#555":"#ccc",fontWeight:700,marginTop:4}}>
-                    Stock restante: {item.stock}
+                    Stock: {item.stock}
                   </div>}
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
@@ -1046,7 +1118,7 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
                     style={{background:sinStock?"#f0f0f0":!canBuy?"#f0f0f0":buying===item.id?"#ccc":accent,
                       color:sinStock||!canBuy?"#aaa":"white",border:"none",borderRadius:99,
                       padding:"8px 14px",fontWeight:800,fontSize:11,cursor:canBuy&&!sinStock?"pointer":"not-allowed",
-                      fontFamily:"Nunito,sans-serif",transition:"all .2s",whiteSpace:"nowrap"}}>
+                      fontFamily:"Nunito,sans-serif",whiteSpace:"nowrap"}}>
                     {sinStock?"Sin stock":!canBuy?"Sin saldo":buying===item.id?"...":"Comprar"}
                   </button>
                 </div>
@@ -1066,7 +1138,8 @@ function ATienda({me,balance,showToast,refreshBalance,dark=false}){
   );
 }
 
-function AEnviar({me,balance,showToast,refreshBalance,dark=false}){
+
+function AEnviar({me,balance,showToast,refreshBalance,dark=false,themeAccent}){
   const [friends,setFriends]   = useState([]);
   const [search,setSearch]     = useState("");
   const [results,setResults]   = useState([]);
@@ -1137,7 +1210,7 @@ function AEnviar({me,balance,showToast,refreshBalance,dark=false}){
 
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="Enviar 💸" dark={dark}
+      <OHdrA title="Enviar 💸" dark={dark} themeAccent={themeAccent}
         extra={<div style={{marginTop:6,fontSize:13,opacity:.9,fontWeight:700}}>
           Saldo disponible: 🪙 {balance.toLocaleString("es-AR")}
         </div>}/>
@@ -1299,7 +1372,7 @@ function AEnviar({me,balance,showToast,refreshBalance,dark=false}){
 }
 
 // ── INGRESAR — CVU + QR ───────────────────────────────────────
-function AIngresar({me, dark, onBack}){
+function AIngresar({me, dark, onBack, themeAccent}){
   const [copied,setCopied] = useState(false);
   const accent  = dark?"#c084fc":"#00c1fc";
   const cardBg  = dark?"#1e1b2e":"white";
@@ -1355,7 +1428,7 @@ function AIngresar({me, dark, onBack}){
 
   return(
     <div style={{background:bg,minHeight:"100vh"}}>
-      <OHdrA title="⬇️ Ingresar" dark={dark} onBack={onBack}
+      <OHdrA title="⬇️ Ingresar" dark={dark} onBack={onBack} themeAccent={themeAccent}
         extra={<div style={{fontSize:12,opacity:.85,marginTop:4,fontWeight:600}}>
           Tu código para recibir monedas
         </div>}/>
@@ -1428,7 +1501,7 @@ function AIngresar({me, dark, onBack}){
   );
 }
 
-function AMovimientos({dark=false}){
+function AMovimientos({dark=false,themeAccent}){
   const [txs,setTxs]       = useState([]);
   const [loading,setLoading]= useState(true);
   const [search,setSearch]  = useState("");
@@ -1476,7 +1549,7 @@ function AMovimientos({dark=false}){
 
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="Movimientos 📊" dark={dark}/>
+      <OHdrA title="Movimientos 📊" dark={dark} themeAccent={themeAccent}/>
 
       {/* Buscador sticky */}
       <div style={{position:"sticky",top:0,zIndex:40,background:dark?"#12101e":"#F0F0F0",
@@ -1676,7 +1749,7 @@ function ApodoPanel({me,owned,items,balance,dark,showToast,onRefresh,onRefreshBa
 // ════════════════════════════════════════════════════════════
 // TIENDA DE PERSONALIZACIÓN
 // ════════════════════════════════════════════════════════════
-function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack}){
+function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack,onCustomChange}){
   const [sec,setSec]     = useState("temas");    // temas|colores|emojis|efectos
   const [items,setItems] = useState([]);
   const [owned,setOwned] = useState([]);
@@ -1728,7 +1801,9 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,dark=false,onBack}){
     const isActive = active?.[`${tipo}_id`]===item_id;
     try{
       const d=await api.customEquip(tipo, isActive?null:item_id);
-      setActive(d.data||d);
+      const newActive=d.data||d;
+      setActive(newActive);
+      if(onCustomChange) onCustomChange(newActive);
       showToast(isActive?"Desequipado":"Equipado ✅");
     }catch(e){showToast(e.message||"Error","error");}
   };
@@ -2041,7 +2116,7 @@ function ANotificaciones({me,dark,onBack,notifs=[],setNotifs}){
   );
 }
 
-function ARanking({dark=false}){
+function ARanking({dark=false,themeAccent,nameColorConfig}){
   const [users,setUsers]=useState([]);
   const [loading,setLoading]=useState(true);
   const cardBg=dark?"#1e1b2e":"white";
@@ -2055,7 +2130,7 @@ function ARanking({dark=false}){
 
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="Ranking 🏆" dark={dark}/>
+      <OHdrA title="Ranking 🏆" dark={dark} themeAccent={themeAccent}/>
       <div style={{padding:"0 14px",marginTop:12}}>
         {users.map((u,i)=>{
           const lv=getLv(u.total_earned||0);
@@ -2069,10 +2144,19 @@ function ARanking({dark=false}){
               </div>
               <Av user={u} sz={42}/>
               <div style={{flex:1}}>
-                <div style={{fontWeight:800,fontSize:14,color:txt}}>{displayName(u)}</div>
+                <div style={{fontWeight:800,fontSize:14,
+                  color: nameColorConfig?.rainbow
+                    ? "transparent"
+                    : nameColorConfig?.color || (dark?"#e0e0e0":"#1a1a1a"),
+                  background: nameColorConfig?.rainbow
+                    ? "linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)"
+                    : "none",
+                  WebkitBackgroundClip: nameColorConfig?.rainbow ? "text" : "unset",
+                  WebkitTextFillColor: nameColorConfig?.rainbow ? "transparent" : "unset",
+                }}>{displayName(u)}</div>
                 <Pill text={lv.icon+" "+lv.name} col={lv.color}/>
               </div>
-              <div style={{fontWeight:900,color:dark?"#c084fc":"#00c1fc",fontSize:14}}>🪙 {(u.total_earned||0).toLocaleString("es-AR")}</div>
+              <div style={{fontWeight:900,color:themeAccent||(dark?"#c084fc":"#00c1fc"),fontSize:14}}>🪙 {(u.total_earned||0).toLocaleString("es-AR")}</div>
             </div>
           );
         })}
@@ -2081,13 +2165,13 @@ function ARanking({dark=false}){
   );
 }
 
-function APerfil({me,balance,logout,showToast,setMe,dark=false}){
+function APerfil({me,balance,logout,showToast,setMe,dark=false,themeAccent}){
   const uS=me.unlocked_skins||["s1"];
   const uB=me.unlocked_borders||["b1"];
   const uT=me.unlocked_titles||["tl1"];
   const cardBg=dark?"#1e1b2e":"white";
   const txt=dark?"#e0e0e0":"#1a1a1a";
-  const accent=dark?"#c084fc":"#00c1fc";
+  const accent=themeAccent||(dark?"#c084fc":"#00c1fc");
 
   const equip=async(type,item_id)=>{
     try{
@@ -2100,7 +2184,7 @@ function APerfil({me,balance,logout,showToast,setMe,dark=false}){
 
   return(
     <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="Mi Perfil 👤" dark={dark}/>
+      <OHdrA title="Mi Perfil 👤" dark={dark} themeAccent={themeAccent}/>
       <div style={{padding:"0 14px",marginTop:12}}>
         <div style={{background:cardBg,borderRadius:20,padding:24,textAlign:"center",marginBottom:12,
           boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
