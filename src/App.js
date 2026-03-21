@@ -2918,6 +2918,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
               }
             </div>
           )}
+        </div>
 
         <div style={{marginTop:16}}>
           <button onClick={logout} style={{width:"100%",background:cardBg,
