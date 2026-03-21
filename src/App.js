@@ -137,7 +137,7 @@ const api = {
   customMe:       ()         => apiFetch("/custom/me"),
   customUser:     (id)       => apiFetch(`/custom/user/${id}`),
   customBuy:      (item_id)  => apiFetch("/custom/buy",    { method:"POST", body:{item_id} }),
-  customEquip:    (tipo,item_id) => apiFetch("/custom/equip",{ method:"POST", body:{tipo,item_id} }),
+  customEquip:    (tipo,item_id,custom_bg_color,custom_accent_color) => apiFetch("/custom/equip",{ method:"POST", body:{tipo,item_id,custom_bg_color,custom_accent_color} }),
   customGift:     (data)     => apiFetch("/custom/gift",   { method:"POST", body:data }),
   customGifts:    ()         => apiFetch("/custom/gifts"),
   customGiftRead: (id)       => apiFetch(`/custom/gifts/${id}/read`, { method:"PATCH" }),
@@ -575,26 +575,31 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const isAmoled    = sm.amoled;
   const isSepia     = sm.sepia;
   const isContrast  = sm.contrast;
-  const effectiveDark = isDark || sm.dark;
+  const isCustom    = sm.custom;
+  // AMOLED fuerza dark, el resto respeta la elección del usuario
+  const effectiveDark = isDark || isAmoled;
+
+  // Colores custom del usuario (para modo personalizable)
+  const customBg     = isCustom && customActive?.custom_bg_color;
+  const customAccent = isCustom && customActive?.custom_accent_color;
 
   const theme = {
-    primary,
+    primary:   customAccent || primary,
     secondary,
-    isDark: effectiveDark,
-    // Fondos — AMOLED usa negro puro, Sepia usa tono cálido
-    darkBg:   isAmoled?"#000000":isSepia?"#f4e4c1":effectiveDark?"#0d0d1a":"#F0F0F0",
-    cardBg:   isAmoled?"#0a0a0a":isSepia?"#fdf0d5":effectiveDark?"#1a1828":"white",
-    navBg:    isAmoled?"#000000":isSepia?"#f4e4c1":effectiveDark?"#1a1828":"white",
-    navBord:  isAmoled?"#111":isSepia?"#d4a574":effectiveDark?"#2a2740":"#EFEFEF",
-    navActiv: primary,
-    navInact: effectiveDark?"#666":"#777777",
-    navPill:  effectiveDark?"#2a2740":"#f0f9ff",
-    pageBg:   isAmoled?"#000000":isSepia?"#ede0c4":effectiveDark?"#0d0d1a":"#F0F0F0",
-    // Texto — Alto contraste usa blanco/negro puros
-    txt:      isContrast?(effectiveDark?"#ffffff":"#000000"):isSepia?"#4a3728":effectiveDark?"#e8e8f0":"#1a1a1a",
-    sub:      isContrast?(effectiveDark?"#cccccc":"#333333"):isSepia?"#7a5c4a":effectiveDark?"#888":"#555",
-    inputBg:  isAmoled?"#111":isSepia?"#fdf0d5":effectiveDark?"#2a2740":"#F7F7F7",
-    inputBd:  isAmoled?"#333":isSepia?"#c4956a":effectiveDark?"#3a3758":"#E8E8E8",
+    isDark:    effectiveDark,
+    darkBg:    isAmoled?"#000000":isSepia?"#f4e4c1":customBg||( effectiveDark?"#0d0d1a":"#F0F0F0"),
+    cardBg:    isAmoled?"#0a0a0a":isSepia?"#fdf0d5":customBg?customBg+"dd":(effectiveDark?"#1a1828":"white"),
+    navBg:     isAmoled?"#000000":isSepia?"#f4e4c1":customBg||(effectiveDark?"#1a1828":"white"),
+    navBord:   isAmoled?"#111":isSepia?"#d4a574":effectiveDark?"#2a2740":"#EFEFEF",
+    navActiv:  customAccent || primary,
+    navInact:  effectiveDark?"#666":"#777777",
+    navPill:   effectiveDark?"#2a2740":"#f0f9ff",
+    pageBg:    isAmoled?"#000000":isSepia?"#ede0c4":customBg||(effectiveDark?"#0d0d1a":"#F0F0F0"),
+    // Alto contraste: texto fuerte pero sin forzar modo oscuro
+    txt:       isContrast?(effectiveDark?"#ffffff":"#000000"):isSepia?"#4a3728":effectiveDark?"#e8e8f0":"#1a1a1a",
+    sub:       isContrast?(effectiveDark?"#dddddd":"#222222"):isSepia?"#7a5c4a":effectiveDark?"#888":"#555",
+    inputBg:   isAmoled?"#111":isSepia?"#fdf0d5":effectiveDark?"#2a2740":"#F7F7F7",
+    inputBd:   isAmoled?"#333":isSepia?"#c4956a":effectiveDark?"#3a3758":"#E8E8E8",
   };
 
   const setTheme=(id, directPrimary, isPreview=false)=>{
@@ -2298,48 +2303,87 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                   const isOwned=ownedIds.has(item.id)||item.precio===0;
                   const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
                   const isActive=active?.screen_mode_id===item.id;
-                  const isPreviewing=preview?.id===item.id;
+                  const isCustomMode=cfg.custom;
                   return(
                     <div key={item.id} style={{borderRadius:14,overflow:"hidden",
-                      border:`2px solid ${isActive?accent:isPreviewing?accent+"88":dark?"#2d2a45":"#e8e8e8"}`,
+                      border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e8e8e8"}`,
                       background:dark?"#2d2a45":"#f8f8f8",
+                      gridColumn: isCustomMode?"1 / -1":"auto", // custom ocupa full width
                       opacity:!isOwned&&item.precio>0?.8:1}}>
-                      {/* Tap para preview o equipar */}
-                      <div style={{padding:"10px 6px 4px",fontSize:26,textAlign:"center",cursor:"pointer"}}
-                        onClick={()=>{
-                          if(isOwned){
-                            equipar("screen_mode",item.id);
-                          } else {
-                            // Preview: solo cambia visualmente, no guarda
-                            if(isPreviewing){
-                              setPreview(null);
-                            } else {
-                              setPreview(item);
-                            }
-                          }
-                        }}>
-                        {isPreviewing?"👁️":item.preview||"🌑"}
+                      {/* Preview visual */}
+                      <div style={{height:isCustomMode?40:44,cursor:isOwned?"pointer":"default",
+                        background:isCustomMode&&isActive&&active?.custom_bg_color
+                          ?`linear-gradient(135deg,${active.custom_bg_color},${active.custom_accent_color||active.custom_bg_color})`
+                          :cfg.bg_preview||"linear-gradient(135deg,#667,#334)",
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}
+                        onClick={isOwned&&!isCustomMode?()=>equipar("screen_mode",item.id):undefined}>
+                        {isActive?"✅":item.preview||"🖥️"}
                       </div>
-                      <div style={{fontWeight:800,fontSize:10,color:txt,padding:"0 4px 2px",textAlign:"center"}}>
-                        {item.nombre}
-                      </div>
-                      {isPreviewing&&!isOwned&&(
-                        <div style={{fontSize:8,color:sub,textAlign:"center",paddingBottom:4}}>Vista previa</div>
-                      )}
-                      {isOwned
-                        ? <button onClick={()=>equipar("screen_mode",item.id)}
-                            style={{background:"none",border:"none",fontSize:10,color:accent,
-                              fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif",
-                              width:"100%",paddingBottom:8}}>
+                      <div style={{padding:"6px 8px"}}>
+                        <div style={{fontWeight:800,fontSize:10,color:txt,textAlign:"center",marginBottom:4}}>
+                          {item.nombre}
+                        </div>
+                        {/* Modo personalizable — mostrar color pickers */}
+                        {isCustomMode&&isOwned&&(
+                          <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:9,color:sub,marginBottom:2}}>Fondo</div>
+                              <input type="color"
+                                defaultValue={active?.custom_bg_color||"#1a1a2e"}
+                                onChange={e=>{
+                                  // Aplicar preview inmediato y guardar al cambiar
+                                  const col=e.target.value;
+                                  api.customEquip("screen_mode",item.id,col,col).then(d=>{
+                                    if(onCustomChange) onCustomChange(d.data||d);
+                                  }).catch(()=>{});
+                                }}
+                                style={{width:"100%",height:28,borderRadius:6,border:"none",
+                                  cursor:"pointer",padding:2}}/>
+                            </div>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:9,color:sub,marginBottom:2}}>Acento</div>
+                              <input type="color"
+                                defaultValue={active?.custom_accent_color||"#667eea"}
+                                onChange={e=>{
+                                  const col=e.target.value;
+                                  const bg=active?.custom_bg_color||"#1a1a2e";
+                                  api.customEquip("screen_mode",item.id,bg,col).then(d=>{
+                                    if(onCustomChange) onCustomChange(d.data||d);
+                                    if(onThemeChange) onThemeChange(null,col,false);
+                                  }).catch(()=>{});
+                                }}
+                                style={{width:"100%",height:28,borderRadius:6,border:"none",
+                                  cursor:"pointer",padding:2}}/>
+                            </div>
+                          </div>
+                        )}
+                        {/* Botón equipar/comprar */}
+                        {isOwned&&!isCustomMode&&(
+                          <button onClick={()=>equipar("screen_mode",item.id)}
+                            style={{width:"100%",background:"none",border:"none",fontSize:10,
+                              color:isActive?accent:sub,fontWeight:isActive?800:600,cursor:"pointer",
+                              fontFamily:"Nunito,sans-serif",paddingBottom:4}}>
                             {isActive?"✅ Activo":"Equipar"}
                           </button>
-                        : <button onClick={()=>comprar(item)} disabled={buying===item.id||item.precio>balance}
-                            style={{background:"none",border:"none",fontSize:10,color:accent,
-                              fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif",
-                              width:"100%",paddingBottom:8}}>
-                            🪙{item.precio}
+                        )}
+                        {isOwned&&isCustomMode&&!isActive&&(
+                          <button onClick={()=>equipar("screen_mode",item.id)}
+                            style={{width:"100%",background:accent,border:"none",borderRadius:99,
+                              fontSize:10,color:"white",fontWeight:800,cursor:"pointer",
+                              fontFamily:"Nunito,sans-serif",padding:"4px 0"}}>
+                            Activar
                           </button>
-                      }
+                        )}
+                        {!isOwned&&(
+                          <button onClick={()=>comprar(item)} disabled={buying===item.id||item.precio>balance}
+                            style={{width:"100%",background:"none",border:"none",fontSize:10,
+                              color:item.precio>balance?sub:accent,fontWeight:800,
+                              cursor:item.precio>balance?"not-allowed":"pointer",
+                              fontFamily:"Nunito,sans-serif",paddingBottom:4}}>
+                            {buying===item.id?"...":`🪙${item.precio}`}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -7073,6 +7117,7 @@ function AdminEconomia({showToast, onBack}){
   const SECCIONES = [
     {id:"colores",    icon:"🖊️", title:"Colores de Nombre",  sub:"Precios y suscripciones", col:"#8b5cf6"},
     {id:"temas",      icon:"🎨", title:"Temas de App",        sub:"Paletas y suscripciones", col:"#ec4899"},
+    {id:"modos",      icon:"🖥️", title:"Modos de Pantalla",  sub:"AMOLED, Sepia, Custom...", col:"#6366f1"},
     {id:"emojis",     icon:"😄", title:"Packs de Emojis",     sub:"Precios de packs",        col:"#f59e0b"},
     {id:"efectos",    icon:"✨", title:"Efectos y Animaciones",sub:"Títulos y nombre",        col:"#3b82f6"},
     {id:"ranking",    icon:"🏆", title:"Premios del Ranking", sub:"Diario, semanal, mensual", col:"#10b981"},
@@ -7127,13 +7172,13 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   const [scopeClose,setSClose]=useState("global");
 
   const SEC_TIPO = {
-    colores: "name_color", temas: "theme", emojis: "emoji_pack",
+    colores: "name_color", temas: "theme", modos: "screen_mode", emojis: "emoji_pack",
     efectos: ["title_effect","name_effect","avatar_frame"],
   };
   const PERIODO_PER_SEC = ["colores","temas"];
 
   useEffect(()=>{
-    if(["colores","temas","emojis","efectos"].includes(sec)){
+    if(["colores","temas","modos","emojis","efectos"].includes(sec)){
       const tipo = SEC_TIPO[sec];
       const tipoParam = Array.isArray(tipo)?tipo[0]:tipo;
       api.customAdminItems()
@@ -7201,9 +7246,9 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   };
 
   const SEC_TITLE = {
-    colores:"🖊️ Colores de Nombre", temas:"🎨 Temas", emojis:"😄 Packs Emoji",
-    efectos:"✨ Efectos", ranking:"🏆 Premios Ranking", checkin:"🔥 Check-in",
-    suscripciones:"🔄 Suscripciones", historial:"📋 Historial",
+    colores:"🖊️ Colores de Nombre", temas:"🎨 Temas", modos:"🖥️ Modos de Pantalla",
+    emojis:"😄 Packs Emoji", efectos:"✨ Efectos", ranking:"🏆 Premios Ranking",
+    checkin:"🔥 Check-in", suscripciones:"🔄 Suscripciones", historial:"📋 Historial",
   };
 
   return(
@@ -7297,7 +7342,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
         {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
 
         {/* Items de personalización */}
-        {["colores","temas","emojis","efectos"].includes(sec)&&!loading&&items.map(item=>(
+        {["colores","temas","modos","emojis","efectos"].includes(sec)&&!loading&&items.map(item=>(
           <div key={item.id} style={{background:"white",borderRadius:14,marginBottom:8,
             overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",opacity:item.activo?1:.5}}>
             {item.tipo==="theme"&&(
