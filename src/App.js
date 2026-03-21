@@ -565,6 +565,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [dbThemePrimary,setDbThemePrimary] = useState(null); // color real equipado
   const [screenModeCfg,setScreenModeCfg]=useState(null); // config del modo de pantalla activo
   const [previewPrimary,setPreviewPrimary] = useState(null); // preview temporal (no se guarda)
+  const [customActive,setCustomActive]=useState(null);
+  const [textStyleCfg,setTextStyleCfg]=useState(null);
 
   // Prioridad: preview temporal > color DB real > DUAL_THEMES locales
   const baseTheme = DUAL_THEMES.find(t=>t.id===themeId)||DUAL_THEMES[0];
@@ -638,8 +640,6 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   };
 
   // ── Personalización del server ───────────────────────────────
-  const [customActive,setCustomActive]=useState(null);
-  const [textStyleCfg,setTextStyleCfg]=useState(null);
 
   const applyActive=(active)=>{
     if(!active) return;
