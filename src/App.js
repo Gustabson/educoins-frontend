@@ -687,7 +687,13 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="ranking"    && <ARanking    nameColorConfig={nameColorConfig}/>}
         {tab==="opciones"   && <AOpciones   me={me} logout={logout} notifs={notifs}/>}
         {tab==="notificaciones"&&<ANotificaciones me={me} onBack={()=>navTo("home")} notifs={notifs} setNotifs={setNotifs}/>}
-        {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} onBack={()=>navTo("home")} onCustomChange={setCustomActive} onThemeChange={(id,directPrimary)=>{ if(id) setThemeId(id); if(directPrimary!==undefined) setDbThemePrimary(directPrimary); }} onDarkChange={toggleDark} currentThemeId={themeId} isDark={isDark}/>}
+        {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}
+          onBack={()=>navTo("home")}
+          onCustomChange={setCustomActive}
+          onThemeChange={(id,directPrimary)=>{ if(id) setThemeId(id); if(directPrimary!==undefined) setDbThemePrimary(directPrimary); }}
+          onDarkChange={toggleDark}
+          currentThemeId={themeId} isDark={isDark}
+          currentPrimary={dbThemePrimary||theme.primary}/>}
         {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig}/>}
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
@@ -2011,20 +2017,32 @@ function TituloCustomPanel({me,owned,items,balance,showToast,onRefresh,onRefresh
 // ════════════════════════════════════════════════════════════
 // TIENDA DE PERSONALIZACIÓN
 // ════════════════════════════════════════════════════════════
-function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChange,onThemeChange,onDarkChange,currentThemeId,isDark}){
+function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChange,onThemeChange,onDarkChange,currentThemeId,isDark,currentPrimary}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
   const [sec,setSec]     = useState("app");    // app|colores|emojis|efectos|apodo
   const [items,setItems] = useState([]);
   const [owned,setOwned]   = useState([]);
   const [active,setActive]  = useState(null);
-  const [subs,setSubs]      = useState([]); // suscripciones activas del alumno
+  const [subs,setSubs]      = useState([]);
   const [gifts,setGifts]   = useState([]);
   const [loading,setLoading]=useState(true);
   const [buying,setBuying]  = useState(null);
-  const [preview,setPreview]= useState(null); // item en preview (tap en cuadro)
+  const [preview,setPreview]= useState(null); // item en preview temporal
   const [giftOpen,setGiftOpen]=useState(null);
   const [giftTo,setGiftTo]  = useState("");
   const [giftMsg,setGiftMsg]= useState("");
+
+  // Al montar, guardar el primary original para restaurar al salir con preview
+  const originalPrimaryRef = useRef(currentPrimary);
+
+  // Al salir, restaurar el tema original si había un preview
+  const handleBack = () => {
+    if(preview && onThemeChange){
+      // Restaurar el color original antes de salir
+      onThemeChange(currentThemeId, originalPrimaryRef.current);
+    }
+    onBack();
+  };
 
   const SECS=[["app","🎨 App"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
 
@@ -2092,17 +2110,22 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
       const d=await api.customEquip(tipo,isActive?null:item_id);
       const newActive=d.data||d;
       setActive(newActive);
+      setPreview(null); // limpiar cualquier preview al equipar
       if(onCustomChange) onCustomChange(newActive);
-      // Si es tema, aplicar color primario directamente al contexto
-      if(tipo==="theme"&&!isActive&&onThemeChange){
-        const tItem=items.find(i=>i.id===item_id);
-        if(tItem){
-          const cfg=typeof tItem.config==="string"?JSON.parse(tItem.config||"{}"):tItem.config||{};
-          // Pasar el color primario real para que el ThemeCtx lo use directamente
-          onThemeChange(null, cfg.primary||null);
+      // Si es tema, aplicar color primario directamente al contexto (ahora SÍ permanente)
+      if(tipo==="theme"){
+        if(!isActive&&onThemeChange){
+          const tItem=items.find(i=>i.id===item_id);
+          if(tItem){
+            const cfg=typeof tItem.config==="string"?JSON.parse(tItem.config||"{}"):tItem.config||{};
+            onThemeChange(null, cfg.primary||null);
+            originalPrimaryRef.current = cfg.primary||null; // actualizar el original
+          }
+        } else if(isActive&&onThemeChange){
+          onThemeChange("oceano",null);
+          originalPrimaryRef.current = null;
         }
       }
-      if(tipo==="theme"&&isActive&&onThemeChange) onThemeChange("oceano", null); // reset
       showToast(isActive?"Desequipado":"Equipado ✅");
     }catch(e){showToast(e.message||"Error","error");}
   };
@@ -2165,7 +2188,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
   return(
     <div style={{background:bg,minHeight:"100vh"}}>
-      <OHdrA title="🎨 Personalización" onBack={onBack}/>
+      <OHdrA title="🎨 Personalización" onBack={handleBack}/>
 
       {/* Regalos pendientes */}
       {gifts.length>0&&(
@@ -2245,17 +2268,28 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                       border:`2px solid ${isActive?accent:isPreviewing?accent+"88":dark?"#2d2a45":"#e8e8e8"}`,
                       background:dark?"#2d2a45":"#f8f8f8",
                       opacity:!isOwned&&item.precio>0?.8:1}}>
-                      {/* Tap para preview */}
+                      {/* Tap para preview o equipar */}
                       <div style={{padding:"10px 6px 4px",fontSize:26,textAlign:"center",cursor:"pointer"}}
                         onClick={()=>{
-                          if(isOwned) equipar("screen_mode",item.id);
-                          else setPreview(isPreviewing?null:item);
+                          if(isOwned){
+                            equipar("screen_mode",item.id);
+                          } else {
+                            // Preview: solo cambia visualmente, no guarda
+                            if(isPreviewing){
+                              setPreview(null);
+                            } else {
+                              setPreview(item);
+                            }
+                          }
                         }}>
-                        {item.preview||"🌑"}
+                        {isPreviewing?"👁️":item.preview||"🌑"}
                       </div>
                       <div style={{fontWeight:800,fontSize:10,color:txt,padding:"0 4px 2px",textAlign:"center"}}>
                         {item.nombre}
                       </div>
+                      {isPreviewing&&!isOwned&&(
+                        <div style={{fontSize:8,color:sub,textAlign:"center",paddingBottom:4}}>Vista previa</div>
+                      )}
                       {isOwned
                         ? <button onClick={()=>equipar("screen_mode",item.id)}
                             style={{background:"none",border:"none",fontSize:10,color:accent,
@@ -2303,41 +2337,52 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                       {/* Preview — tap para ver en tiempo real */}
                       <div style={{height:54,cursor:"pointer",
                         background:`linear-gradient(135deg,${cfg.primary||"#00c1fc"} 50%,${cfg.accent||cfg.secondary||"#0ea5e9"} 50%)`,
-                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,
-                        position:"relative"}}
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:24,position:"relative"}}
                         onClick={()=>{
                           if(isOwned){
+                            // Si lo tiene, equipar directamente (permanente)
                             equipar("theme",item.id);
                           } else {
-                            // Preview temporal del color
-                            setPreview(isPreviewing?null:item);
-                            if(!isPreviewing&&onThemeChange) onThemeChange(null, cfg.primary||null);
-                            else if(onThemeChange) onThemeChange("oceano",null); // reset
+                            // Preview temporal — aplica el color pero NO guarda
+                            if(isPreviewing){
+                              // Quitar preview — restaurar color original
+                              setPreview(null);
+                              if(onThemeChange) onThemeChange(currentThemeId, originalPrimaryRef.current);
+                            } else {
+                              // Activar preview de este tema
+                              setPreview(item);
+                              if(onThemeChange) onThemeChange(null, cfg.primary||null);
+                            }
                           }
                         }}>
                         {isActive?"✅":isPreviewing?"👁️":item.preview||cfg.icon||"🎨"}
                         {!isOwned&&!isPreviewing&&precio>0&&(
                           <div style={{position:"absolute",top:4,right:4,
                             background:"rgba(0,0,0,.4)",borderRadius:99,padding:"2px 6px",
-                            fontSize:9,color:"white",fontWeight:800}}>
-                            🔒
-                          </div>
+                            fontSize:9,color:"white",fontWeight:800}}>🔒</div>
+                        )}
+                        {isPreviewing&&!isOwned&&(
+                          <div style={{position:"absolute",bottom:3,left:0,right:0,
+                            textAlign:"center",fontSize:8,color:"white",fontWeight:700,
+                            background:"rgba(0,0,0,.4)"}}>Vista previa</div>
                         )}
                       </div>
                       <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 6px"}}>
                         <div style={{fontWeight:800,fontSize:11,color:isActive?cfg.primary||accent:txt,
                           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
                           padding:"0 2px",textAlign:"center",marginBottom:4}}>{item.nombre}</div>
-                        {/* Estado / días restantes */}
-                        {isActive&&dias!==null&&(
-                          <div style={{fontSize:9,color:dias<=3?"#ef4444":"#10b981",fontWeight:700,
-                            textAlign:"center",marginBottom:4}}>
-                            🔄 {dias===0?"Vence hoy":`${dias}d restantes`}
+                        {/* Período de renovación */}
+                        {isSub&&precio>0&&(
+                          <div style={{fontSize:8,color:sub,textAlign:"center",marginBottom:2}}>
+                            🔄 {item.periodo_default==="weekly"?"Semanal":item.periodo_default==="annual"?"Anual":"Mensual"}
                           </div>
                         )}
-                        {isActive&&dias===null&&(
-                          <div style={{fontSize:9,color:"#10b981",fontWeight:700,textAlign:"center",marginBottom:4}}>
-                            ✅ Activo
+                        {/* Días restantes si está suscripto */}
+                        {isActive&&dias!==null&&(
+                          <div style={{fontSize:9,fontWeight:700,textAlign:"center",marginBottom:4,
+                            color:dias<=3?"#ef4444":dias<=7?"#f59e0b":"#10b981"}}>
+                            {dias===0?"⚠️ Vence hoy":`⏳ ${dias}d`}
                           </div>
                         )}
                         {!isActive&&isOwned&&(
