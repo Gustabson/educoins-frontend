@@ -573,51 +573,53 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const primary   = previewPrimary || dbThemePrimary || baseTheme.primary;
   const secondary = baseTheme.secondary;
 
-  // Calcular overrides por screen_mode
+  // ── Screen mode activo — define TODO el tema de fondo ────────
+  // Si hay screen_mode activo con config completo, SUS valores reemplazan claro/oscuro
   const sm = screenModeCfg || {};
-  const isAmoled    = sm.amoled;
-  const isSepia     = sm.sepia;
-  const isContrast  = sm.contrast;
-  const isCustom    = sm.custom;
-  // AMOLED fuerza dark, el resto respeta la elección del usuario
+  const hasScreenMode = !!(screenModeCfg && sm.mode);  // solo si tiene un mode definido
 
-  const customBg     = isCustom && customActive?.custom_bg_color;
-  const customAccent = isCustom && customActive?.custom_accent_color;
-  // Text style overrides — lee directo del preset o custom
+  // El "dark" efectivo: screen_mode define isDark, o toggle del usuario
+  const smDark = hasScreenMode ? (sm.isDark || sm.dark || false) : isDark;
+
+  // Text style overrides
   const ts = textStyleCfg || {};
-  const isNeon    = ts.preset==="neon";
-  const forceDark = ts.force_dark;
-  const isCustomTs= ts.preset==="custom";
+  const isContrast = ts.contrast || ts.preset === "contraste";
+  const isCustomTs = ts.preset === "custom";
+  const forceDark  = ts.force_dark;
+  const tsTxt = isCustomTs && ts.custom_txt ? ts.custom_txt
+              : ts.txt && ts.txt !== "default" ? ts.txt : null;
+  const tsSub = isCustomTs && ts.custom_sub ? ts.custom_sub
+              : ts.sub && ts.sub !== "default" ? ts.sub : null;
 
-  // Si el estilo de texto fuerza dark, aplicarlo
-  const effectiveDark = isDark || isAmoled || forceDark;
+  // Dark final: screen_mode > text_style fuerza dark > toggle usuario
+  const finalDark = smDark || forceDark;
 
   const theme = {
-    primary:   customAccent || primary,
+    primary:  primary,
     secondary,
-    isDark:    effectiveDark,
-    // Fondos — prioridad: custom picker > screen_mode config > sepia/amoled > default
-    darkBg:    customBg || sm.bg  || (isAmoled?"#000000":isSepia?"#f4e4c1":effectiveDark?"#0d0d1a":"#F0F0F0"),
-    cardBg:    (customBg?customBg+"dd":null) || sm.card || (isAmoled?"#0a0a0a":isSepia?"#fdf0d5":effectiveDark?"#1a1828":"white"),
-    navBg:     customBg || sm.nav  || (isAmoled?"#000000":isSepia?"#f4e4c1":effectiveDark?"#1a1828":"white"),
-    navBord:   isAmoled?"#111":isSepia?"#d4a574":effectiveDark?"#2a2740":"#EFEFEF",
-    navActiv:  customAccent || primary,
-    navInact:  effectiveDark?"#666":"#777777",
-    navPill:   effectiveDark?"#2a2740":"#f0f9ff",
-    pageBg:    customBg || sm.pageBg || (isAmoled?"#000000":isSepia?"#ede0c4":effectiveDark?"#0d0d1a":"#F0F0F0"),
-    // Texto — prioridad: custom picker > preset txt > contraste > sepia > default
-    txt: isCustomTs&&ts.custom_txt ? ts.custom_txt
-       : ts.txt&&ts.txt!=="default" ? ts.txt
-       : isContrast   ? (effectiveDark?"#ffffff":"#000000")
-       : isSepia      ? "#4a3728"
-       : effectiveDark? "#e8e8f0" : "#1a1a1a",
-    sub: isCustomTs&&ts.custom_sub ? ts.custom_sub
-       : ts.sub&&ts.sub!=="default" ? ts.sub
-       : isContrast   ? (effectiveDark?"#dddddd":"#222222")
-       : isSepia      ? "#7a5c4a"
-       : effectiveDark? "#888" : "#555",
-    inputBg:   isAmoled?"#111":isSepia?"#fdf0d5":effectiveDark?"#2a2740":"#F7F7F7",
-    inputBd:   isAmoled?"#333":isSepia?"#c4956a":effectiveDark?"#3a3758":"#E8E8E8",
+    isDark:   finalDark,
+
+    // Fondos — screen_mode reemplaza todo claro/oscuro
+    pageBg:  hasScreenMode ? sm.pageBg  : (finalDark ? "#0d0d1a" : "#F0F0F0"),
+    darkBg:  hasScreenMode ? sm.bg      : (finalDark ? "#0d0d1a" : "#F0F0F0"),
+    cardBg:  hasScreenMode ? sm.card    : (finalDark ? "#1a1828" : "white"),
+    navBg:   hasScreenMode ? sm.nav     : (finalDark ? "#1a1828" : "white"),
+    navBord: hasScreenMode ? sm.navBord : (finalDark ? "#2a2740" : "#EFEFEF"),
+    navPill: hasScreenMode ? sm.navPill : (finalDark ? "#2a2740" : "#f0f9ff"),
+    navInact:hasScreenMode ? sm.navInact: (finalDark ? "#666"    : "#777777"),
+    navActiv: primary,
+    inputBg: hasScreenMode ? sm.inputBg : (finalDark ? "#2a2740" : "#F7F7F7"),
+    inputBd: hasScreenMode ? sm.inputBd : (finalDark ? "#3a3758" : "#E8E8E8"),
+
+    // Texto — text_style override > contraste > screen_mode > default
+    txt: tsTxt ? tsTxt
+       : isContrast ? (finalDark ? "#ffffff" : "#000000")
+       : hasScreenMode ? sm.txt
+       : (finalDark ? "#e8e8f0" : "#1a1a1a"),
+    sub: tsSub ? tsSub
+       : isContrast ? (finalDark ? "#dddddd" : "#222222")
+       : hasScreenMode ? sm.sub
+       : (finalDark ? "#888" : "#555"),
   };
 
   const setTheme=(id, directPrimary, isPreview=false)=>{
@@ -650,7 +652,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     if(active.screen_mode_config){
       const sc=typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
       setScreenModeCfg(sc||null);
-      if(sc?.dark||sc?.amoled) setIsDark(true); // algunos modos fuerzan dark
+      // El isDark lo controla el screen_mode, no el toggle usuario
     } else { setScreenModeCfg(null); }
     if(active.text_style_config){
       const ts=typeof active.text_style_config==="string"?JSON.parse(active.text_style_config):active.text_style_config;
@@ -2458,16 +2460,22 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                 Modos de fondo. Elegí uno — no se combinan entre sí.
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {/* Claro y Oscuro — siempre gratis, controlados por toggle */}
+                {/* Claro y Oscuro — siempre gratis, desequipan cualquier screen_mode */}
                 {[{d:false,icon:"☀️",lbl:"Claro",sub2:"Gratis"},{d:true,icon:"🌙",lbl:"Oscuro",sub2:"Gratis"}].map(m=>(
-                  <div key={m.lbl} onClick={()=>{onDarkChange&&onDarkChange(m.d); api.customEquip("screen_mode",null).catch(()=>{});}}
+                  <div key={m.lbl} onClick={()=>{
+                    onDarkChange&&onDarkChange(m.d);
+                    // Desequipar screen_mode si había uno activo
+                    if(active?.screen_mode_id){
+                      equipar("screen_mode",active.screen_mode_id); // toggle = desequipar
+                    }
+                  }}
                     style={{borderRadius:14,overflow:"hidden",cursor:"pointer",
-                      border:`2px solid ${isDark===m.d&&!active?.screen_mode_id?accent:dark?"#2d2a45":"#e8e8e8"}`,
+                      border:`2px solid ${!active?.screen_mode_id&&isDark===m.d?accent:dark?"#2d2a45":"#e8e8e8"}`,
                       background:dark?"#2d2a45":"#f8f8f8"}}>
                     <div style={{height:44,
                       background:m.d?"linear-gradient(135deg,#0d0d1a,#1a1828)":"linear-gradient(135deg,#F0F0F0,#ffffff)",
                       display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
-                      {isDark===m.d&&!active?.screen_mode_id?"✅":m.icon}
+                      {!active?.screen_mode_id&&isDark===m.d?"✅":m.icon}
                     </div>
                     <div style={{padding:"6px",textAlign:"center"}}>
                       <div style={{fontWeight:800,fontSize:11,color:txt}}>{m.lbl}</div>

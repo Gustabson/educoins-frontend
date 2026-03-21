@@ -33,7 +33,9 @@
       "Bash(grep -iE \"^App\\\\.js$|^customization\\\\.js$\")",
       "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/014_text_styles.sql\")",
       "Bash(grep -iE \"^App\\\\.js$|^customization\\\\.js$|015_consolidate\")",
-      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/015_consolidate_custom.sql\")"
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/015_consolidate_custom.sql\")",
+      "Bash(grep -iE \"^App\\\\.js$|016_screen\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/016_screen_mode_redesign.sql\")"
     ]
   }
 }
