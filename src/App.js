@@ -559,39 +559,57 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   // ── Tema dual ────────────────────────────────────────────────
   const savedThemeId = localStorage.getItem("ec_theme")||"oceano";
   const savedDark    = localStorage.getItem("ec_dark")==="true";
-  const [themeId,setThemeId]     = useState(savedThemeId);
-  const [isDark,setIsDark]       = useState(savedDark);
-  const [dbThemePrimary,setDbThemePrimary] = useState(null); // color primario del tema equipado en DB
+  const [themeId,setThemeId]         = useState(savedThemeId);
+  const [isDark,setIsDark]           = useState(savedDark);
+  const [dbThemePrimary,setDbThemePrimary] = useState(null); // color real equipado
+  const [previewPrimary,setPreviewPrimary] = useState(null); // preview temporal (no se guarda)
 
-  // Prioridad: color de DB > DUAL_THEMES locales
+  // Prioridad: preview temporal > color DB real > DUAL_THEMES locales
   const baseTheme = DUAL_THEMES.find(t=>t.id===themeId)||DUAL_THEMES[0];
-  const primary   = dbThemePrimary || baseTheme.primary;
+  const primary   = previewPrimary || dbThemePrimary || baseTheme.primary;
   const secondary = baseTheme.secondary;
+
+  // Calcular overrides por screen_mode
+  const sm = screenModeCfg || {};
+  const isAmoled    = sm.amoled;
+  const isSepia     = sm.sepia;
+  const isContrast  = sm.contrast;
+  const effectiveDark = isDark || sm.dark;
 
   const theme = {
     primary,
     secondary,
-    isDark,
-    darkBg:   isDark?"#0d0d1a":"#F0F0F0",
-    cardBg:   isDark?"#1a1828":"white",
-    navBg:    isDark?"#1a1828":"white",
-    navBord:  isDark?"#2a2740":"#EFEFEF",
+    isDark: effectiveDark,
+    // Fondos — AMOLED usa negro puro, Sepia usa tono cálido
+    darkBg:   isAmoled?"#000000":isSepia?"#f4e4c1":effectiveDark?"#0d0d1a":"#F0F0F0",
+    cardBg:   isAmoled?"#0a0a0a":isSepia?"#fdf0d5":effectiveDark?"#1a1828":"white",
+    navBg:    isAmoled?"#000000":isSepia?"#f4e4c1":effectiveDark?"#1a1828":"white",
+    navBord:  isAmoled?"#111":isSepia?"#d4a574":effectiveDark?"#2a2740":"#EFEFEF",
     navActiv: primary,
-    navInact: isDark?"#666":"#777777",
-    navPill:  isDark?"#2a2740":"#f0f9ff",
-    pageBg:   isDark?"#0d0d1a":"#F0F0F0",
-    txt:      isDark?"#e8e8f0":"#1a1a1a",
-    sub:      isDark?"#888":"#555",
-    inputBg:  isDark?"#2a2740":"#F7F7F7",
-    inputBd:  isDark?"#3a3758":"#E8E8E8",
+    navInact: effectiveDark?"#666":"#777777",
+    navPill:  effectiveDark?"#2a2740":"#f0f9ff",
+    pageBg:   isAmoled?"#000000":isSepia?"#ede0c4":effectiveDark?"#0d0d1a":"#F0F0F0",
+    // Texto — Alto contraste usa blanco/negro puros
+    txt:      isContrast?(effectiveDark?"#ffffff":"#000000"):isSepia?"#4a3728":effectiveDark?"#e8e8f0":"#1a1a1a",
+    sub:      isContrast?(effectiveDark?"#cccccc":"#333333"):isSepia?"#7a5c4a":effectiveDark?"#888":"#555",
+    inputBg:  isAmoled?"#111":isSepia?"#fdf0d5":effectiveDark?"#2a2740":"#F7F7F7",
+    inputBd:  isAmoled?"#333":isSepia?"#c4956a":effectiveDark?"#3a3758":"#E8E8E8",
   };
 
-  const setTheme=(id, directPrimary)=>{
-    setThemeId(id||"oceano");
-    if(directPrimary) setDbThemePrimary(directPrimary);
-    else setDbThemePrimary(null);
-    localStorage.setItem("ec_theme", id||"oceano");
+  const setTheme=(id, directPrimary, isPreview=false)=>{
+    if(isPreview){
+      // Solo cambia visualmente, no persiste
+      setPreviewPrimary(directPrimary||null);
+    } else {
+      // Cambio real — persiste
+      setPreviewPrimary(null); // limpiar preview
+      if(id) setThemeId(id);
+      setDbThemePrimary(directPrimary||null);
+      if(id) localStorage.setItem("ec_theme", id);
+    }
   };
+  // Llamado al salir de personalización — restaura el color real y borra preview
+  const clearPreview=()=>{ setPreviewPrimary(null); };
   const toggleDark=(d)=>{
     setIsDark(d);
     localStorage.setItem("ec_dark",d?"true":"false");
@@ -599,6 +617,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
 
   // ── Personalización del server ───────────────────────────────
   const [customActive,setCustomActive]=useState(null);
+  const [screenModeCfg,setScreenModeCfg]=useState(null); // config del modo de pantalla activo
+
   useEffect(()=>{
     api.customMe().then(d=>{
       const data=d.data||d;
@@ -609,12 +629,20 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           ? JSON.parse(data.active.theme_config)
           : data.active.theme_config;
         if(tc?.primary){
-          // Usar el color primario directo de la DB
-          setDbThemePrimary(tc.primary);
-          // Intentar sincronizar con DUAL_THEMES si coincide
           const match = DUAL_THEMES.find(t=>t.primary===tc.primary);
-          if(match) setThemeId(match.id);
+          setTheme(match?.id||null, tc.primary, false);
         }
+      }
+      // Aplicar screen_mode activo
+      if(data?.active?.screen_mode_config){
+        const sc = typeof data.active.screen_mode_config==="string"
+          ? JSON.parse(data.active.screen_mode_config)
+          : data.active.screen_mode_config;
+        setScreenModeCfg(sc||null);
+        // Si el modo fuerza dark, aplicarlo
+        if(sc?.dark) setIsDark(true);
+      } else {
+        setScreenModeCfg(null);
       }
     }).catch(()=>{});
   },[]);
@@ -688,9 +716,20 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="opciones"   && <AOpciones   me={me} logout={logout} notifs={notifs}/>}
         {tab==="notificaciones"&&<ANotificaciones me={me} onBack={()=>navTo("home")} notifs={notifs} setNotifs={setNotifs}/>}
         {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}
-          onBack={()=>navTo("home")}
-          onCustomChange={setCustomActive}
-          onThemeChange={(id,directPrimary)=>{ if(id) setThemeId(id); if(directPrimary!==undefined) setDbThemePrimary(directPrimary); }}
+          onBack={()=>{clearPreview();navTo("home");}}
+          onCustomChange={(active)=>{
+            setCustomActive(active);
+            // Aplicar screen_mode inmediatamente si cambió
+            if(active?.screen_mode_config){
+              const sc=typeof active.screen_mode_config==="string"
+                ?JSON.parse(active.screen_mode_config):(active.screen_mode_config||{});
+              setScreenModeCfg(sc);
+              if(sc?.dark) setIsDark(true);
+            } else if(active&&'screen_mode_id' in active&&!active.screen_mode_id){
+              setScreenModeCfg(null); // desequipado
+            }
+          }}
+          onThemeChange={(id,directPrimary,isPreview)=>setTheme(id,directPrimary,isPreview)}
           onDarkChange={toggleDark}
           currentThemeId={themeId} isDark={isDark}
           currentPrimary={dbThemePrimary||theme.primary}/>}
@@ -2032,15 +2071,12 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const [giftTo,setGiftTo]  = useState("");
   const [giftMsg,setGiftMsg]= useState("");
 
-  // Al montar, guardar el primary original para restaurar al salir con preview
+  // originalPrimaryRef — guardamos el color REAL al montar para restaurar al salir
   const originalPrimaryRef = useRef(currentPrimary);
 
-  // Al salir, restaurar el tema original si había un preview
+  // Al salir, siempre restaurar el color real (borrar preview)
   const handleBack = () => {
-    if(preview && onThemeChange){
-      // Restaurar el color original antes de salir
-      onThemeChange(currentThemeId, originalPrimaryRef.current);
-    }
+    if(onThemeChange) onThemeChange(null, originalPrimaryRef.current, false); // restaura real
     onBack();
   };
 
