@@ -596,15 +596,15 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     primary:   customAccent || primary,
     secondary,
     isDark:    effectiveDark,
-    // Fondos según screen_mode
-    darkBg:    isAmoled?"#000000":isSepia?"#f4e4c1":customBg||(effectiveDark?"#0d0d1a":"#F0F0F0"),
-    cardBg:    isAmoled?"#0a0a0a":isSepia?"#fdf0d5":customBg?customBg+"dd":(effectiveDark?"#1a1828":"white"),
-    navBg:     isAmoled?"#000000":isSepia?"#f4e4c1":customBg||(effectiveDark?"#1a1828":"white"),
+    // Fondos — prioridad: custom picker > screen_mode config > sepia/amoled > default
+    darkBg:    customBg || sm.bg  || (isAmoled?"#000000":isSepia?"#f4e4c1":effectiveDark?"#0d0d1a":"#F0F0F0"),
+    cardBg:    (customBg?customBg+"dd":null) || sm.card || (isAmoled?"#0a0a0a":isSepia?"#fdf0d5":effectiveDark?"#1a1828":"white"),
+    navBg:     customBg || sm.nav  || (isAmoled?"#000000":isSepia?"#f4e4c1":effectiveDark?"#1a1828":"white"),
     navBord:   isAmoled?"#111":isSepia?"#d4a574":effectiveDark?"#2a2740":"#EFEFEF",
     navActiv:  customAccent || primary,
     navInact:  effectiveDark?"#666":"#777777",
     navPill:   effectiveDark?"#2a2740":"#f0f9ff",
-    pageBg:    isAmoled?"#000000":isSepia?"#ede0c4":customBg||(effectiveDark?"#0d0d1a":"#F0F0F0"),
+    pageBg:    customBg || sm.pageBg || (isAmoled?"#000000":isSepia?"#ede0c4":effectiveDark?"#0d0d1a":"#F0F0F0"),
     // Texto — prioridad: custom picker > preset txt > contraste > sepia > default
     txt: isCustomTs&&ts.custom_txt ? ts.custom_txt
        : ts.txt&&ts.txt!=="default" ? ts.txt
@@ -650,7 +650,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     if(active.screen_mode_config){
       const sc=typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
       setScreenModeCfg(sc||null);
-      if(sc?.dark) setIsDark(true);
+      if(sc?.dark||sc?.amoled) setIsDark(true); // algunos modos fuerzan dark
     } else { setScreenModeCfg(null); }
     if(active.text_style_config){
       const ts=typeof active.text_style_config==="string"?JSON.parse(active.text_style_config):active.text_style_config;
