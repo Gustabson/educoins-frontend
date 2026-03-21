@@ -3274,13 +3274,28 @@ function AChat({me, showToast, onBack, nameColorConfig}){
   const [results, setResults]   = useState([]);
   const [addOpen, setAddOpen]   = useState(false);
   const [loading, setLoading]   = useState(true);
-  const [perfilUserId,setPerfilUserId] = useState(null); // modal perfil
+  const [perfilUserId,setPerfilUserId] = useState(null);
+  // Emoji picker
+  const [emojiOpen, setEmojiOpen]     = useState(false);
+  const [emojiPacks, setEmojiPacks]   = useState([]); // packs desbloqueados
   const bottomRef               = useRef(null);
   const typingTimer             = useRef(null);
   const token                   = localStorage.getItem("ec_token");
 
   const bg       = dark?"#12101e":"#F5F5F5";
   const inputBord= dark?"#3d3a55":"#E8E8E8";
+
+  // Cargar emoji packs del usuario
+  useEffect(()=>{
+    api.customMe().then(d=>{
+      const owned = (d.data||d)?.owned||[];
+      const packs = owned.filter(o=>o.tipo==="emoji_pack").map(o=>{
+        const cfg = typeof o.config==="string"?JSON.parse(o.config||"{}"):o.config||{};
+        return { id:o.id, nombre:o.nombre, emojis:cfg.emojis||[], preview:cfg.preview||o.preview };
+      });
+      setEmojiPacks(packs);
+    }).catch(()=>{});
+  },[]);
 
   // WebSocket — onMessage SIN dependencias, solo usa refs
   const onMessage = useCallback((m) => {
@@ -3503,18 +3518,64 @@ function AChat({me, showToast, onBack, nameColorConfig}){
         <div ref={bottomRef}/>
       </div>
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
-        width:"100%",maxWidth:480,padding:"10px 14px 20px",display:"flex",gap:8,
+        width:"100%",maxWidth:480,padding:"6px 14px 20px",
         background:cardBg,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`,
         boxSizing:"border-box",zIndex:50}}>
-        <input value={msg} onChange={e=>{setMsg(e.target.value);emitTyping();}}
-          onKeyDown={e=>e.key==="Enter"&&sendMsg()}
-          placeholder="Escribi un mensaje..."
-          style={{flex:1,background:inputBg,border:`1.5px solid ${inputBord}`,borderRadius:50,
-            padding:"10px 16px",fontSize:13,outline:"none",color:txt,
-            fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
-        <button onClick={sendMsg} style={{width:42,height:42,borderRadius:"50%",background:accent,
-          border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
-          display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+        {/* Panel de emojis */}
+        {emojiOpen&&(
+          <div style={{marginBottom:8,background:dark?"#2d2a45":"#f8f8f8",borderRadius:14,
+            padding:"10px 12px",maxHeight:160,overflowY:"auto"}}>
+            {emojiPacks.length===0?(
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:11,color:sub}}>No tenés packs desbloqueados</span>
+                <button onClick={()=>showToast("Comprá packs en Personalización → 😄 Emojis")}
+                  style={{background:accent,border:"none",borderRadius:99,color:"white",
+                    padding:"4px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif",flexShrink:0}}>
+                  + Ver packs
+                </button>
+              </div>
+            ):(
+              <>
+                {emojiPacks.map(pack=>(
+                  <div key={pack.id} style={{marginBottom:8}}>
+                    <div style={{fontSize:9,color:sub,fontWeight:700,marginBottom:4}}>
+                      {pack.nombre}
+                    </div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                      {pack.emojis.map((em,i)=>(
+                        <button key={i} onClick={()=>{setMsg(m=>m+em);setEmojiOpen(false);}}
+                          style={{fontSize:22,background:"none",border:"none",cursor:"pointer",
+                            padding:2,lineHeight:1}}>
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {/* Botón emoji */}
+          <button onClick={()=>setEmojiOpen(o=>!o)}
+            style={{width:38,height:38,borderRadius:"50%",flexShrink:0,
+              background:emojiOpen?accent:(dark?"#2d2a45":"#f0f0f0"),
+              border:"none",fontSize:20,cursor:"pointer",
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+            😄
+          </button>
+          <input value={msg} onChange={e=>{setMsg(e.target.value);emitTyping();}}
+            onKeyDown={e=>e.key==="Enter"&&sendMsg()}
+            placeholder="Escribi un mensaje..."
+            style={{flex:1,background:inputBg,border:`1.5px solid ${inputBord}`,borderRadius:50,
+              padding:"10px 16px",fontSize:13,outline:"none",color:txt,
+              fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
+          <button onClick={sendMsg} style={{width:42,height:42,borderRadius:"50%",background:accent,
+            border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+        </div>
       </div>
     </div>
   );
@@ -3564,17 +3625,55 @@ function AChat({me, showToast, onBack, nameColorConfig}){
       </div>
       {/* Input fijo al fondo */}
       <div style={{position:"absolute",bottom:0,left:0,right:0,
-        padding:"10px 14px 16px",display:"flex",gap:8,
+        padding:"6px 14px 16px",
         background:cardBg,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
-        <input value={msg} onChange={e=>{setMsg(e.target.value);emitTyping();}}
-          onKeyDown={e=>e.key==="Enter"&&sendMsg()}
-          placeholder="Escribi un mensaje..."
-          style={{flex:1,background:inputBg,border:`1.5px solid ${inputBord}`,borderRadius:50,
-            padding:"10px 16px",fontSize:13,outline:"none",color:txt,
-            fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
-        <button onClick={sendMsg} style={{width:42,height:42,borderRadius:"50%",background:accent,
-          border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
-          display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+        {/* Panel de emojis */}
+        {emojiOpen&&(
+          <div style={{marginBottom:8,background:dark?"#2d2a45":"#f8f8f8",borderRadius:14,
+            padding:"10px 12px",maxHeight:140,overflowY:"auto"}}>
+            {emojiPacks.length===0?(
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:11,color:sub}}>Sin packs desbloqueados</span>
+                <button onClick={()=>showToast("Personalización → 😄 Emojis")}
+                  style={{background:accent,border:"none",borderRadius:99,color:"white",
+                    padding:"3px 8px",fontSize:10,fontWeight:800,cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif"}}>+ Packs</button>
+              </div>
+            ):(
+              emojiPacks.map(pack=>(
+                <div key={pack.id} style={{marginBottom:6}}>
+                  <div style={{fontSize:9,color:sub,marginBottom:3}}>{pack.nombre}</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                    {pack.emojis.map((em,i)=>(
+                      <button key={i} onClick={()=>{setMsg(m=>m+em);setEmojiOpen(false);}}
+                        style={{fontSize:20,background:"none",border:"none",cursor:"pointer",padding:1}}>
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <button onClick={()=>setEmojiOpen(o=>!o)}
+            style={{width:38,height:38,borderRadius:"50%",flexShrink:0,
+              background:emojiOpen?accent:(dark?"#2d2a45":"#f0f0f0"),
+              border:"none",fontSize:20,cursor:"pointer",
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+            😄
+          </button>
+          <input value={msg} onChange={e=>{setMsg(e.target.value);emitTyping();}}
+            onKeyDown={e=>e.key==="Enter"&&sendMsg()}
+            placeholder="Escribi un mensaje..."
+            style={{flex:1,background:inputBg,border:`1.5px solid ${inputBord}`,borderRadius:50,
+              padding:"10px 16px",fontSize:13,outline:"none",color:txt,
+              fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
+          <button onClick={sendMsg} style={{width:42,height:42,borderRadius:"50%",background:accent,
+            border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+        </div>
       </div>
     </div>
   );
