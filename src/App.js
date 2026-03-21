@@ -562,6 +562,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [themeId,setThemeId]         = useState(savedThemeId);
   const [isDark,setIsDark]           = useState(savedDark);
   const [dbThemePrimary,setDbThemePrimary] = useState(null); // color real equipado
+  const [screenModeCfg,setScreenModeCfg]=useState(null); // config del modo de pantalla activo
   const [previewPrimary,setPreviewPrimary] = useState(null); // preview temporal (no se guarda)
 
   // Prioridad: preview temporal > color DB real > DUAL_THEMES locales
@@ -617,7 +618,6 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
 
   // ── Personalización del server ───────────────────────────────
   const [customActive,setCustomActive]=useState(null);
-  const [screenModeCfg,setScreenModeCfg]=useState(null); // config del modo de pantalla activo
 
   useEffect(()=>{
     api.customMe().then(d=>{
