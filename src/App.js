@@ -3479,9 +3479,9 @@ function AChat({me, showToast, onBack, nameColorConfig}){
           style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
             color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
             display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-        <Av user={friend} sz={36}/>
+        <div onClick={()=>setPerfilUserId(friend.id)} style={{cursor:"pointer"}}><Av user={friend} sz={36}/></div>
         <div style={{flex:1}}>
-          <div style={{fontWeight:800,fontSize:15}}>{friend.nombre}</div>
+          <div onClick={()=>setPerfilUserId(friend.id)} style={{fontWeight:800,fontSize:15,cursor:"pointer"}}>{friend.nombre}</div>
           {typing&&<div style={{fontSize:11,opacity:.8}}>escribiendo...</div>}
         </div>
       </div>
@@ -3497,11 +3497,13 @@ function AChat({me, showToast, onBack, nameColorConfig}){
             <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
               {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||""}} sz={28}/>}
               <div style={{maxWidth:"72%"}}>
-                {!isMe&&<div onClick={()=>setPerfilUserId(m.sender_id)}
-                  style={{fontSize:10,color:sub,marginBottom:2,marginLeft:4,cursor:"pointer",
-                    fontWeight:700,"&:hover":{textDecoration:"underline"}}}>
-                  {m.sender_nombre}
-                </div>}
+                {!isMe&&<div style={{fontSize:10,marginBottom:2,marginLeft:4,fontWeight:700,
+                  color: m.sender_name_color
+                    ? (typeof m.sender_name_color==='string'
+                        ? JSON.parse(m.sender_name_color||'{}')
+                        : m.sender_name_color)?.color || sub
+                    : sub
+                }}>{m.sender_nombre}</div>}
                 <div style={{padding:"9px 13px",
                   borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
                   background:isMe?accent:cardBg,color:isMe?"white":txt,
@@ -3600,10 +3602,14 @@ function AChat({me, showToast, onBack, nameColorConfig}){
               {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||""}} sz={28}/>}
               <div style={{maxWidth:"75%"}}>
                 {!isMe&&(
-                  <div onClick={()=>setPerfilUserId(m.sender_id)}
-                    style={{fontSize:10,color:m.sender_rol==='teacher'?accent:sub,
-                      marginBottom:2,marginLeft:4,fontWeight:m.sender_rol==='teacher'?800:600,
-                      cursor:"pointer"}}>
+                  <div style={{fontSize:10,marginBottom:2,marginLeft:4,
+                    fontWeight:m.sender_rol==='teacher'?800:600,
+                    color: m.sender_name_color
+                      ? (typeof m.sender_name_color==='string'
+                          ? JSON.parse(m.sender_name_color||'{}')
+                          : m.sender_name_color)?.color || sub
+                      : m.sender_rol==='teacher'?accent:sub
+                  }}>
                     {m.sender_nombre}{m.sender_rol==='teacher'?' 👩‍🏫':''}
                   </div>
                 )}
