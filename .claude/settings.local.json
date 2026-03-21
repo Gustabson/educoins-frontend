@@ -23,7 +23,9 @@
       "Bash(cp \"/c/Users/GustavoS/Downloads/ledger.js\" \"/c/Users/GustavoS/Desktop/EEE/educoins-backend/src/services/ledger.js\")",
       "Bash(grep -iE \"^App\\\\.js$|^admin\\\\.js$\")",
       "Bash(grep -iE \"^App\\\\.js$|^admin\\\\.js$|^profile\\\\.js$|011_economy\")",
-      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/011_economy_and_custom.sql\")"
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/011_economy_and_custom.sql\")",
+      "Bash(grep -iE \"^App\\\\.js$|^ranking\\\\.js$|^subscriptions\\\\.js$|^admin\\\\.js$|^app\\\\.js$|^app \\\\\\(|012_subscriptions\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/012_subscriptions_ranking.sql\")"
     ]
   }
 }

@@ -90,7 +90,18 @@ const api = {
   createItem:     (data)                  => apiFetch("/store/items",         { method:"POST", body:data }),
   purchase:       (item_id)               => apiFetch("/transactions/purchase",{ method:"POST", body:{item_id} }),
   transfer:       (to_user_id, amount)    => apiFetch("/transactions/transfer",{ method:"POST", body:{to_user_id,amount} }),
-  ranking:        ()                      => apiFetch("/profile/ranking"),
+  ranking:        ()                      => apiFetch("/ranking/live?periodo=weekly&scope=global"),
+  rankingLive:    (p,s,cid)               => apiFetch(`/ranking/live?periodo=${p}&scope=${s}${cid?`&classroom_id=${cid}`:""}`),
+  rankingConfig:  ()                      => apiFetch("/ranking/config"),
+  rankingConfigUpdate:(id,d)              => apiFetch(`/ranking/config/${id}`, { method:"PATCH", body:d }),
+  rankingConfigCreate:(d)                 => apiFetch("/ranking/config",       { method:"POST",  body:d }),
+  rankingClose:   (d)                     => apiFetch("/ranking/close",        { method:"POST",  body:d }),
+  rankingPayouts: ()                      => apiFetch("/ranking/payouts"),
+  rankingRevert:  (id,motivo)             => apiFetch(`/ranking/payouts/${id}/revert`, { method:"POST", body:{motivo} }),
+  subscribe:      (item_id,periodo)       => apiFetch("/subscriptions/subscribe", { method:"POST", body:{item_id,periodo} }),
+  mySubscriptions:()                      => apiFetch("/subscriptions/me"),
+  cancelSub:      (id)                    => apiFetch(`/subscriptions/${id}`,  { method:"DELETE" }),
+  chargeAll:      ()                      => apiFetch("/subscriptions/charge-all", { method:"POST" }),
   equip:          (type, item_id)         => apiFetch("/profile/equip",       { method:"POST", body:{type,item_id} }),
   adminUsers:     ()                      => apiFetch("/admin/users"),
   createUser:     (data)                  => apiFetch("/admin/users",         { method:"POST", body:data }),
@@ -2408,45 +2419,133 @@ function ANotificaciones({me,onBack,notifs=[],setNotifs}){
 
 function ARanking({nameColorConfig}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg} = useTheme();
-  const [users,setUsers]=useState([]);
-  const [loading,setLoading]=useState(true);
+  const [periodo,setPeriodo] = useState("weekly");
+  const [scope,setScope]     = useState("global");
+  const [classrooms,setCl]   = useState([]);
+  const [selClass,setSelClass]= useState(null);
+  const [data,setData]       = useState(null);
+  const [loading,setLoading] = useState(true);
+  const [closing,setClosing] = useState(false);
+
+  const PERIODO_LABEL = {daily:"📅 Hoy", weekly:"📆 Semana", monthly:"🗓️ Mes"};
+  const MEDAL = ["🥇","🥈","🥉"];
+
+  const load = () => {
+    setLoading(true);
+    const params = new URLSearchParams({periodo,scope});
+    if(scope==="aula"&&selClass) params.append("classroom_id",selClass.id);
+    apiFetch(`/ranking/live?${params}`)
+      .then(d=>setData(d.data||d))
+      .catch(()=>{})
+      .finally(()=>setLoading(false));
+  };
 
   useEffect(()=>{
-    api.ranking().then(setUsers).finally(()=>setLoading(false));
+    api.chatClassroomInfo().then(d=>{ const ci=d.data||d; if(ci?.id) setCl([ci]); }).catch(()=>{});
   },[]);
-
-  if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando ranking...</div>;
+  useEffect(()=>{ load(); },[periodo, scope, selClass]);
 
   return(
-    <div style={{background:bg,minHeight:"100vh",transition:"background .3s"}}>
-      <OHdrA title="Ranking 🏆"/>
-      <div style={{padding:"0 14px",marginTop:12}}>
-        {users.map((u,i)=>{
-          const lv=getLv(u.total_earned||0);
-          const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":"";
+    <div style={{background:bg,minHeight:"100vh"}}>
+      {/* Header con tabs */}
+      <div style={{background:accent,position:"sticky",top:0,zIndex:50,color:"white",
+        paddingBottom:12}}>
+        <div style={{padding:"20px 16px 8px",display:"flex",alignItems:"center",gap:10}}>
+          <div style={{flex:1,fontWeight:900,fontSize:20}}>🏆 Ranking</div>
+        </div>
+
+        {/* Período */}
+        <div style={{display:"flex",gap:6,padding:"0 14px",marginBottom:8}}>
+          {Object.entries(PERIODO_LABEL).map(([k,v])=>(
+            <button key={k} onClick={()=>setPeriodo(k)}
+              style={{flex:1,background:periodo===k?"rgba(255,255,255,.3)":"rgba(255,255,255,.15)",
+                border:`1.5px solid ${periodo===k?"rgba(255,255,255,.7)":"rgba(255,255,255,.2)"}`,
+                borderRadius:99,padding:"7px 4px",fontSize:11,fontWeight:800,color:"white",
+                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              {v}
+            </button>
+          ))}
+        </div>
+
+        {/* Scope */}
+        <div style={{display:"flex",gap:6,padding:"0 14px"}}>
+          {[["global","🌐 Global"],["aula","🏫 Mi Aula"]].map(([k,v])=>(
+            <button key={k} onClick={()=>setScope(k)}
+              style={{flex:1,background:scope===k?"rgba(255,255,255,.3)":"rgba(255,255,255,.15)",
+                border:`1.5px solid ${scope===k?"rgba(255,255,255,.7)":"rgba(255,255,255,.2)"}`,
+                borderRadius:99,padding:"7px 4px",fontSize:12,fontWeight:800,color:"white",
+                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
+        {/* Banner período + premios */}
+        {data?.config?.length>0&&(
+          <div style={{background:cardBg,borderRadius:16,padding:"12px 14px",marginBottom:12,
+            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div style={{fontWeight:800,fontSize:12,color:txt,marginBottom:8}}>
+              💰 Premios {PERIODO_LABEL[periodo]}
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {data.config.slice(0,5).map(c=>(
+                <div key={c.posicion} style={{background:accent+"18",borderRadius:99,
+                  padding:"4px 10px",fontSize:11,fontWeight:700,color:accent}}>
+                  #{c.posicion} 🪙{c.premio}
+                </div>
+              ))}
+            </div>
+            {data.ya_pagado&&(
+              <div style={{marginTop:8,fontSize:10,color:"#10b981",fontWeight:700}}>
+                ✅ Premios de este período ya fueron distribuidos
+              </div>
+            )}
+          </div>
+        )}
+
+        {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
+
+        {!loading&&(data?.ranking||[]).map((u,i)=>{
+          const lv = getLv(u.total_earned||0);
+          const medal = i<3?MEDAL[i]:`#${i+1}`;
           return(
-            <div key={u.id} style={{marginBottom:8,display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
-              background:cardBg,borderRadius:20,
-              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",transition:"background .3s"}}>
-              <div style={{width:28,textAlign:"center",fontWeight:900,fontSize:16,color:txt,flexShrink:0}}>
-                {medal||`#${i+1}`}
+            <div key={u.id} style={{marginBottom:8,display:"flex",alignItems:"center",gap:12,
+              padding:"12px 14px",background:cardBg,borderRadius:20,
+              boxShadow:i===0?`0 2px 12px ${accent}33`:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
+              border:i===0?`1.5px solid ${accent}44`:"none"}}>
+              <div style={{width:28,textAlign:"center",fontWeight:900,
+                fontSize:i<3?18:14,flexShrink:0,color:i<3?"inherit":sub}}>
+                {medal}
               </div>
               <Av user={u} sz={42}/>
               <div style={{flex:1}}>
                 <div style={{fontWeight:800,fontSize:14,
-                  color: nameColorConfig?.rainbow ? "transparent"
-                       : nameColorConfig?.color || txt,
-                  background: nameColorConfig?.rainbow
-                    ? "linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)" : "none",
-                  WebkitBackgroundClip: nameColorConfig?.rainbow ? "text" : "unset",
-                  WebkitTextFillColor: nameColorConfig?.rainbow ? "transparent" : "unset",
+                  color:nameColorConfig?.rainbow?"transparent":nameColorConfig?.color||txt,
+                  background:nameColorConfig?.rainbow?"linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)":"none",
+                  WebkitBackgroundClip:nameColorConfig?.rainbow?"text":"unset",
+                  WebkitTextFillColor:nameColorConfig?.rainbow?"transparent":"unset",
                 }}>{displayName(u)}</div>
-                <Pill text={lv.icon+" "+lv.name} col={lv.color}/>
+                <div style={{fontSize:10,color:sub}}>🪙{u.ganado_periodo.toLocaleString("es-AR")} este período</div>
               </div>
-              <div style={{fontWeight:900,color:accent,fontSize:14}}>🪙 {(u.total_earned||0).toLocaleString("es-AR")}</div>
+              {u.premio>0&&(
+                <div style={{background:"#10b98122",color:"#10b981",borderRadius:99,
+                  padding:"3px 10px",fontSize:11,fontWeight:800,flexShrink:0}}>
+                  +🪙{u.premio}
+                </div>
+              )}
             </div>
           );
         })}
+
+        {!loading&&(!data?.ranking||data.ranking.length===0)&&(
+          <div style={{background:cardBg,borderRadius:16,padding:32,textAlign:"center",
+            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div style={{fontSize:40}}>🏆</div>
+            <div style={{fontWeight:800,color:txt,marginTop:8}}>Sin datos para este período</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2498,6 +2597,18 @@ function APerfil({me,balance,logout,showToast,setMe}){
               </div>
             );
           })}
+          {/* Foto personalizada como extra skin */}
+          <div onClick={()=>setMe({...me,_goFoto:true})}
+            style={{background:me.foto_url?cardBg:dark?"#1e1b2e":"#F0F0F0",
+              border:`2px solid ${me.foto_url?accent:dark?"#2d2a45":"#E8E8E8"}`,
+              borderRadius:16,padding:"12px 6px",textAlign:"center",cursor:"pointer",
+              transition:"all .2s",position:"relative"}}>
+            {me.foto_url
+              ? <img src={me.foto_url} alt="" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",margin:"0 auto 4px"}}/>
+              : <div style={{fontSize:28,marginBottom:4}}>📸</div>
+            }
+            <div style={{fontSize:9,fontWeight:800,color:txt}}>Foto</div>
+          </div>
         </div>
 
         <div style={{fontWeight:800,color:txt,marginBottom:8}}>📛 Títulos</div>
@@ -2522,6 +2633,27 @@ function APerfil({me,balance,logout,showToast,setMe}){
             </div>
           );
         })}
+        {/* Título personalizado */}
+        <div style={{marginBottom:8,padding:"14px 16px",borderRadius:20,
+          background:me.titulo_custom?dark?"#2d1a4e":cardBg:cardBg,
+          border:`1.5px solid ${me.titulo_custom?accent:dark?"#2d2a45":"#E8E8E8"}`,
+          boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontWeight:800,fontSize:15,color:txt}}>✏️ Título personalizado</div>
+              {me.titulo_custom
+                ? <div style={{fontSize:13,color:accent,fontWeight:700,marginTop:2}}>"{me.titulo_custom}"</div>
+                : <div style={{fontSize:12,color:sub}}>Escribí el tuyo — compralo en Personalizar</div>
+              }
+            </div>
+            <button onClick={()=>showToast("Ve a Personalizar → 👑 Título")}
+              style={{background:accent+"22",color:accent,border:"none",borderRadius:99,
+                padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif"}}>
+              {me.titulo_custom?"Cambiar":"Comprar"}
+            </button>
+          </div>
+        </div>
 
         <div style={{marginTop:16}}>
           <button onClick={logout} style={{width:"100%",background:cardBg,
@@ -4363,7 +4495,6 @@ function Admin({me,logout}){
         {tab==="votaciones" && <AdminVotaciones showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="reportes"   && <AdminReportes  showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="aulas"      && <AdminAulas     showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="custom"     && <AdminCustomShop showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="economia"   && <AdminEconomia   showToast={showToast} onBack={()=>setTab("home")}/>}
       </div>
       {!hideNav&&(
@@ -4457,8 +4588,7 @@ function AdminHome({me,onNav,showToast}){
           {icon:"🏆",title:"Ranking",           sub:"Top holders y top ganancias",               dest:"ranking",   col:"#f59e0b"},
           {icon:"🏛️",title:"Banco",             sub:"Transferir a alumnos y docentes",           dest:"banco",     col:"#10b981"},
           {icon:"🏫",title:"Aulas",             sub:"Crear aulas y asignar miembros",            dest:"aulas",     col:"#f59e0b"},
-          {icon:"🎨",title:"Tienda Custom",     sub:"Temas, emojis, colores, efectos",           dest:"custom",    col:"#ec4899"},
-          {icon:"💹",title:"Economía",           sub:"Precios de skins, títulos, check-in",       dest:"economia",  col:"#10b981"},
+          {icon:"💹",title:"Economía",           sub:"Temas, precios, premios y suscripciones",  dest:"economia",  col:"#10b981"},
           {icon:"📋",title:"Audit Log",         sub:"Historial de todas las acciones",           dest:"audit",     col:"#64748b"},
         ].map(item=>(
           <WCard key={item.dest} onClick={()=>onNav(item.dest)}
@@ -6426,277 +6556,6 @@ function AdminConfig({me, logout}){
 // ════════════════════════════════════════════════════════════
 // ADMIN — TIENDA CUSTOM (precios, items, activar/desactivar)
 // ════════════════════════════════════════════════════════════
-function AdminCustomShop({showToast, onBack}){
-  const [items,setItems]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [editing,setEditing]=useState(null); // {id, precio, activo, nombre}
-  const [saving,setSaving]=useState(false);
-  const [sec,setSec]=useState("all");
-
-  const TIPO_LABEL={theme:"Tema",name_color:"Color nombre",emoji_pack:"Pack emoji",
-    title_effect:"Efecto titulo",name_effect:"Efecto nombre",avatar_frame:"Marco avatar"};
-
-  const load=()=>{
-    api.customAdminItems()
-      .then(d=>setItems(d.data||d||[]))
-      .catch(()=>[])
-      .finally(()=>setLoading(false));
-  };
-  useEffect(()=>{ load(); },[]);
-
-  const guardar=async()=>{
-    setSaving(true);
-    try{
-      await api.customAdminUpdate(editing.id,{
-        precio:parseInt(editing.precio)||0,
-        activo:editing.activo,
-        nombre:editing.nombre,
-      });
-      showToast("Guardado");
-      setEditing(null);
-      load();
-    }catch(e){showToast(e.message||"Error","error");}
-    finally{setSaving(false);}
-  };
-
-  const filtered=sec==="all"?items:items.filter(i=>i.tipo===sec);
-  const SECS=[["all","Todos"],["theme","Temas"],["name_color","Colores"],
-              ["emoji_pack","Emojis"],["title_effect","Efectos"],["name_effect","Animacion"]];
-
-  return(
-    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
-      <div style={{background:"#ec4899",color:"white",padding:"22px 16px 16px",
-        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,0,0,.3)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
-          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
-            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
-            display:"flex",alignItems:"center",justifyContent:"center"}}>
-            {"\u2190"}</button>
-          <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:20}}>
-            Tienda Custom
-          </div>
-        </div>
-        <div style={{display:"flex",gap:6,overflowX:"auto"}}>
-          {SECS.map(([v,l])=>(
-            <button key={v} onClick={()=>setSec(v)} style={{
-              background:sec===v?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
-              border:"1.5px solid "+(sec===v?"rgba(255,255,255,.7)":"rgba(255,255,255,.2)"),
-              borderRadius:99,padding:"4px 11px",fontSize:10,fontWeight:800,color:"white",
-              cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Nunito,sans-serif",flexShrink:0}}>
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Modal edicion */}
-      {editing&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
-          display:"flex",alignItems:"flex-end",justifyContent:"center"}}
-          onClick={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
-          <div style={{background:"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
-            padding:"20px 20px 40px"}}>
-            <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 16px"}}/>
-            <div style={{fontWeight:800,fontSize:16,color:"#1a1a1a",marginBottom:14}}>
-              Editar: {editing.nombre}
-            </div>
-            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:4}}>Nombre</div>
-            <input value={editing.nombre} onChange={e=>setEditing(ed=>({...ed,nombre:e.target.value}))}
-              style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
-                padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",marginBottom:12}}/>
-            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:4}}>Precio (monedas)</div>
-            <input type="number" value={editing.precio} min="0"
-              onChange={e=>setEditing(ed=>({...ed,precio:e.target.value}))}
-              style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
-                padding:"10px 14px",fontSize:16,fontWeight:800,outline:"none",
-                fontFamily:"Nunito,sans-serif",color:"#ec4899",marginBottom:12}}/>
-            <div style={{display:"flex",gap:10,marginBottom:16}}>
-              {[true,false].map(v=>(
-                <button key={v?1:0} onClick={()=>setEditing(ed=>({...ed,activo:v}))}
-                  style={{flex:1,background:editing.activo===v?(v?"#10b981":"#ef4444"):"#f0f0f0",
-                    color:editing.activo===v?"white":"#555",border:"none",borderRadius:12,
-                    padding:"10px",fontWeight:800,fontSize:13,cursor:"pointer",
-                    fontFamily:"Nunito,sans-serif"}}>
-                  {v?"Activo":"Inactivo"}
-                </button>
-              ))}
-            </div>
-            <button onClick={guardar} disabled={saving}
-              style={{width:"100%",background:saving?"#ccc":"#ec4899",border:"none",
-                borderRadius:50,color:"white",padding:"13px",fontWeight:800,fontSize:14,
-                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-              {saving?"Guardando...":"Guardar cambios"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div style={{padding:"12px 14px"}}>
-        {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
-        {filtered.map(item=>(
-          <div key={item.id} style={{background:"white",borderRadius:16,marginBottom:8,
-            overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",
-            opacity:item.activo?1:.5}}>
-            {item.tipo==="theme"&&(
-              <div style={{height:8,background:`linear-gradient(90deg,${item.config.primary||"#00c1fc"},${item.config.accent||"#00c1fc"})`}}/>
-            )}
-            {item.tipo==="name_color"&&(
-              <div style={{height:8,background:item.config.rainbow
-                ?"linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)"
-                :item.config.color||"#00c1fc"}}/>
-            )}
-            <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
-              <div style={{fontSize:24,flexShrink:0}}>{item.preview||"🎨"}</div>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{item.nombre}</div>
-                <div style={{display:"flex",gap:6,marginTop:3,alignItems:"center"}}>
-                  <span style={{background:"#f0f0f0",borderRadius:99,padding:"2px 7px",
-                    fontSize:9,fontWeight:800,color:"#666"}}>{TIPO_LABEL[item.tipo]||item.tipo}</span>
-                  <span style={{fontWeight:800,fontSize:12,color:"#ec4899"}}>
-                    {item.precio===0?"Gratis":`🪙${item.precio}`}
-                  </span>
-                  <span style={{fontSize:10,color:"#aaa"}}>{item.total_vendidos||0} vendidos</span>
-                </div>
-              </div>
-              <button onClick={()=>setEditing({...item})}
-                style={{background:"#f0f0f0",border:"none",borderRadius:10,
-                  padding:"7px 12px",fontSize:12,fontWeight:800,cursor:"pointer",
-                  color:"#555",fontFamily:"Nunito,sans-serif",flexShrink:0}}>
-                Editar
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// ADMIN — ECONOMÍA (precios de skins, títulos, check-in, custom)
-// ════════════════════════════════════════════════════════════
-function AdminEconomia({showToast, onBack}){
-  const [items,setItems]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [editing,setEditing]=useState(null);
-  const [newPrecio,setNewPrecio]=useState("");
-  const [saving,setSaving]=useState(false);
-  const [sec,setSec]=useState("all");
-
-  useEffect(()=>{
-    api.adminEconomy()
-      .then(d=>setItems(d.data||d||[]))
-      .catch(()=>{})
-      .finally(()=>setLoading(false));
-  },[]);
-
-  const guardar=async()=>{
-    if(!editing||newPrecio==="") return;
-    setSaving(true);
-    try{
-      const d=await api.adminEconomyUpdate(editing.id,{precio:parseInt(newPrecio)||0});
-      setItems(prev=>prev.map(i=>i.id===editing.id?{...i,precio:parseInt(newPrecio)||0}:i));
-      showToast("Precio actualizado");
-      setEditing(null);
-    }catch(e){showToast(e.message||"Error","error");}
-    finally{setSaving(false);}
-  };
-
-  const CAT_LABEL={skin:"🎨 Skins",title:"🏷️ Títulos",name_color:"🖊️ Colores",checkin:"🔥 Check-in",custom:"✨ Custom"};
-  const cats=[...new Set(items.map(i=>i.categoria))];
-  const filtered=sec==="all"?items:items.filter(i=>i.categoria===sec);
-
-  return(
-    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
-      <div style={{background:"#10b981",color:"white",padding:"22px 16px 16px",
-        position:"sticky",top:0,zIndex:50}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
-            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",
-            alignItems:"center",justifyContent:"center"}}>←</button>
-          <div>
-            <div style={{fontWeight:900,fontSize:20}}>💹 Economía</div>
-            <div style={{fontSize:11,opacity:.85}}>Configura precios de todos los items</div>
-          </div>
-        </div>
-        <div style={{display:"flex",gap:6,overflowX:"auto"}}>
-          <button onClick={()=>setSec("all")}
-            style={{background:sec==="all"?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
-              border:"1.5px solid "+(sec==="all"?"rgba(255,255,255,.6)":"rgba(255,255,255,.2)"),
-              borderRadius:99,padding:"4px 11px",fontSize:10,fontWeight:800,color:"white",
-              cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Nunito,sans-serif",flexShrink:0}}>
-            Todos
-          </button>
-          {cats.map(c=>(
-            <button key={c} onClick={()=>setSec(c)}
-              style={{background:sec===c?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
-                border:"1.5px solid "+(sec===c?"rgba(255,255,255,.6)":"rgba(255,255,255,.2)"),
-                borderRadius:99,padding:"4px 11px",fontSize:10,fontWeight:800,color:"white",
-                cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Nunito,sans-serif",flexShrink:0}}>
-              {CAT_LABEL[c]||c}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Modal edición precio */}
-      {editing&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
-          display:"flex",alignItems:"flex-end",justifyContent:"center"}}
-          onClick={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
-          <div style={{background:"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
-            padding:"20px 20px 40px"}}>
-            <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 16px"}}/>
-            <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>{editing.descripcion||editing.item_key}</div>
-            <div style={{fontSize:12,color:"#aaa",marginBottom:14}}>Categoría: {editing.categoria}</div>
-            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Nuevo precio (monedas)</div>
-            <input type="number" min="0" value={newPrecio}
-              onChange={e=>setNewPrecio(e.target.value)}
-              style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
-                padding:"12px 14px",fontSize:20,fontWeight:900,outline:"none",color:"#10b981",
-                textAlign:"center",fontFamily:"Nunito,sans-serif",marginBottom:14}}/>
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setEditing(null)}
-                style={{flex:1,background:"#f0f0f0",border:"none",borderRadius:50,padding:"12px",
-                  fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Cancelar</button>
-              <button onClick={guardar} disabled={saving}
-                style={{flex:2,background:saving?"#ccc":"#10b981",border:"none",borderRadius:50,
-                  color:"white",padding:"12px",fontWeight:800,cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif"}}>
-                {saving?"Guardando...":"Guardar precio"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{padding:"12px 14px"}}>
-        {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
-        {filtered.map(item=>(
-          <div key={item.id} style={{background:"white",borderRadius:14,padding:"12px 14px",
-            marginBottom:8,boxShadow:"0 1px 8px rgba(0,0,0,.06)",
-            display:"flex",alignItems:"center",gap:10}}>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{item.descripcion||item.item_key}</div>
-              <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{CAT_LABEL[item.categoria]||item.categoria} · {item.item_key}</div>
-            </div>
-            <div style={{fontWeight:900,fontSize:15,color:"#10b981",marginRight:8}}>
-              {item.precio===0?"Gratis":`🪙${item.precio}`}
-            </div>
-            <button onClick={()=>{setEditing(item);setNewPrecio(String(item.precio));}}
-              style={{background:"#f0f0f0",border:"none",borderRadius:10,padding:"7px 12px",
-                fontSize:11,fontWeight:800,cursor:"pointer",color:"#555",
-                fontFamily:"Nunito,sans-serif"}}>
-              Editar
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Modal Perfil Público ──────────────────────────────────────
 function PerfilModal({userId, onClose, showToast}){
   const {primary:accent,isDark:dark,txt,sub,cardBg} = useTheme();
   const [perfil,setPerfil]=useState(null);
@@ -6794,6 +6653,445 @@ function PerfilModal({userId, onClose, showToast}){
                 Cerrar
               </button>
             </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ADMIN — ECONOMÍA (panel unificado con subsecciones tipo cards)
+// Reemplaza AdminCustomShop + AdminEconomia
+// ════════════════════════════════════════════════════════════
+function AdminEconomia({showToast, onBack}){
+  const [sec,setSec] = useState(null); // null=home, o nombre de sección
+
+  const SECCIONES = [
+    {id:"colores",    icon:"🖊️", title:"Colores de Nombre",  sub:"Precios y suscripciones", col:"#8b5cf6"},
+    {id:"temas",      icon:"🎨", title:"Temas de App",        sub:"Paletas y suscripciones", col:"#ec4899"},
+    {id:"emojis",     icon:"😄", title:"Packs de Emojis",     sub:"Precios de packs",        col:"#f59e0b"},
+    {id:"efectos",    icon:"✨", title:"Efectos y Animaciones",sub:"Títulos y nombre",        col:"#3b82f6"},
+    {id:"ranking",    icon:"🏆", title:"Premios del Ranking", sub:"Diario, semanal, mensual", col:"#10b981"},
+    {id:"checkin",    icon:"🔥", title:"Check-in Diario",     sub:"Recompensas por racha",    col:"#ef4444"},
+    {id:"suscripciones",icon:"🔄",title:"Suscripciones",      sub:"Ver cobros pendientes",    col:"#0ea5e9"},
+    {id:"historial",  icon:"📋", title:"Historial de Pagos",  sub:"Premios, banco, impuestos",col:"#64748b"},
+  ];
+
+  if(!sec) return(
+    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
+      <div style={{background:"#10b981",color:"white",padding:"22px 16px 20px",
+        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,0,0,.2)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",
+            alignItems:"center",justifyContent:"center"}}>←</button>
+          <div>
+            <div style={{fontWeight:900,fontSize:20}}>💹 Economía</div>
+            <div style={{fontSize:11,opacity:.85}}>Gestión completa de items y premios</div>
+          </div>
+        </div>
+      </div>
+      <div style={{padding:"14px 14px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        {SECCIONES.map(s=>(
+          <div key={s.id} onClick={()=>setSec(s.id)}
+            style={{background:"white",borderRadius:20,padding:"20px 16px",cursor:"pointer",
+              boxShadow:"0 2px 12px rgba(0,0,0,.06)",
+              borderTop:`4px solid ${s.col}`,transition:"transform .15s"}}>
+            <div style={{fontSize:36,marginBottom:8}}>{s.icon}</div>
+            <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a",lineHeight:1.2}}>{s.title}</div>
+            <div style={{fontSize:11,color:"#aaa",marginTop:4}}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return <AdminEconomiaSec sec={sec} onBack={()=>setSec(null)} showToast={showToast}/>;
+}
+
+function AdminEconomiaSec({sec, onBack, showToast}){
+  const [items,setItems]   = useState([]);
+  const [config,setConfig] = useState([]);
+  const [payouts,setPayouts]= useState([]);
+  const [loading,setLoading]= useState(true);
+  const [editing,setEditing]= useState(null);
+  const [editVal,setEditVal]= useState({});
+  const [saving,setSaving]  = useState(false);
+  const [closingSec,setClosing]= useState(null);
+  const [closeMotivo,setCloseMotivo]=useState("");
+  const [periodoClose,setPClose]=useState("weekly");
+  const [scopeClose,setSClose]=useState("global");
+
+  const SEC_TIPO = {
+    colores: "name_color", temas: "theme", emojis: "emoji_pack",
+    efectos: ["title_effect","name_effect","avatar_frame"],
+  };
+  const PERIODO_PER_SEC = ["colores","temas"];
+
+  useEffect(()=>{
+    if(["colores","temas","emojis","efectos"].includes(sec)){
+      const tipo = SEC_TIPO[sec];
+      const tipoParam = Array.isArray(tipo)?tipo[0]:tipo;
+      api.customAdminItems()
+        .then(d=>{
+          const arr=d.data||d||[];
+          if(Array.isArray(SEC_TIPO[sec])){
+            setItems(arr.filter(i=>SEC_TIPO[sec].includes(i.tipo)));
+          } else {
+            setItems(arr.filter(i=>i.tipo===tipoParam));
+          }
+        }).catch(()=>{}).finally(()=>setLoading(false));
+    } else if(sec==="ranking"){
+      api.rankingConfig().then(d=>setConfig(d.data||d||[])).catch(()=>{}).finally(()=>setLoading(false));
+    } else if(sec==="checkin"){
+      api.checkinConfig().then(d=>setConfig(d.data?[d.data]:d||[])).catch(()=>{}).finally(()=>setLoading(false));
+    } else if(sec==="historial"){
+      Promise.all([api.rankingPayouts(), api.auditLog()]).then(([rp,al])=>{
+        const rpArr=(rp.data||rp||[]).map(x=>({...x,categoria:"premio_ranking"}));
+        const alArr=(al.data||al||[]).filter(l=>l.action==="reward"||l.details?.tax||l.details?.banco).map(x=>({...x,categoria:x.details?.tax?"impuesto":x.details?.banco?"banco":"reward"}));
+        setPayouts([...rpArr,...alArr].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,50));
+      }).catch(()=>{}).finally(()=>setLoading(false));
+    } else if(sec==="suscripciones"){
+      // Ver suscripciones activas
+      api.chargeAll().then(d=>setItems(d.data?.results||[])).catch(()=>{}).finally(()=>setLoading(false));
+    }
+  },[sec]);
+
+  const guardar=async()=>{
+    if(!editing) return;
+    setSaving(true);
+    try{
+      if(sec==="ranking"){
+        await api.rankingConfigUpdate(editing.id, editVal);
+        setConfig(prev=>prev.map(c=>c.id===editing.id?{...c,...editVal}:c));
+      } else if(sec==="checkin"){
+        await api.checkinConfigUpdate(editVal);
+        setConfig(prev=>prev.map(c=>c.id===editing.id?{...c,...editVal}:c));
+      } else {
+        await api.customAdminUpdate(editing.id, editVal);
+        setItems(prev=>prev.map(i=>i.id===editing.id?{...i,...editVal}:i));
+      }
+      showToast("Guardado");
+      setEditing(null);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  const cerrarPeriodo=async()=>{
+    setSaving(true);
+    try{
+      const d=await api.rankingClose({periodo:periodoClose,scope:scopeClose});
+      const r=d.data||d;
+      showToast(`Premios distribuidos a ${r.pagados} alumnos`);
+      setClosing(null);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  const revertirPago=async(payout)=>{
+    try{
+      await api.rankingRevert(payout.id,"Revertido por admin");
+      setPayouts(prev=>prev.map(p=>p.id===payout.id?{...p,revertida:true}:p));
+      showToast("Pago revertido");
+    }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  const SEC_TITLE = {
+    colores:"🖊️ Colores de Nombre", temas:"🎨 Temas", emojis:"😄 Packs Emoji",
+    efectos:"✨ Efectos", ranking:"🏆 Premios Ranking", checkin:"🔥 Check-in",
+    suscripciones:"🔄 Suscripciones", historial:"📋 Historial",
+  };
+
+  return(
+    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
+      <div style={{background:"#10b981",color:"white",padding:"22px 16px 16px",
+        position:"sticky",top:0,zIndex:50}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",
+            alignItems:"center",justifyContent:"center"}}>←</button>
+          <div style={{fontWeight:900,fontSize:18}}>{SEC_TITLE[sec]||sec}</div>
+        </div>
+      </div>
+
+      {/* Modal edición */}
+      {editing&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
+          display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          onClick={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
+          <div style={{background:"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
+            padding:"20px 20px 44px"}}>
+            <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 14px"}}/>
+            <div style={{fontWeight:800,fontSize:15,marginBottom:12}}>
+              Editar: {editing.nombre||editing.descripcion||editing.item_key||""}
+            </div>
+
+            {/* Precio simple */}
+            {(["colores","temas","emojis","efectos"].includes(sec)||sec==="ranking")&&(
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:4}}>
+                  {sec==="ranking"?"Premio (monedas)":"Precio base (monedas)"}
+                </div>
+                <input type="number" min="0"
+                  value={editVal.precio??editing.precio??editVal.premio??editing.premio??0}
+                  onChange={e=>setEditVal(v=>({...v,
+                    [sec==="ranking"?"premio":"precio"]:parseInt(e.target.value)||0}))}
+                  style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+                    borderRadius:12,padding:"11px 14px",fontSize:18,fontWeight:900,outline:"none",
+                    color:"#10b981",textAlign:"center",fontFamily:"Nunito,sans-serif"}}/>
+              </div>
+            )}
+
+            {/* Precios de suscripción para colores y temas */}
+            {PERIODO_PER_SEC.includes(sec)&&editing.es_suscripcion&&(
+              <>
+                {[["precio_semanal","Por semana"],["precio_mensual","Por mes"],["precio_anual","Por año"]].map(([k,l])=>(
+                  <div key={k} style={{marginBottom:10}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:4}}>{l}</div>
+                    <input type="number" min="0"
+                      value={editVal[k]??editing[k]??0}
+                      onChange={e=>setEditVal(v=>({...v,[k]:parseInt(e.target.value)||0}))}
+                      style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+                        borderRadius:12,padding:"9px 14px",fontSize:15,fontWeight:800,outline:"none",
+                        color:"#8b5cf6",fontFamily:"Nunito,sans-serif"}}/>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* Activo */}
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              {[true,false].map(v=>(
+                <button key={String(v)} onClick={()=>setEditVal(ev=>({...ev,activo:v}))}
+                  style={{flex:1,background:(editVal.activo??editing.activo??true)===v
+                    ?(v?"#10b981":"#ef4444"):"#f0f0f0",
+                    color:(editVal.activo??editing.activo??true)===v?"white":"#555",
+                    border:"none",borderRadius:12,padding:"10px",fontWeight:800,fontSize:13,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {v?"Activo":"Inactivo"}
+                </button>
+              ))}
+            </div>
+            <button onClick={guardar} disabled={saving}
+              style={{width:"100%",background:saving?"#ccc":"#10b981",border:"none",borderRadius:50,
+                color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif"}}>
+              {saving?"Guardando...":"Guardar"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{padding:"12px 14px"}}>
+        {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
+
+        {/* Items de personalización */}
+        {["colores","temas","emojis","efectos"].includes(sec)&&!loading&&items.map(item=>(
+          <div key={item.id} style={{background:"white",borderRadius:14,marginBottom:8,
+            overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",opacity:item.activo?1:.5}}>
+            {item.tipo==="theme"&&(
+              <div style={{height:6,background:`linear-gradient(90deg,${item.config?.primary||"#00c1fc"},${item.config?.accent||"#00c1fc"})`}}/>
+            )}
+            {item.tipo==="name_color"&&(
+              <div style={{height:6,background:item.config?.rainbow
+                ?"linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)"
+                :item.config?.color||"#00c1fc"}}/>
+            )}
+            <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>{item.preview||"✨"}</span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{item.nombre}</div>
+                <div style={{display:"flex",gap:6,marginTop:2,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,fontWeight:800,color:"#10b981"}}>
+                    {item.precio===0?"Gratis":`🪙${item.precio}`}
+                  </span>
+                  {item.es_suscripcion&&(
+                    <>
+                      {item.precio_semanal!=null&&<span style={{fontSize:9,color:"#8b5cf6",fontWeight:700}}>sem:🪙{item.precio_semanal}</span>}
+                      {item.precio_mensual!=null&&<span style={{fontSize:9,color:"#8b5cf6",fontWeight:700}}>mes:🪙{item.precio_mensual}</span>}
+                      <span style={{background:"#8b5cf622",color:"#8b5cf6",borderRadius:99,
+                        padding:"1px 5px",fontSize:8,fontWeight:800}}>SUSCRIPCIÓN</span>
+                    </>
+                  )}
+                  {!item.activo&&<span style={{fontSize:9,color:"#aaa",fontWeight:700}}>Inactivo</span>}
+                </div>
+              </div>
+              <button onClick={()=>{setEditing(item);setEditVal({});}}
+                style={{background:"#f0f0f0",border:"none",borderRadius:10,padding:"6px 12px",
+                  fontSize:11,fontWeight:800,cursor:"pointer",color:"#555",fontFamily:"Nunito,sans-serif"}}>
+                Editar
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {/* Ranking config */}
+        {sec==="ranking"&&!loading&&(
+          <>
+            <div style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:12,
+              boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,marginBottom:10}}>Distribuir premios ahora</div>
+              <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                {[["daily","Diario"],["weekly","Semanal"],["monthly","Mensual"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setPClose(v)}
+                    style={{background:periodoClose===v?"#10b981":"#f0f0f0",
+                      color:periodoClose===v?"white":"#555",border:"none",borderRadius:99,
+                      padding:"6px 12px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setSClose(v)}
+                    style={{flex:1,background:scopeClose===v?"#10b981":"#f0f0f0",
+                      color:scopeClose===v?"white":"#555",border:"none",borderRadius:10,
+                      padding:"8px",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <button onClick={cerrarPeriodo} disabled={saving}
+                style={{width:"100%",background:saving?"#ccc":"#10b981",border:"none",borderRadius:50,
+                  color:"white",padding:"12px",fontWeight:800,fontSize:14,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                {saving?"Distribuyendo...":"🏆 Distribuir premios"}
+              </button>
+            </div>
+
+            {/* Tabla de premios por período */}
+            {[["daily","Diario"],["weekly","Semanal"],["monthly","Mensual"]].map(([p,pl])=>(
+              <div key={p} style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:10,
+                boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:800,fontSize:13,marginBottom:8}}>{pl} — Global</div>
+                {config.filter(c=>c.periodo===p&&c.scope==="global").map(c=>(
+                  <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+                    <span style={{fontSize:14}}>{c.posicion<=3?["🥇","🥈","🥉"][c.posicion-1]:`#${c.posicion}`}</span>
+                    <div style={{flex:1,fontSize:12,color:"#555"}}>Posición {c.posicion}</div>
+                    <span style={{fontWeight:800,color:"#10b981",fontSize:13}}>🪙{c.premio}</span>
+                    <button onClick={()=>{setEditing(c);setEditVal({});}}
+                      style={{background:"#f0f0f0",border:"none",borderRadius:8,padding:"4px 10px",
+                        fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      Editar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Check-in config */}
+        {sec==="checkin"&&!loading&&config.map(c=>(
+          <div key={c.id} style={{background:"white",borderRadius:14,padding:"12px 14px",
+            marginBottom:8,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+            {[
+              ["base_reward","🪙 Recompensa base/día"],
+              ["bonus_3days","🥉 Bonus 3 días"],
+              ["bonus_7days","🥈 Bonus 7 días"],
+              ["bonus_30days","🥇 Bonus 30 días"],
+            ].map(([k,l])=>(
+              <div key={k} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <div style={{flex:1,fontSize:12,color:"#333",fontWeight:600}}>{l}</div>
+                <span style={{fontWeight:800,color:"#f59e0b"}}>🪙{c[k]}</span>
+                <button onClick={()=>{setEditing({...c,nombre:l,id:c.id});setEditVal({});}}
+                  style={{background:"#f0f0f0",border:"none",borderRadius:8,padding:"4px 10px",
+                    fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  Editar
+                </button>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* Historial unificado */}
+        {sec==="historial"&&!loading&&(
+          <>
+            <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+              {[
+                {v:"premio_ranking",l:"🏆 Ranking",c:"#10b981"},
+                {v:"banco",l:"🏛️ Banco",c:"#3b82f6"},
+                {v:"impuesto",l:"⚖️ Impuesto",c:"#f97316"},
+              ].map(f=>(
+                <span key={f.v} style={{background:f.c+"22",color:f.c,borderRadius:99,
+                  padding:"4px 10px",fontSize:10,fontWeight:800}}>
+                  {f.l} ({payouts.filter(p=>p.categoria===f.v).length})
+                </span>
+              ))}
+            </div>
+            {payouts.map((p,i)=>(
+              <div key={p.id||i} style={{background:"white",borderRadius:14,marginBottom:8,
+                boxShadow:"0 1px 6px rgba(0,0,0,.05)",padding:"10px 14px",
+                opacity:p.revertida?.7:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:18}}>
+                    {p.categoria==="premio_ranking"?"🏆":p.categoria==="banco"?"🏛️":"⚖️"}
+                  </span>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:12,color:"#1a1a1a"}}>
+                      {p.nombre||p.target_nombre||p.actor_nombre||"Usuario"}
+                    </div>
+                    <div style={{fontSize:10,color:"#aaa"}}>
+                      {p.categoria==="premio_ranking"?`Pos #${p.posicion} · ${p.periodo_label}`:
+                       p.categoria==="banco"?`Banco · ${p.details?.tipo||""}`:
+                       `Impuesto · ${p.details?.motivo||""}`}
+                    </div>
+                    <div style={{fontSize:10,color:"#bbb"}}>
+                      {new Date(p.created_at).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontWeight:900,fontSize:13,
+                      color:p.categoria==="impuesto"?"#f97316":"#10b981"}}>
+                      {p.categoria==="impuesto"?"-":"+"}🪙{p.premio||p.details?.amount||"?"}
+                    </div>
+                    {!p.revertida&&p.categoria==="premio_ranking"&&(
+                      <button onClick={()=>revertirPago(p)}
+                        style={{background:"#fee2e2",border:"none",borderRadius:99,color:"#ef4444",
+                          padding:"3px 8px",fontSize:9,fontWeight:800,cursor:"pointer",
+                          fontFamily:"Nunito,sans-serif",marginTop:3}}>
+                        Revertir
+                      </button>
+                    )}
+                    {p.revertida&&<span style={{fontSize:9,color:"#aaa"}}>Revertido</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {sec==="suscripciones"&&!loading&&(
+          <>
+            <div style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:10,
+              boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,marginBottom:8}}>Cobrar suscripciones vencidas</div>
+              <button onClick={()=>{setSaving(true);api.chargeAll().then(d=>{
+                showToast(`Procesadas ${d.data?.procesados||0} suscripciones`);
+                setItems(d.data?.results||[]);
+              }).catch(e=>showToast(e.message||"Error","error")).finally(()=>setSaving(false));}} disabled={saving}
+                style={{width:"100%",background:saving?"#ccc":"#0ea5e9",border:"none",borderRadius:50,
+                  color:"white",padding:"12px",fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                {saving?"Procesando...":"🔄 Cobrar todas las vencidas"}
+              </button>
+            </div>
+            {items.map((r,i)=>(
+              <div key={i} style={{background:"white",borderRadius:14,padding:"10px 14px",marginBottom:6,
+                boxShadow:"0 1px 6px rgba(0,0,0,.05)",display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:14,
+                  color:r.status==="charged"?"#10b981":r.status==="cancelled_no_funds"?"#ef4444":"#aaa"}}>
+                  {r.status==="charged"?"✅":r.status==="cancelled_no_funds"?"❌":"⚠️"}
+                </span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:700}}>{r.user}</div>
+                  <div style={{fontSize:10,color:"#aaa"}}>{r.item}</div>
+                </div>
+                <span style={{fontWeight:800,fontSize:12,color:r.status==="charged"?"#10b981":"#ef4444"}}>
+                  {r.status==="charged"?`-🪙${r.precio}`:r.status==="cancelled_no_funds"?"Cancelada":"Error"}
+                </span>
+              </div>
+            ))}
           </>
         )}
       </div>
