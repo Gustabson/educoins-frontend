@@ -2454,10 +2454,182 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
         {/* ── SECCIÓN PANTALLA ─────────────────────────────── */}
         {sec==="pantalla"&&!loading&&(
           <div>
+            {/* ── Modos de pantalla ─── */}
             <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",marginBottom:12,
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
               <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:12}}>🖥️ Modo de pantalla</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+
+                {/* Claro y Oscuro — botones grandes con fondo del color del modo */}
+                {[
+                  {d:false,icon:"☀️",lbl:"Claro",  bg:"#4fc3f7",bgSel:"#0288d1"},
+                  {d:true, icon:"🌙",lbl:"Oscuro", bg:"#5e35b1",bgSel:"#311b92"},
+                ].map(m=>{
+                  const isActive=!active?.screen_mode_id&&isDark===m.d;
+                  return(
+                    <div key={m.lbl} onClick={()=>{
+                      onDarkChange&&onDarkChange(m.d);
+                      if(active?.screen_mode_id) equipar("screen_mode",active.screen_mode_id);
+                    }}
+                      style={{borderRadius:16,overflow:"hidden",cursor:"pointer",
+                        background:isActive?m.bgSel:m.bg,
+                        border:`2px solid ${isActive?m.bgSel:m.bg}`,
+                        boxShadow:isActive?`0 4px 16px ${m.bg}88`:"0 2px 8px rgba(0,0,0,.12)",
+                        transition:"all .2s",padding:"22px 10px 14px",
+                        display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:34}}>{m.icon}</span>
+                      <span style={{fontWeight:800,fontSize:14,color:"white",
+                        textShadow:"0 1px 3px rgba(0,0,0,.3)"}}>{m.lbl}</span>
+                      {isActive&&<span style={{fontSize:10,color:"rgba(255,255,255,.8)",fontWeight:700}}>✓ Activo</span>}
+                    </div>
+                  );
+                })}
+
+                {/* Modos de la DB */}
+                {items.filter(i=>i.tipo==="screen_mode").map(item=>{
+                  const isOwned=ownedIds.has(item.id)||item.precio===0;
+                  const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
+                  const isActive=active?.screen_mode_id===item.id;
+                  const isSub=item.es_suscripcion;
+                  const precio=isSub?(item.precio_mensual??item.precio):item.precio;
+                  if(cfg.custom) return null;
+                  // Color de fondo del botón según el modo
+                  const modeBg = cfg.bg||cfg.pageBg||"#888";
+                  const modeBgSel = cfg.card||modeBg;
+                  return(
+                    <div key={item.id}
+                      onClick={isOwned?()=>equipar("screen_mode",item.id):undefined}
+                      style={{borderRadius:16,overflow:"hidden",cursor:isOwned?"pointer":"default",
+                        background:isActive?modeBgSel:modeBg,
+                        border:`2px solid ${isActive?accent:modeBg}`,
+                        boxShadow:isActive?`0 4px 16px ${modeBg}99`:"0 2px 8px rgba(0,0,0,.12)",
+                        transition:"all .2s",padding:"22px 10px 14px",
+                        display:"flex",flexDirection:"column",alignItems:"center",gap:8,
+                        position:"relative",opacity:!isOwned&&precio>0?.8:1}}>
+                      {/* Candado si no tiene */}
+                      {!isOwned&&precio>0&&(
+                        <div style={{position:"absolute",top:6,right:8,
+                          background:"rgba(0,0,0,.35)",borderRadius:99,
+                          padding:"2px 7px",fontSize:9,color:"white",fontWeight:800}}>
+                          🔒 🪙{precio}{isSub?"/mes":""}
+                        </div>
+                      )}
+                      <span style={{fontSize:32}}>{item.preview||"🖥️"}</span>
+                      <span style={{fontWeight:800,fontSize:13,
+                        color: cfg.isDark||cfg.dark ? "rgba(255,255,255,.9)" : "rgba(0,0,0,.75)",
+                        textAlign:"center"}}>{item.nombre}</span>
+                      {isActive&&<span style={{fontSize:10,fontWeight:700,
+                        color:cfg.isDark||cfg.dark?"rgba(255,255,255,.7)":"rgba(0,0,0,.5)"}}>✓ Activo</span>}
+                      {!isActive&&isOwned&&<span style={{fontSize:10,fontWeight:600,
+                        color:cfg.isDark||cfg.dark?"rgba(255,255,255,.5)":"rgba(0,0,0,.4)"}}>Equipar</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Paletas de acento ─── */}
+            <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>🎨 Paleta de acento</div>
+              {items.filter(i=>i.tipo==="theme").length===0&&(
+                <div style={{textAlign:"center",color:sub,fontSize:12,padding:16}}>Sin paletas configuradas</div>
+              )}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {items.filter(i=>i.tipo==="theme").map(item=>{
+                  const isOwned=ownedIds.has(item.id)||item.precio===0||item.precio_mensual===0;
+                  const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
+                  const isActive=active?.theme_id===item.id;
+                  const isSub=item.es_suscripcion;
+                  const precio=isSub?(item.precio_mensual??item.precio):item.precio;
+                  const isPreviewing=preview?.id===item.id;
+                  const dias=diasRestantes(item.nombre);
+                  // Colores vibrantes — usar primary y accent/secondary del config
+                  const col1=cfg.primary||"#00c1fc";
+                  const col2=cfg.accent||cfg.secondary||col1;
+                  return(
+                    <div key={item.id} style={{borderRadius:16,overflow:"hidden",
+                      border:`2px solid ${isActive?col1:isPreviewing?col1+"99":dark?"#2d2a45":"transparent"}`,
+                      boxShadow:isActive?`0 4px 16px ${col1}55`:isPreviewing?`0 2px 8px ${col1}44`:"0 2px 8px rgba(0,0,0,.08)",
+                      transition:"all .2s",opacity:!isOwned&&precio>0?.82:1}}>
+                      {/* Preview degradado vibrante diagonal */}
+                      <div style={{height:70,cursor:"pointer",
+                        background:`linear-gradient(135deg,${col1} 50%,${col2} 50%)`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:28,position:"relative"}}
+                        onClick={()=>{
+                          if(isOwned){ equipar("theme",item.id); }
+                          else{
+                            if(isPreviewing){ setPreview(null); if(onThemeChange) onThemeChange(currentThemeId,originalPrimaryRef.current); }
+                            else{ setPreview(item); if(onThemeChange) onThemeChange(null,col1); }
+                          }
+                        }}>
+                        {isActive
+                          ? <div style={{background:"rgba(0,0,0,.25)",borderRadius:"50%",
+                              width:32,height:32,display:"flex",alignItems:"center",
+                              justifyContent:"center",fontSize:16}}>✅</div>
+                          : isPreviewing
+                            ? <div style={{background:"rgba(0,0,0,.25)",borderRadius:"50%",
+                                width:32,height:32,display:"flex",alignItems:"center",
+                                justifyContent:"center",fontSize:16}}>👁️</div>
+                            : item.preview||cfg.icon||"🎨"}
+                        {!isOwned&&!isPreviewing&&precio>0&&(
+                          <div style={{position:"absolute",top:5,right:6,
+                            background:"rgba(0,0,0,.4)",borderRadius:99,
+                            padding:"2px 7px",fontSize:9,color:"white",fontWeight:800}}>🔒</div>
+                        )}
+                      </div>
+                      {/* Footer */}
+                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 10px"}}>
+                        <div style={{fontWeight:800,fontSize:12,color:isActive?col1:txt,
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}>
+                          {item.nombre}
+                        </div>
+                        {/* Círculos de color */}
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <div style={{display:"flex",gap:4}}>
+                            <div style={{width:13,height:13,borderRadius:"50%",background:col1,
+                              boxShadow:`0 0 0 1.5px ${dark?"rgba(255,255,255,.15)":"rgba(0,0,0,.1)"}`}}/>
+                            <div style={{width:13,height:13,borderRadius:"50%",background:col2,
+                              boxShadow:`0 0 0 1.5px ${dark?"rgba(255,255,255,.15)":"rgba(0,0,0,.1)"}`}}/>
+                          </div>
+                          {/* Estado */}
+                          {isActive&&dias!==null&&(
+                            <span style={{fontSize:9,fontWeight:700,
+                              color:dias<=3?"#ef4444":dias<=7?"#f59e0b":"#10b981"}}>⏳{dias}d</span>
+                          )}
+                          {isActive&&dias===null&&<span style={{fontSize:9,color:"#10b981",fontWeight:700}}>✓</span>}
+                          {!isActive&&isOwned&&(
+                            <button onClick={()=>equipar("theme",item.id)}
+                              style={{background:"none",border:`1px solid ${col1}`,borderRadius:99,
+                                padding:"2px 8px",fontSize:9,color:col1,fontWeight:700,
+                                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Equipar</button>
+                          )}
+                          {!isOwned&&precio===0&&(
+                            <button onClick={()=>equipar("theme",item.id)}
+                              style={{background:"none",border:"none",fontSize:9,color:"#10b981",
+                                fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Gratis</button>
+                          )}
+                          {!isOwned&&precio>0&&(
+                            <button onClick={()=>isSub?suscribir(item,item.periodo_default||"monthly"):comprar(item)}
+                              disabled={buying===item.id||precio>balance}
+                              style={{background:precio>balance?"transparent":col1,
+                                color:precio>balance?"#aaa":"white",border:"none",borderRadius:99,
+                                padding:"3px 8px",fontSize:9,fontWeight:800,
+                                cursor:precio>balance?"not-allowed":"pointer",
+                                fontFamily:"Nunito,sans-serif"}}>
+                              {buying===item.id?"...":`🪙${precio}${isSub?`/${item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}`:""}`}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
                 {/* Claro y Oscuro */}
                 {[
                   {d:false,icon:"☀️",lbl:"Claro",c1:"#f0f0f0",c2:"#ffffff",sub2:"Gratis"},
@@ -2565,66 +2737,6 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
               </div>
             </div>
 
-            {/* Paletas de color — tipo theme de la DB */}
-            <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",
-              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>🎨 Paleta de acento</div>
-              {items.filter(i=>i.tipo==="theme").length===0&&(
-                <div style={{textAlign:"center",color:sub,fontSize:12,padding:16}}>Sin paletas configuradas</div>
-              )}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {items.filter(i=>i.tipo==="theme").map(item=>{
-                  const isOwned=ownedIds.has(item.id)||item.precio===0||item.precio_mensual===0;
-                  const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
-                  const isActive=active?.theme_id===item.id;
-                  const isSub=item.es_suscripcion;
-                  const precio=isSub?(item.precio_mensual??item.precio):item.precio;
-                  const isPreviewing=preview?.id===item.id;
-                  const dias=diasRestantes(item.nombre);
-                  return(
-                    <div key={item.id} style={{borderRadius:16,overflow:"hidden",
-                      border:`2px solid ${isActive?cfg.primary||accent:isPreviewing?accent+"99":dark?"#2d2a45":"transparent"}`,
-                      boxShadow:isActive?`0 0 0 3px ${cfg.primary||accent}44`:isPreviewing?`0 0 0 2px ${accent}33`:"none",
-                      transition:"all .2s",opacity:!isOwned&&precio>0?.8:1}}>
-                      <div style={{height:54,cursor:"pointer",
-                        background:`linear-gradient(135deg,${cfg.primary||"#00c1fc"} 50%,${cfg.accent||cfg.secondary||"#0ea5e9"} 50%)`,
-                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,position:"relative"}}
-                        onClick={()=>{
-                          if(isOwned){ equipar("theme",item.id); }
-                          else{
-                            if(isPreviewing){ setPreview(null); if(onThemeChange) onThemeChange(currentThemeId,originalPrimaryRef.current); }
-                            else{ setPreview(item); if(onThemeChange) onThemeChange(null,cfg.primary||null); }
-                          }
-                        }}>
-                        {isActive?"✅":isPreviewing?"👁️":item.preview||cfg.icon||"🎨"}
-                        {!isOwned&&!isPreviewing&&precio>0&&(
-                          <div style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,.4)",
-                            borderRadius:99,padding:"2px 6px",fontSize:9,color:"white",fontWeight:800}}>🔒</div>
-                        )}
-                        {isPreviewing&&!isOwned&&(
-                          <div style={{position:"absolute",bottom:0,left:0,right:0,textAlign:"center",
-                            fontSize:8,color:"white",fontWeight:700,background:"rgba(0,0,0,.4)",padding:"2px"}}>Vista previa</div>
-                        )}
-                      </div>
-                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"7px 5px"}}>
-                        <div style={{fontWeight:800,fontSize:10,color:isActive?cfg.primary||accent:txt,
-                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center"}}>{item.nombre}</div>
-                        {isSub&&precio>0&&<div style={{fontSize:8,color:sub,textAlign:"center"}}>🔄{item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}</div>}
-                        {isActive&&dias!==null&&<div style={{fontSize:9,fontWeight:700,textAlign:"center",color:dias<=3?"#ef4444":dias<=7?"#f59e0b":"#10b981"}}>⏳{dias}d</div>}
-                        {isActive&&dias===null&&<div style={{fontSize:9,color:"#10b981",fontWeight:700,textAlign:"center"}}>✅</div>}
-                        {!isActive&&isOwned&&<button onClick={()=>equipar("theme",item.id)} style={{width:"100%",background:"none",border:`1px solid ${accent}`,borderRadius:99,padding:"3px 0",fontSize:9,color:accent,fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Equipar</button>}
-                        {!isOwned&&precio===0&&<button onClick={()=>equipar("theme",item.id)} style={{width:"100%",background:"none",border:"none",fontSize:9,color:"#10b981",fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Gratis</button>}
-                        {!isOwned&&precio>0&&<button onClick={()=>isSub?suscribir(item,item.periodo_default||"monthly"):comprar(item)} disabled={buying===item.id||precio>balance} style={{width:"100%",background:precio>balance?"#f0f0f0":cfg.primary||accent,color:precio>balance?"#aaa":"white",border:"none",borderRadius:99,padding:"4px 0",fontSize:9,fontWeight:800,cursor:precio>balance?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif",display:"block"}}>{buying===item.id?"...":`🪙${precio}${isSub?`/${item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}`:""}`}</button>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── SECCIÓN ESTILO DE TEXTO ───────────────────────── */}
         {sec==="texto"&&!loading&&(
           <TextoStylePanel
             items={items.filter(i=>i.tipo==="text_style")}
