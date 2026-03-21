@@ -3458,7 +3458,7 @@ function AChat({me, showToast, onBack, nameColorConfig}){
   // ── Render chat individual ────────────────────────────────────
   if (friend) return(
     <div style={{background:bg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-      <div style={{background:dark?"#52177f":"#00c1fc",padding:"22px 16px 16px",color:"white",
+      <div style={{background:accent,padding:"22px 16px 16px",color:"white",
         display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
         <button onClick={()=>{setFriend(null);setPerson([]);setConvId(null);personalConvIdRef.current=null;}}
           style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
@@ -3774,7 +3774,7 @@ function ANoticias({me,onBack}){
 
   if(sel) return(
     <div style={{background:bg,minHeight:"100vh"}}>
-      <div style={{background:dark?"#52177f":"#00c1fc",padding:"22px 16px 20px",color:"white",
+      <div style={{background:accent,padding:"22px 16px 20px",color:"white",
         display:"flex",alignItems:"flex-start",gap:12}}>
         <button onClick={()=>setSel(null)} style={{background:"rgba(255,255,255,.2)",border:"none",
           borderRadius:50,color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
@@ -3804,7 +3804,7 @@ function ANoticias({me,onBack}){
       <div style={{display:"flex",gap:6,padding:"10px 14px 0",overflowX:"auto"}}>
         {TAG_LIST.map(t=>(
           <button key={t} onClick={()=>setTagFilt(t)} style={{
-            background:tagFilt===t?dark?"#52177f":"#00c1fc":"transparent",
+            background:tagFilt===t?accent:"transparent",
             border:`1.5px solid ${tagFilt===t?dark?"#52177f":"#00c1fc":dark?"#3d3a55":"#ddd"}`,
             color:tagFilt===t?"white":dark?"#aaa":"#666",
             borderRadius:99,padding:"5px 12px",fontSize:11,fontWeight:800,cursor:"pointer",
