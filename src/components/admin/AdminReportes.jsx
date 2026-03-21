@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { ESTADO_COL, ESTADO_LABEL2, REPORTE_TIPOS } from "../../constants";
 import { api } from "../../api";
 import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index";
 

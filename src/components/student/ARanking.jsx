@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getLv } from "../../constants";
 import { api, connectSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";

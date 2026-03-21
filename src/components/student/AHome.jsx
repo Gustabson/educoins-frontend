@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { getLv, nextLv } from "../../constants";
 import { api, connectSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
-import { CircBtn } from "../shared/index";
 
 function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg} = useTheme();

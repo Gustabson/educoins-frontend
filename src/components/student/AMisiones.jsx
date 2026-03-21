@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { DIFCOL } from "../../constants";
 import { api, connectSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
-import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
+import { Av, CircBtn, OHdrA, PBtn, Pill, Toast, WCard, displayName, useToast } from "../shared/index";
 
 
 function AMisiones({me,balance,showToast,refreshBalance}){

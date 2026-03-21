@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { CHAT_SECTIONS } from "../../constants";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
-import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index";
+import { Av, OHdrA, Sheet, Toast, WCard, displayName, useToast } from "../shared/index";
 
 import PerfilModal from "../shared/PerfilModal";
 
