@@ -559,31 +559,38 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   // ── Tema dual ────────────────────────────────────────────────
   const savedThemeId = localStorage.getItem("ec_theme")||"oceano";
   const savedDark    = localStorage.getItem("ec_dark")==="true";
-  const [themeId,setThemeId]  = useState(savedThemeId);
-  const [isDark,setIsDark]    = useState(savedDark);
+  const [themeId,setThemeId]     = useState(savedThemeId);
+  const [isDark,setIsDark]       = useState(savedDark);
+  const [dbThemePrimary,setDbThemePrimary] = useState(null); // color primario del tema equipado en DB
 
+  // Prioridad: color de DB > DUAL_THEMES locales
   const baseTheme = DUAL_THEMES.find(t=>t.id===themeId)||DUAL_THEMES[0];
+  const primary   = dbThemePrimary || baseTheme.primary;
+  const secondary = baseTheme.secondary;
+
   const theme = {
-    primary:   baseTheme.primary,
-    secondary: baseTheme.secondary,
+    primary,
+    secondary,
     isDark,
-    darkBg:    isDark?"#0d0d1a":"#F0F0F0",
-    cardBg:    isDark?"#1a1828":"white",
-    navBg:     isDark?"#1a1828":"white",
-    navBord:   isDark?"#2a2740":"#EFEFEF",
-    navActiv:  baseTheme.primary,
-    navInact:  isDark?"#666":"#777777",
-    navPill:   isDark?"#2a2740":"#f0f9ff",
-    pageBg:    isDark?"#0d0d1a":"#F0F0F0",
-    txt:       isDark?"#e8e8f0":"#1a1a1a",
-    sub:       isDark?"#888":"#555",
-    inputBg:   isDark?"#2a2740":"#F7F7F7",
-    inputBd:   isDark?"#3a3758":"#E8E8E8",
+    darkBg:   isDark?"#0d0d1a":"#F0F0F0",
+    cardBg:   isDark?"#1a1828":"white",
+    navBg:    isDark?"#1a1828":"white",
+    navBord:  isDark?"#2a2740":"#EFEFEF",
+    navActiv: primary,
+    navInact: isDark?"#666":"#777777",
+    navPill:  isDark?"#2a2740":"#f0f9ff",
+    pageBg:   isDark?"#0d0d1a":"#F0F0F0",
+    txt:      isDark?"#e8e8f0":"#1a1a1a",
+    sub:      isDark?"#888":"#555",
+    inputBg:  isDark?"#2a2740":"#F7F7F7",
+    inputBd:  isDark?"#3a3758":"#E8E8E8",
   };
 
-  const setTheme=(id)=>{
-    setThemeId(id);
-    localStorage.setItem("ec_theme",id);
+  const setTheme=(id, directPrimary)=>{
+    setThemeId(id||"oceano");
+    if(directPrimary) setDbThemePrimary(directPrimary);
+    else setDbThemePrimary(null);
+    localStorage.setItem("ec_theme", id||"oceano");
   };
   const toggleDark=(d)=>{
     setIsDark(d);
@@ -596,14 +603,18 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     api.customMe().then(d=>{
       const data=d.data||d;
       setCustomActive(data?.active||null);
-      // Si tiene tema de servidor, aplicarlo
+      // Aplicar tema equipado en la DB
       if(data?.active?.theme_config){
         const tc = typeof data.active.theme_config==="string"
           ? JSON.parse(data.active.theme_config)
           : data.active.theme_config;
-        // Buscar el tema dual más cercano por color
-        const match = DUAL_THEMES.find(t=>t.primary===tc.primary);
-        if(match) setTheme(match.id);
+        if(tc?.primary){
+          // Usar el color primario directo de la DB
+          setDbThemePrimary(tc.primary);
+          // Intentar sincronizar con DUAL_THEMES si coincide
+          const match = DUAL_THEMES.find(t=>t.primary===tc.primary);
+          if(match) setThemeId(match.id);
+        }
       }
     }).catch(()=>{});
   },[]);
@@ -676,7 +687,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="ranking"    && <ARanking    nameColorConfig={nameColorConfig}/>}
         {tab==="opciones"   && <AOpciones   me={me} logout={logout} notifs={notifs}/>}
         {tab==="notificaciones"&&<ANotificaciones me={me} onBack={()=>navTo("home")} notifs={notifs} setNotifs={setNotifs}/>}
-        {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} onBack={()=>navTo("home")} onCustomChange={setCustomActive} onThemeChange={setTheme} onDarkChange={toggleDark} currentThemeId={themeId} isDark={isDark}/>}
+        {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} onBack={()=>navTo("home")} onCustomChange={setCustomActive} onThemeChange={(id,directPrimary)=>{ if(id) setThemeId(id); if(directPrimary!==undefined) setDbThemePrimary(directPrimary); }} onDarkChange={toggleDark} currentThemeId={themeId} isDark={isDark}/>}
         {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig}/>}
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
@@ -2013,7 +2024,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const [giftTo,setGiftTo]=useState("");
   const [giftMsg,setGiftMsg]=useState("");
 
-  const SECS=[["app","🎨 App"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"],["foto","📸 Foto"],["titulo","👑 Título"]];
+  const SECS=[["app","🎨 App"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
 
   const loadAll=async()=>{
     setLoading(true);
@@ -2040,13 +2051,45 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
     finally{setBuying(null);}
   };
 
-  const equipar=async(tipo,item_id)=>{
-    const isActive = active?.[`${tipo}_id`]===item_id;
+  const suscribir=async(item,periodo="monthly")=>{
+    const precio=item.precio_mensual??item.precio??0;
+    if(precio>balance){showToast("Saldo insuficiente","error");return;}
+    setBuying(item.id);
     try{
-      const d=await api.customEquip(tipo, isActive?null:item_id);
+      await api.subscribe(item.id,periodo);
+      showToast(`Suscripción activada: ${item.nombre} ✅`);
+      await refreshBalance();
+      await loadAll();
+      const d=await api.customEquip("theme",item.id);
       const newActive=d.data||d;
       setActive(newActive);
       if(onCustomChange) onCustomChange(newActive);
+      // Aplicar color directo
+      if(onThemeChange){
+        const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
+        onThemeChange(null, cfg.primary||null);
+      }
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setBuying(null);}
+  };
+
+  const equipar=async(tipo,item_id)=>{
+    const isActive=active?.[`${tipo}_id`]===item_id;
+    try{
+      const d=await api.customEquip(tipo,isActive?null:item_id);
+      const newActive=d.data||d;
+      setActive(newActive);
+      if(onCustomChange) onCustomChange(newActive);
+      // Si es tema, aplicar color primario directamente al contexto
+      if(tipo==="theme"&&!isActive&&onThemeChange){
+        const tItem=items.find(i=>i.id===item_id);
+        if(tItem){
+          const cfg=typeof tItem.config==="string"?JSON.parse(tItem.config||"{}"):tItem.config||{};
+          // Pasar el color primario real para que el ThemeCtx lo use directamente
+          onThemeChange(null, cfg.primary||null);
+        }
+      }
+      if(tipo==="theme"&&isActive&&onThemeChange) onThemeChange("oceano", null); // reset
       showToast(isActive?"Desequipado":"Equipado ✅");
     }catch(e){showToast(e.message||"Error","error");}
   };
@@ -2069,8 +2112,6 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
     if(sec==="emojis")  return i.tipo==="emoji_pack";
     if(sec==="efectos") return ["title_effect","name_effect","avatar_frame"].includes(i.tipo);
     if(sec==="apodo")   return i.tipo==="nickname";
-    if(sec==="foto")    return i.tipo==="photo_profile";
-    if(sec==="titulo")  return i.tipo==="title_custom";
     return true;
   });
 
@@ -2162,61 +2203,127 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
         {/* Sección de tema de APP — duales primario+secundario */}
         {sec==="app"&&(
           <div>
-            {/* Modo claro/oscuro */}
+            {/* ── Modos de pantalla ─────────────────────────── */}
             <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",marginBottom:12,
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>Modo de pantalla</div>
+              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>🖥️ Modo de pantalla</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {[{d:false,icon:"☀️",label:"Claro"},{d:true,icon:"🌙",label:"Oscuro"}].map(m=>(
-                  <button key={m.label} onClick={()=>onDarkChange&&onDarkChange(m.d)}
-                    style={{background:dark===m.d?accent:dark?"#2d2a45":"#f0f0f0",
-                      color:dark===m.d?"white":txt,border:`2px solid ${dark===m.d?accent:"transparent"}`,
-                      borderRadius:14,padding:"14px 10px",fontWeight:800,fontSize:14,cursor:"pointer",
-                      fontFamily:"Nunito,sans-serif",display:"flex",flexDirection:"column",
-                      alignItems:"center",gap:6,transition:"all .2s"}}>
-                    <span style={{fontSize:28}}>{m.icon}</span>
-                    {m.label}
+                {[{d:false,icon:"☀️",lbl:"Claro"},{d:true,icon:"🌙",lbl:"Oscuro"}].map(m=>(
+                  <button key={m.lbl} onClick={()=>onDarkChange&&onDarkChange(m.d)}
+                    style={{background:isDark===m.d?accent:dark?"#2d2a45":"#f0f0f0",
+                      color:isDark===m.d?"white":txt,
+                      border:`2px solid ${isDark===m.d?accent:"transparent"}`,
+                      borderRadius:14,padding:"14px 8px",fontWeight:800,fontSize:13,
+                      cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                      display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                    <span style={{fontSize:26}}>{m.icon}</span>
+                    <span>{m.lbl}</span>
+                    {isDark===m.d&&<span style={{fontSize:9,opacity:.8}}>✅ Activo</span>}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            {/* Paletas de color */}
-            <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",
-              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>Paleta de color</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {DUAL_THEMES.map(t=>{
-                  const isActive = currentThemeId===t.id;
+                {/* Modos extra comprables (tipo screen_mode en la DB) */}
+                {items.filter(i=>i.tipo==="screen_mode").map(item=>{
+                  const isOwned=ownedIds.has(item.id)||item.precio===0;
+                  const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
+                  const isActive=active?.screen_mode_id===item.id;
                   return(
-                    <button key={t.id} onClick={()=>onThemeChange&&onThemeChange(t.id)}
-                      style={{border:`2px solid ${isActive?t.primary:"transparent"}`,
-                        borderRadius:16,overflow:"hidden",cursor:"pointer",padding:0,
-                        boxShadow:isActive?`0 0 0 3px ${t.primary}44`:"none",transition:"all .2s",
-                        background:"transparent",fontFamily:"Nunito,sans-serif"}}>
-                      {/* Preview del tema */}
-                      <div style={{height:48,
-                        background:`linear-gradient(135deg,${t.primary} 50%,${t.secondary} 50%)`,
-                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>
-                        {isActive?"✅":t.icon}
-                      </div>
-                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 6px",
-                        textAlign:"center"}}>
-                        <div style={{fontWeight:800,fontSize:12,color:isActive?t.primary:txt}}>{t.name}</div>
-                        <div style={{display:"flex",justifyContent:"center",gap:4,marginTop:3}}>
-                          <div style={{width:14,height:14,borderRadius:"50%",background:t.primary}}/>
-                          <div style={{width:14,height:14,borderRadius:"50%",background:t.secondary}}/>
-                        </div>
-                      </div>
-                    </button>
+                    <div key={item.id} style={{borderRadius:14,overflow:"hidden",
+                      border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e8e8e8"}`,
+                      background:dark?"#2d2a45":"#f8f8f8",textAlign:"center",
+                      opacity:!isOwned&&item.precio>0?.65:1}}>
+                      <div style={{padding:"10px 6px 4px",fontSize:26}}>{item.preview||"🌑"}</div>
+                      <div style={{fontWeight:800,fontSize:11,color:txt,padding:"0 4px 4px"}}>{item.nombre}</div>
+                      {isOwned
+                        ? <button onClick={()=>equipar("screen_mode",item.id)} style={{background:"none",border:"none",
+                            fontSize:10,color:accent,fontWeight:700,cursor:"pointer",
+                            fontFamily:"Nunito,sans-serif",paddingBottom:8}}>
+                            {isActive?"✅ Activo":"Equipar"}
+                          </button>
+                        : <button onClick={()=>comprar(item)} disabled={buying===item.id||item.precio>balance}
+                            style={{background:"none",border:"none",fontSize:10,color:accent,
+                              fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif",paddingBottom:8}}>
+                            🪙{item.precio}
+                          </button>
+                      }
+                    </div>
                   );
                 })}
               </div>
             </div>
+
+            {/* ── Paletas de color (tipo theme en la DB) ─────── */}
+            <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>🎨 Paleta de color</div>
+              {items.filter(i=>i.tipo==="theme").length===0&&(
+                <div style={{textAlign:"center",color:sub,fontSize:12,padding:16}}>
+                  El administrador aún no configuró paletas de color
+                </div>
+              )}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {items.filter(i=>i.tipo==="theme").map(item=>{
+                  const isOwned=ownedIds.has(item.id)||item.precio===0||item.precio_mensual===0;
+                  const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
+                  const isActive=active?.theme_id===item.id;
+                  const isSub=item.es_suscripcion;
+                  const precio=isSub?(item.precio_mensual??item.precio):item.precio;
+                  return(
+                    <div key={item.id} style={{borderRadius:16,overflow:"hidden",
+                      border:`2px solid ${isActive?cfg.primary||accent:dark?"#2d2a45":"transparent"}`,
+                      boxShadow:isActive?`0 0 0 3px ${cfg.primary||accent}44`:"none",
+                      opacity:!isOwned&&precio>0?.72:1}}>
+                      {/* Preview */}
+                      <div style={{height:54,
+                        background:`linear-gradient(135deg,${cfg.primary||"#00c1fc"} 50%,${cfg.accent||cfg.secondary||"#0ea5e9"} 50%)`,
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,
+                        cursor:isOwned?"pointer":"default"}}
+                        onClick={isOwned?()=>equipar("theme",item.id):undefined}>
+                        {isActive?"✅":item.preview||cfg.icon||"🎨"}
+                      </div>
+                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 6px",textAlign:"center"}}>
+                        <div style={{fontWeight:800,fontSize:11,color:isActive?cfg.primary||accent:txt,
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                          padding:"0 4px"}}>{item.nombre}</div>
+                        {/* Estado / botón */}
+                        {isActive&&<span style={{fontSize:10,color:"#10b981",fontWeight:700}}>✅ Activo</span>}
+                        {!isActive&&isOwned&&(
+                          <button onClick={()=>equipar("theme",item.id)}
+                            style={{background:"none",border:"none",fontSize:10,color:accent,
+                              fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                            Equipar
+                          </button>
+                        )}
+                        {!isOwned&&precio===0&&(
+                          <button onClick={()=>equipar("theme",item.id)}
+                            style={{background:"none",border:"none",fontSize:10,color:"#10b981",
+                              fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                            Gratis
+                          </button>
+                        )}
+                        {!isOwned&&precio>0&&(
+                          <button onClick={()=>isSub?suscribir(item,"monthly"):comprar(item)}
+                            disabled={buying===item.id||precio>balance}
+                            style={{background:precio>balance?"#f0f0f0":cfg.primary||accent,
+                              color:precio>balance?"#aaa":"white",border:"none",borderRadius:99,
+                              padding:"4px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
+                              fontFamily:"Nunito,sans-serif",marginTop:2,display:"block",margin:"2px auto 0"}}>
+                            {buying===item.id?"...":`🪙${precio}${isSub?"/mes":""}`}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {items.some(i=>i.tipo==="theme"&&i.es_suscripcion&&i.precio_mensual>0)&&(
+                <div style={{marginTop:10,fontSize:10,color:sub,textAlign:"center",lineHeight:1.5}}>
+                  🔄 Suscripción mensual • Se renueva automáticamente • Cancelá cuando quieras
+                </div>
+              )}
+            </div>
           </div>
         )}
-
-        {sec!=="apodo"&&sec!=="app"&&sec!=="foto"&&sec!=="titulo"&&filteredItems.map(item=>{
+        {sec!=="apodo"&&sec!=="app"&&filteredItems.map(item=>{
           const isOwned   = ownedIds.has(item.id)||item.precio===0;
           const isFree    = item.precio===0;
           const isEquipped= active&&Object.values(active).includes(item.id);
@@ -2557,6 +2664,95 @@ function APerfil({me,balance,logout,showToast,setMe}){
   const uB=me.unlocked_borders||["b1"];
   const uT=me.unlocked_titles||["tl1"];
 
+  // Estados para foto y titulo custom comprables directamente aquí
+  const [fotoShop,setFotoShop]   = useState(null); // item de foto de la tienda
+  const [tituloShop,setTituloShop]=useState(null); // item de titulo custom
+  const [buying,setBuying]       = useState(false);
+  const [editTitulo,setEditTitulo]=useState(false);
+  const [tituloVal,setTituloVal] = useState(me.titulo_custom||"");
+  const [savingT,setSavingT]     = useState(false);
+  const [savingF,setSavingF]     = useState(false);
+
+  // Cargar items de foto y titulo de la tienda custom
+  useEffect(()=>{
+    api.customShop("photo_profile").then(d=>{
+      const arr=d.data||d||[];
+      setFotoShop(arr.find(i=>i.tipo==="photo_profile")||null);
+    }).catch(()=>{});
+    api.customShop("title_custom").then(d=>{
+      const arr=d.data||d||[];
+      setTituloShop(arr.find(i=>i.tipo==="title_custom")||null);
+    }).catch(()=>{});
+  },[]);
+
+  const hasFotoPerm=()=>{/* verificamos comprando */true;};
+
+  const comprarFoto=async()=>{
+    if(!fotoShop){showToast("Item no disponible","error");return;}
+    if(balance<fotoShop.precio){showToast("Saldo insuficiente","error");return;}
+    setBuying("foto");
+    try{
+      await api.customBuy(fotoShop.id);
+      showToast("Foto de perfil desbloqueada! 📸");
+      setFotoShop(prev=>prev?{...prev,_owned:true}:null);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setBuying(false);}
+  };
+
+  const subirFoto=async(e)=>{
+    const file=e.target.files?.[0]; if(!file) return;
+    if(file.size>500000){showToast("Imagen muy grande (max 500KB)","error");return;}
+    const reader=new FileReader();
+    reader.onload=async(ev)=>{
+      setSavingF(true);
+      try{
+        await api.setFoto(ev.target.result);
+        showToast("Foto actualizada! 📸");
+        const updated=await api.me();
+        setMe(updated);
+      }catch(err){showToast(err.message||"Error","error");}
+      finally{setSavingF(false);}
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const quitarFoto=async()=>{
+    setSavingF(true);
+    try{
+      await api.setFoto(null);
+      showToast("Foto eliminada");
+      const updated=await api.me();
+      setMe(updated);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSavingF(false);}
+  };
+
+  const comprarTitulo=async()=>{
+    if(!tituloShop){showToast("Item no disponible","error");return;}
+    if(balance<tituloShop.precio){showToast("Saldo insuficiente","error");return;}
+    setBuying("titulo");
+    try{
+      await api.customBuy(tituloShop.id);
+      showToast("Título personalizado desbloqueado! 👑");
+      setTituloShop(prev=>prev?{...prev,_owned:true}:null);
+      setEditTitulo(true);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setBuying(false);}
+  };
+
+  const guardarTitulo=async()=>{
+    if(!tituloVal.trim()){showToast("Escribí un título","error");return;}
+    setSavingT(true);
+    try{
+      await api.setTituloCustom(tituloVal.trim());
+      showToast("Título guardado! 👑");
+      const updated=await api.me();
+      setMe(updated);
+      setEditTitulo(false);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSavingT(false);}
+  };
+
   const equip=async(type,item_id)=>{
     try{
       await api.equip(type,item_id);
@@ -2598,19 +2794,47 @@ function APerfil({me,balance,logout,showToast,setMe}){
             );
           })}
           {/* Foto personalizada como extra skin */}
-          <div onClick={()=>setMe({...me,_goFoto:true})}
-            style={{background:me.foto_url?cardBg:dark?"#1e1b2e":"#F0F0F0",
-              border:`2px solid ${me.foto_url?accent:dark?"#2d2a45":"#E8E8E8"}`,
-              borderRadius:16,padding:"12px 6px",textAlign:"center",cursor:"pointer",
-              transition:"all .2s",position:"relative"}}>
+          <div style={{borderRadius:16,overflow:"hidden",
+            border:`2px solid ${me.foto_url?accent:dark?"#2d2a45":"#e8e8e8"}`,
+            background:cardBg,textAlign:"center",padding:"12px 6px",
+            position:"relative"}}>
             {me.foto_url
-              ? <img src={me.foto_url} alt="" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",margin:"0 auto 4px"}}/>
+              ? <img src={me.foto_url} alt="" style={{width:36,height:36,borderRadius:"50%",
+                  objectFit:"cover",margin:"0 auto 4px",display:"block"}}/>
               : <div style={{fontSize:28,marginBottom:4}}>📸</div>
             }
-            <div style={{fontSize:9,fontWeight:800,color:txt}}>Foto</div>
+            <div style={{fontSize:9,fontWeight:800,color:txt,marginBottom:4}}>Foto</div>
+            {me.foto_url
+              ? <label style={{cursor:savingF?"not-allowed":"pointer"}}>
+                  <input type="file" accept="image/*" onChange={subirFoto} style={{display:"none"}}/>
+                  <span style={{fontSize:9,color:accent,fontWeight:700}}>
+                    {savingF?"...":"Cambiar"}
+                  </span>
+                </label>
+              : <label style={{cursor:buying==="foto"?"not-allowed":"pointer"}}>
+                  <input type="file" accept="image/*" onChange={subirFoto} style={{display:"none"}}
+                    onClick={e=>{
+                      // Si no tiene permiso, comprar primero
+                      if(fotoShop&&!fotoShop._owned&&me&&!me.foto_url){
+                        e.preventDefault();
+                        comprarFoto();
+                      }
+                    }}/>
+                  <span style={{fontSize:9,color:accent,fontWeight:800}}>
+                    {buying==="foto"?"...":fotoShop?`🪙${fotoShop.precio}`:"📱 Subir"}
+                  </span>
+                </label>
+            }
+            {me.foto_url&&(
+              <button onClick={quitarFoto} style={{position:"absolute",top:3,right:3,
+                background:"rgba(0,0,0,.4)",border:"none",borderRadius:"50%",color:"white",
+                width:16,height:16,fontSize:8,cursor:"pointer",display:"flex",
+                alignItems:"center",justifyContent:"center"}}>✕</button>
+            )}
           </div>
         </div>
 
+        {/* Título personalizado — inline en sección Títulos */}
         <div style={{fontWeight:800,color:txt,marginBottom:8}}>📛 Títulos</div>
         {TITLES.map(t=>{
           const owned=uT.includes(t.id);
@@ -2633,27 +2857,67 @@ function APerfil({me,balance,logout,showToast,setMe}){
             </div>
           );
         })}
-        {/* Título personalizado */}
+
+        {/* Título personalizado — comprable directo */}
         <div style={{marginBottom:8,padding:"14px 16px",borderRadius:20,
           background:me.titulo_custom?dark?"#2d1a4e":cardBg:cardBg,
           border:`1.5px solid ${me.titulo_custom?accent:dark?"#2d2a45":"#E8E8E8"}`,
           boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <div style={{fontWeight:800,fontSize:15,color:txt}}>✏️ Título personalizado</div>
+          <div style={{fontWeight:800,fontSize:15,color:txt,marginBottom:4}}>
+            ✏️ Título personalizado
+          </div>
+          {me.titulo_custom&&!editTitulo&&(
+            <div style={{fontSize:13,color:accent,fontWeight:700,marginBottom:8}}>
+              "{me.titulo_custom}"
+            </div>
+          )}
+          {editTitulo?(
+            <div style={{marginTop:6}}>
+              <input value={tituloVal} onChange={e=>setTituloVal(e.target.value.slice(0,20))}
+                placeholder="Tu título (máx 20 chars)..."
+                style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${accent}44`,
+                  borderRadius:10,padding:"9px 12px",fontSize:14,fontWeight:700,outline:"none",
+                  color:txt,background:dark?"#2d2a45":"#f8f8f8",fontFamily:"Nunito,sans-serif",
+                  marginBottom:8}}/>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={guardarTitulo} disabled={savingT}
+                  style={{flex:1,background:savingT?"#ccc":accent,border:"none",borderRadius:50,
+                    color:"white",padding:"10px",fontWeight:800,fontSize:13,cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif"}}>
+                  {savingT?"Guardando...":"Guardar"}
+                </button>
+                <button onClick={()=>setEditTitulo(false)}
+                  style={{background:dark?"#2d2a45":"#f0f0f0",border:"none",borderRadius:50,
+                    color:sub,padding:"10px 14px",fontWeight:700,cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif"}}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ):(
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {me.titulo_custom
-                ? <div style={{fontSize:13,color:accent,fontWeight:700,marginTop:2}}>"{me.titulo_custom}"</div>
-                : <div style={{fontSize:12,color:sub}}>Escribí el tuyo — compralo en Personalizar</div>
+                ? <button onClick={()=>setEditTitulo(true)}
+                    style={{background:accent+"22",color:accent,border:"none",borderRadius:99,
+                      padding:"6px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif"}}>
+                    ✏️ Cambiar
+                  </button>
+                : <>
+                    {tituloShop
+                      ? <button onClick={comprarTitulo} disabled={buying==="titulo"||balance<tituloShop.precio}
+                          style={{background:buying==="titulo"||balance<tituloShop.precio?"#ccc":accent,
+                            color:"white",border:"none",borderRadius:99,padding:"6px 14px",
+                            fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                          {buying==="titulo"?"Comprando...":balance<tituloShop.precio
+                            ?`Sin saldo (🪙${tituloShop.precio})`:`Comprar 🪙${tituloShop.precio}`}
+                        </button>
+                      : <span style={{fontSize:12,color:sub}}>No disponible</span>
+                    }
+                  </>
               }
             </div>
-            <button onClick={()=>showToast("Ve a Personalizar → 👑 Título")}
-              style={{background:accent+"22",color:accent,border:"none",borderRadius:99,
-                padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
-                fontFamily:"Nunito,sans-serif"}}>
-              {me.titulo_custom?"Cambiar":"Comprar"}
-            </button>
-          </div>
-        </div>
+          )}
 
         <div style={{marginTop:16}}>
           <button onClick={logout} style={{width:"100%",background:cardBg,
