@@ -138,6 +138,7 @@ const api = {
   customUser:     (id)       => apiFetch(`/custom/user/${id}`),
   customBuy:      (item_id)  => apiFetch("/custom/buy",    { method:"POST", body:{item_id} }),
   customEquip:    (tipo,item_id,custom_bg_color,custom_accent_color) => apiFetch("/custom/equip",{ method:"POST", body:{tipo,item_id,custom_bg_color,custom_accent_color} }),
+  customEquipText:(item_id,txt,sub) => apiFetch("/custom/equip",{ method:"POST", body:{tipo:"text_style",item_id,custom_txt_color:txt,custom_sub_color:sub} }),
   customGift:     (data)     => apiFetch("/custom/gift",   { method:"POST", body:data }),
   customGifts:    ()         => apiFetch("/custom/gifts"),
   customGiftRead: (id)       => apiFetch(`/custom/gifts/${id}/read`, { method:"PATCH" }),
@@ -2080,11 +2081,7 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
     if(!customItem) return;
     setSavingCustom(true);
     try{
-      const resp = await apiFetch("/custom/equip",{method:"POST",body:{
-        tipo:"text_style", item_id:customItem.id,
-        custom_txt_color:customColors.txt,
-        custom_sub_color:customColors.sub,
-      }});
+      const resp = await api.customEquipText(customItem.id, customColors.txt, customColors.sub);
       if(onCustomChange) onCustomChange(resp.data||resp);
       showToast("Colores guardados ✅");
     }catch(e){showToast(e.message||"Error","error");}
@@ -2237,7 +2234,7 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
 // ════════════════════════════════════════════════════════════
 function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChange,onThemeChange,onDarkChange,currentThemeId,isDark,currentPrimary}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
-  const [sec,setSec]     = useState("app");    // app|colores|emojis|efectos|apodo
+  const [sec,setSec]     = useState("pantalla");  // pantalla|texto|colores|emojis|efectos|apodo
   const [items,setItems] = useState([]);
   const [owned,setOwned]   = useState([]);
   const [active,setActive]  = useState(null);
