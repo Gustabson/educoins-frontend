@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { api, connectSocket } from "../../api.js";
-import { useTheme } from "../../ThemeContext.js";
-import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index.js";
+import { api, connectSocket } from "../../api";
+import { useTheme } from "../../ThemeContext";
+import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
 
 function ApodoPanel({me,owned,items,balance,dark,showToast,onRefresh,onRefreshBalance,cardBg,txt,sub,accent,inputBg,inputBd}){

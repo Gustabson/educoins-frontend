@@ -1,20 +1,20 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../../api.js";
-import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index.js";
+import { api } from "../../api";
+import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index";
 
-import AdminHome from "./AdminHome.jsx";
-import AdminUsuarios from "./AdminUsuarios.jsx";
-import AdminTesoro from "./AdminTesoro.jsx";
-import AdminBanco from "./AdminBanco.jsx";
-import AdminRanking from "./AdminRanking.jsx";
-import AdminTienda from "./AdminTienda.jsx";
-import AdminAudit from "./AdminAudit.jsx";
-import AdminNoticias from "./AdminNoticias.jsx";
-import AdminVotaciones from "./AdminVotaciones.jsx";
-import AdminReportes from "./AdminReportes.jsx";
-import AdminAulas from "./AdminAulas.jsx";
-import AdminConfig from "./AdminConfig.jsx";
-import AdminEconomia from "./AdminEconomia.jsx";
+import AdminHome from "./AdminHome";
+import AdminUsuarios from "./AdminUsuarios";
+import AdminTesoro from "./AdminTesoro";
+import AdminBanco from "./AdminBanco";
+import AdminRanking from "./AdminRanking";
+import AdminTienda from "./AdminTienda";
+import AdminAudit from "./AdminAudit";
+import AdminNoticias from "./AdminNoticias";
+import AdminVotaciones from "./AdminVotaciones";
+import AdminReportes from "./AdminReportes";
+import AdminAulas from "./AdminAulas";
+import AdminConfig from "./AdminConfig";
+import AdminEconomia from "./AdminEconomia";
 
 function Admin({me,logout}){
   const [tab,setTab]=useState("home");

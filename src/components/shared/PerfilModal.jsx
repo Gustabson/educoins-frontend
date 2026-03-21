@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { api } from "../../api.js";
-import { useTheme } from "../../ThemeContext.js";
-import { getLv } from "../../constants.js";
-import { Av, displayName } from "./index.js";
+import { api } from "../../api";
+import { useTheme } from "../../ThemeContext";
+import { getLv } from "../../constants";
+import { Av, displayName } from "./index";
 
 function PerfilModal({userId, onClose, showToast}){
   const {primary:accent,isDark:dark,txt,sub,cardBg} = useTheme();

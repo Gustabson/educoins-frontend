@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { api, connectSocket } from "../../api.js";
-import { useTheme } from "../../ThemeContext.js";
-import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index.js";
+import { api, connectSocket } from "../../api";
+import { useTheme } from "../../ThemeContext";
+import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
 
 function AVotaciones({me,showToast,onBack}){

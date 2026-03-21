@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { api, connectSocket } from "../../api.js";
-import { useTheme } from "../../ThemeContext.js";
-import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index.js";
-import { REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR } from "../../constants.js";
+import { api, connectSocket } from "../../api";
+import { useTheme } from "../../ThemeContext";
+import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
+import { REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR } from "../../constants";
 
 function AReportes({me,showToast,onBack}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();

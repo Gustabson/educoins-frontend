@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { api } from './api.js';
-import { GS } from './constants.js';
-import { Inp, PBtn } from './components/shared/index.js';
-import Alumno from './components/student/Alumno.jsx';
-import Maestra from './components/teacher/Maestra.jsx';
-import Admin from './components/admin/Admin.jsx';
+import { api } from './api';
+import { GS } from './constants';
+import { Inp, PBtn } from './components/shared/index';
+import Alumno from './components/student/Alumno';
+import Maestra from './components/teacher/Maestra';
+import Admin from './components/admin/Admin';
 
 export default function App(){
   const [me,setMe]         = useState(null);

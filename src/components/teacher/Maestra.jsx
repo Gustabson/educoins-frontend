@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../../api.js";
-import { useTheme } from "../../ThemeContext.js";
-import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index.js";
+import { api } from "../../api";
+import { useTheme } from "../../ThemeContext";
+import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index";
 
 
 function Maestra({me,logout}){

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useContext } from "react";
-import { useTheme } from "../../ThemeContext.js";
-import { SKINS, BORDERS, TITLES, getLv } from "../../constants.js";
+import { useTheme } from "../../ThemeContext";
+import { SKINS, BORDERS, TITLES, getLv } from "../../constants";
 
 function displayName(user){ return user?.apodo||user?.nombre||""; }
 

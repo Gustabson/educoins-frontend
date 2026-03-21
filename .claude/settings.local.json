@@ -42,7 +42,8 @@
       "Bash(grep -iE \"^App\\\\.js$|^admin\\\\.js$|^socket\\\\.js$|^chat\\\\.js$|018_cleanup\")",
       "Bash(grep -iE \"^App\\\\.js$|^profile\\\\.js$\")",
       "Bash(unzip -o educoins-src.zip -d /c/Users/GustavoS/Downloads/educoins-src-extracted)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(unzip -o \"/c/Users/GustavoS/Downloads/educoins-src.zip\" -d /c/Users/GustavoS/Downloads/educoins-src-extracted)"
     ]
   }
 }

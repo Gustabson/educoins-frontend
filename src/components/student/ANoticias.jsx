@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { api, connectSocket } from "../../api.js";
-import { useTheme } from "../../ThemeContext.js";
-import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index.js";
-import { TAG_COLORS, TAG_LIST } from "../../constants.js";
+import { api, connectSocket } from "../../api";
+import { useTheme } from "../../ThemeContext";
+import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
+import { TAG_COLORS, TAG_LIST } from "../../constants";
 
 function ANoticias({me,onBack}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg} = useTheme();

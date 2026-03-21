@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../../api.js";
-import { useTheme } from "../../ThemeContext.js";
-import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index.js";
+import { api } from "../../api";
+import { useTheme } from "../../ThemeContext";
+import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index";
 
-import PerfilModal from "../shared/PerfilModal.jsx";
+import PerfilModal from "../shared/PerfilModal";
 
 function useChatSocket(token, onMessage, onTyping) {
   const socketRef  = useRef(null);

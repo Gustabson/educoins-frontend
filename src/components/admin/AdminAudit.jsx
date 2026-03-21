@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../../api.js";
-import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index.js";
+import { api } from "../../api";
+import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index";
 
 
 
