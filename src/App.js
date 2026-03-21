@@ -1013,7 +1013,6 @@ function AMisiones({me,balance,showToast,refreshBalance}){
           </div>
         )}
         {missions.map(m=>{
-          const sub=getSubState(m.id);
           const estado=sub?.estado;
           return(
             <div key={m.id} style={{marginBottom:10,background:cardBg,borderRadius:20,padding:16,
@@ -1048,12 +1047,7 @@ function ATienda({me,balance,showToast,refreshBalance}){
   const [loading,setLoading]=useState(true);
   const [buying,setBuying]=useState(null);
   const [revealed,setRevealed]=useState(null);
-  const [lightbox,setLightbox]=useState(null); // imagen ampliada
-  const cardBg=dark?"#1e1b2e":"white";
-  const txt=dark?"#e0e0e0":"#1a1a1a";
-  const subTxt=dark?"#888":"#666";
-  const accent=themeAccent||(dark?"#c084fc":"#00c1fc");
-  const bg=dark?"#12101e":"#F0F0F0";
+  const [lightbox,setLightbox]=useState(null);
 
   useEffect(()=>{
     api.storeItems().then(d=>setItems(Array.isArray(d)?d:d.data||d||[])).finally(()=>setLoading(false));
@@ -1210,12 +1204,6 @@ function AEnviar({me,balance,showToast,refreshBalance}){
   const [manualId,setManualId] = useState("");
   const debounceRef            = useRef(null);
 
-  const cardBg = dark?"#1e1b2e":"white";
-  const txt    = dark?"#e0e0e0":"#1a1a1a";
-  const sub    = dark?"#888":"#555";
-  const accent = dark?"#c084fc":"#00c1fc";
-  const inputBg= dark?"#2d2a45":"#F7F7F7";
-  const inputBd= dark?"#3d3a55":"#E8E8E8";
 
   useEffect(()=>{
     api.chatFriends()
@@ -1561,10 +1549,6 @@ function AMovimientos(){
   const [txs,setTxs]       = useState([]);
   const [loading,setLoading]= useState(true);
   const [search,setSearch]  = useState("");
-  const cardBg = dark?"#1e1b2e":"white";
-  const txt    = dark?"#e0e0e0":"#1a1a1a";
-  const sub    = dark?"#888":"#666";
-  const accent = dark?"#c084fc":"#00c1fc";
 
   useEffect(()=>{ api.transactions().then(setTxs).finally(()=>setLoading(false)); },[]);
 
@@ -2128,11 +2112,6 @@ function ANotificaciones({me,onBack,notifs=[],setNotifs}){
   const [loading,setLoading]=useState(true);
   const [unread,setUnread]=useState(0);
 
-  const cardBg = dark?"#1e1b2e":"white";
-  const txt    = dark?"#e0e0e0":"#1a1a1a";
-  const sub    = dark?"#888":"#555";
-  const bg     = dark?"#12101e":"#F0F0F0";
-  const accent = dark?"#c084fc":"#00c1fc";
 
   const NOTIF_ICON={
     reward:"🪙",transfer:"💸",chat_personal:"💬",mission_approved:"✅",
@@ -2227,8 +2206,6 @@ function ARanking({nameColorConfig}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg} = useTheme();
   const [users,setUsers]=useState([]);
   const [loading,setLoading]=useState(true);
-  const cardBg=dark?"#1e1b2e":"white";
-  const txt=dark?"#e0e0e0":"#1a1a1a";
 
   useEffect(()=>{
     api.ranking().then(setUsers).finally(()=>setLoading(false));
@@ -2426,12 +2403,7 @@ function AChat({me, showToast, onBack, nameColorConfig}){
   const typingTimer             = useRef(null);
   const token                   = localStorage.getItem("ec_token");
 
-  const cardBg   = dark?"#1e1b2e":"white";
-  const txt      = dark?"#e0e0e0":"#1a1a1a";
-  const sub      = dark?"#888":"#555";
   const bg       = dark?"#12101e":"#F5F5F5";
-  const accent   = dark?"#c084fc":"#00c1fc";
-  const inputBg  = dark?"#2d2a45":"#F7F7F7";
   const inputBord= dark?"#3d3a55":"#E8E8E8";
 
   // WebSocket — onMessage SIN dependencias, solo usa refs
@@ -2904,10 +2876,6 @@ function ANoticias({me,onBack}){
   const [sel,setSel]=useState(null);
   const [tagFilt,setTagFilt]=useState("Todos");
 
-  const cardBg=dark?"#1e1b2e":"white";
-  const txt=dark?"#e0e0e0":"#1a1a1a";
-  const sub=dark?"#888":"#555";
-  const bg=dark?"#12101e":"#F5F5F5";
 
   useEffect(()=>{
     setLoading(true);
@@ -3009,13 +2977,6 @@ function AVotaciones({me,showToast,onBack}){
   const [classInfo,setCInfo] = useState(null);
   const [savingCmt,setSavingCmt]=useState(false);
 
-  const cardBg = dark?"#1e1b2e":"white";
-  const txt    = dark?"#e0e0e0":"#1a1a1a";
-  const sub    = dark?"#888":"#555";
-  const bg     = dark?"#12101e":"#F5F5F5";
-  const accent = dark?"#c084fc":"#00c1fc";
-  const inputBg= dark?"#2d2a45":"#F7F7F7";
-  const inputBd= dark?"#3d3a55":"#E8E8E8";
 
   const loadPolls = (s) => {
     setLoading(true);
@@ -3414,13 +3375,6 @@ function AReportes({me,showToast,onBack}){
   const [sending,setSending]   = useState(false);
   const bottomRef              = useRef(null);
 
-  const cardBg  = dark?"#1e1b2e":"white";
-  const txt     = dark?"#e0e0e0":"#1a1a1a";
-  const sub     = dark?"#888":"#555";
-  const bg      = dark?"#12101e":"#F5F5F5";
-  const accent  = dark?"#c084fc":"#00c1fc";
-  const inputBg = dark?"#2d2a45":"#F7F7F7";
-  const inputBd = dark?"#3d3a55":"#E8E8E8";
 
   const loadList = () => {
     api.myReports()
