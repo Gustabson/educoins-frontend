@@ -20,12 +20,7 @@ export default function App(){
     const token = localStorage.getItem("ec_token");
     if(!token){ setLoading(false); return; }
     Promise.all([api.me(), api.account()])
-      .then(([userRes,accRes])=>{
-        const user = userRes?.data || userRes;
-        const acc  = accRes?.data  || accRes;
-        setMe(user);
-        setBalance(acc?.balance ?? 0);
-      })
+      .then(([user,acc])=>{ setMe(user); setBalance(acc.balance); })
       .catch(()=>localStorage.removeItem("ec_token"))
       .finally(()=>setLoading(false));
   },[]);
@@ -34,13 +29,10 @@ export default function App(){
     if(!email||!pass){ setErr("Completá email y contraseña"); return; }
     setLogging(true); setErr("");
     try{
-      const res = await api.login(email,pass);
-      const token = res?.token || res?.data?.token;
-      const user  = res?.user  || res?.data?.user || res?.data;
-      localStorage.setItem("ec_token", token);
-      const accRes = await api.account().catch(()=>({balance:0}));
-      const acc = accRes?.data || accRes;
-      setMe(user); setBalance(acc?.balance ?? 0);
+      const {token,user} = await api.login(email,pass);
+      localStorage.setItem("ec_token",token);
+      const acc = await api.account().catch(()=>({balance:0}));
+      setMe(user); setBalance(acc.balance);
     }catch(e){
       setErr(e.message||"Email o contraseña incorrectos");
     }finally{ setLogging(false); }

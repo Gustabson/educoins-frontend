@@ -3,22 +3,23 @@
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 const API = `${API_URL}/api/v1`;
 
-async function apiFetch(path, opts={}) {
+async function apiFetch(path, options={}) {
   const token = localStorage.getItem("ec_token");
   const res = await fetch(API + path, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? {"Authorization": "Bearer " + token} : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
     },
-    ...(opts.method ? {method: opts.method} : {}),
-    ...(opts.body   ? {body: JSON.stringify(opts.body)} : {}),
+    body: options.body ? JSON.stringify(options.body) : undefined,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `HTTP ${res.status}`);
-  }
-  return res.json();
+  const data = await res.json();
+  if (!data.ok) throw { code: data.error?.code, message: data.error?.message };
+  return data.data;
 }
+
+let _socket = null;
 
 function connectSocket(token) {
   if (_socket?.connected) return _socket;
