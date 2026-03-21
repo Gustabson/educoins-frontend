@@ -2736,6 +2736,8 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                 })}
               </div>
             </div>
+          </div>
+        )}
 
         {sec==="texto"&&!loading&&(
           <TextoStylePanel
