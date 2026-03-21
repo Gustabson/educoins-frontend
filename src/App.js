@@ -577,17 +577,24 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const isContrast  = sm.contrast;
   const isCustom    = sm.custom;
   // AMOLED fuerza dark, el resto respeta la elección del usuario
-  const effectiveDark = isDark || isAmoled;
 
-  // Colores custom del usuario (para modo personalizable)
   const customBg     = isCustom && customActive?.custom_bg_color;
   const customAccent = isCustom && customActive?.custom_accent_color;
+  // Text style overrides — lee directo del preset o custom
+  const ts = textStyleCfg || {};
+  const isNeon    = ts.preset==="neon";
+  const forceDark = ts.force_dark;
+  const isCustomTs= ts.preset==="custom";
+
+  // Si el estilo de texto fuerza dark, aplicarlo
+  const effectiveDark = isDark || isAmoled || forceDark;
 
   const theme = {
     primary:   customAccent || primary,
     secondary,
     isDark:    effectiveDark,
-    darkBg:    isAmoled?"#000000":isSepia?"#f4e4c1":customBg||( effectiveDark?"#0d0d1a":"#F0F0F0"),
+    // Fondos según screen_mode
+    darkBg:    isAmoled?"#000000":isSepia?"#f4e4c1":customBg||(effectiveDark?"#0d0d1a":"#F0F0F0"),
     cardBg:    isAmoled?"#0a0a0a":isSepia?"#fdf0d5":customBg?customBg+"dd":(effectiveDark?"#1a1828":"white"),
     navBg:     isAmoled?"#000000":isSepia?"#f4e4c1":customBg||(effectiveDark?"#1a1828":"white"),
     navBord:   isAmoled?"#111":isSepia?"#d4a574":effectiveDark?"#2a2740":"#EFEFEF",
@@ -595,9 +602,17 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     navInact:  effectiveDark?"#666":"#777777",
     navPill:   effectiveDark?"#2a2740":"#f0f9ff",
     pageBg:    isAmoled?"#000000":isSepia?"#ede0c4":customBg||(effectiveDark?"#0d0d1a":"#F0F0F0"),
-    // Alto contraste: texto fuerte pero sin forzar modo oscuro
-    txt:       isContrast?(effectiveDark?"#ffffff":"#000000"):isSepia?"#4a3728":effectiveDark?"#e8e8f0":"#1a1a1a",
-    sub:       isContrast?(effectiveDark?"#dddddd":"#222222"):isSepia?"#7a5c4a":effectiveDark?"#888":"#555",
+    // Texto — prioridad: custom picker > preset txt > contraste > sepia > default
+    txt: isCustomTs&&ts.custom_txt ? ts.custom_txt
+       : ts.txt&&ts.txt!=="default" ? ts.txt
+       : isContrast   ? (effectiveDark?"#ffffff":"#000000")
+       : isSepia      ? "#4a3728"
+       : effectiveDark? "#e8e8f0" : "#1a1a1a",
+    sub: isCustomTs&&ts.custom_sub ? ts.custom_sub
+       : ts.sub&&ts.sub!=="default" ? ts.sub
+       : isContrast   ? (effectiveDark?"#dddddd":"#222222")
+       : isSepia      ? "#7a5c4a"
+       : effectiveDark? "#888" : "#555",
     inputBg:   isAmoled?"#111":isSepia?"#fdf0d5":effectiveDark?"#2a2740":"#F7F7F7",
     inputBd:   isAmoled?"#333":isSepia?"#c4956a":effectiveDark?"#3a3758":"#E8E8E8",
   };
@@ -623,32 +638,30 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
 
   // ── Personalización del server ───────────────────────────────
   const [customActive,setCustomActive]=useState(null);
+  const [textStyleCfg,setTextStyleCfg]=useState(null);
+
+  const applyActive=(active)=>{
+    if(!active) return;
+    if(active.theme_config){
+      const tc=typeof active.theme_config==="string"?JSON.parse(active.theme_config):active.theme_config;
+      if(tc?.primary){ const match=DUAL_THEMES.find(t=>t.primary===tc.primary); setTheme(match?.id||null,tc.primary,false); }
+    }
+    if(active.screen_mode_config){
+      const sc=typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
+      setScreenModeCfg(sc||null);
+      if(sc?.dark) setIsDark(true);
+    } else { setScreenModeCfg(null); }
+    if(active.text_style_config){
+      const ts=typeof active.text_style_config==="string"?JSON.parse(active.text_style_config):active.text_style_config;
+      setTextStyleCfg({...ts,custom_txt:active.custom_txt_color,custom_sub:active.custom_sub_color,custom_card:active.custom_card_color});
+    } else { setTextStyleCfg(null); }
+  };
 
   useEffect(()=>{
     api.customMe().then(d=>{
       const data=d.data||d;
       setCustomActive(data?.active||null);
-      // Aplicar tema equipado en la DB
-      if(data?.active?.theme_config){
-        const tc = typeof data.active.theme_config==="string"
-          ? JSON.parse(data.active.theme_config)
-          : data.active.theme_config;
-        if(tc?.primary){
-          const match = DUAL_THEMES.find(t=>t.primary===tc.primary);
-          setTheme(match?.id||null, tc.primary, false);
-        }
-      }
-      // Aplicar screen_mode activo
-      if(data?.active?.screen_mode_config){
-        const sc = typeof data.active.screen_mode_config==="string"
-          ? JSON.parse(data.active.screen_mode_config)
-          : data.active.screen_mode_config;
-        setScreenModeCfg(sc||null);
-        // Si el modo fuerza dark, aplicarlo
-        if(sc?.dark) setIsDark(true);
-      } else {
-        setScreenModeCfg(null);
-      }
+      applyActive(data?.active||null);
     }).catch(()=>{});
   },[]);
 
@@ -724,15 +737,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           onBack={()=>{clearPreview();navTo("home");}}
           onCustomChange={(active)=>{
             setCustomActive(active);
-            // Aplicar screen_mode inmediatamente si cambió
-            if(active?.screen_mode_config){
-              const sc=typeof active.screen_mode_config==="string"
-                ?JSON.parse(active.screen_mode_config):(active.screen_mode_config||{});
-              setScreenModeCfg(sc);
-              if(sc?.dark) setIsDark(true);
-            } else if(active&&'screen_mode_id' in active&&!active.screen_mode_id){
-              setScreenModeCfg(null); // desequipado
-            }
+            applyActive(active);
           }}
           onThemeChange={(id,directPrimary,isPreview)=>setTheme(id,directPrimary,isPreview)}
           onDarkChange={toggleDark}
@@ -2058,6 +2063,175 @@ function TituloCustomPanel({me,owned,items,balance,showToast,onRefresh,onRefresh
   );
 }
 
+// ── Panel de Estilo de Texto ──────────────────────────────────
+function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,cardBg,txt,sub,accent,inputBg,inputBd,equipar,comprar,suscribir,showToast,onCustomChange}){
+  const [customColors,setCustomColors] = useState({
+    txt: active?.custom_txt_color||"#1a1a1a",
+    sub: active?.custom_sub_color||"#555555",
+  });
+  const [savingCustom,setSavingCustom] = useState(false);
+
+  const customItem = items.find(i=>i.config?.custom||
+    (typeof i.config==="string"&&JSON.parse(i.config||"{}").custom));
+  const hasCustom = ownedIds.has(customItem?.id)||customItem?.precio===0;
+  const isCustomActive = active?.text_style_id===customItem?.id;
+
+  const saveCustomColors = async() => {
+    if(!customItem) return;
+    setSavingCustom(true);
+    try{
+      const resp = await apiFetch("/custom/equip",{method:"POST",body:{
+        tipo:"text_style", item_id:customItem.id,
+        custom_txt_color:customColors.txt,
+        custom_sub_color:customColors.sub,
+      }});
+      if(onCustomChange) onCustomChange(resp.data||resp);
+      showToast("Colores guardados ✅");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSavingCustom(false);}
+  };
+
+  const diasRestantesItem=(nombre)=>{
+    const s=subs.find(x=>x.item_nombre===nombre);
+    if(!s) return null;
+    return Math.max(0,Math.ceil((new Date(s.next_charge)-new Date())/86400000));
+  };
+
+  return(
+    <div>
+      <div style={{background:dark?"#2d2a45":"#f0f4ff",borderRadius:14,padding:"10px 14px",
+        marginBottom:12,fontSize:11,color:sub,lineHeight:1.6}}>
+        ✍️ Estos estilos cambian los colores de títulos y texto sobre cualquier modo de pantalla.
+        Se suman al fondo que elegiste.
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {items.filter(i=>{
+          const cfg=typeof i.config==="string"?JSON.parse(i.config||"{}"):i.config||{};
+          return !cfg.custom;
+        }).map(item=>{
+          const isOwned = ownedIds.has(item.id)||item.precio===0;
+          const isActive= active?.text_style_id===item.id;
+          const isSub   = item.es_suscripcion;
+          const precio  = isSub?(item.precio_mensual??item.precio):item.precio;
+          const cfg     = typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
+          const dias    = diasRestantesItem(item.nombre);
+          // Preview del estilo con colores reales
+          const previewTxt = cfg.txt&&cfg.txt!=="default"?cfg.txt:(dark?"#e8e8f0":"#1a1a1a");
+          const previewSub = cfg.sub&&cfg.sub!=="default"?cfg.sub:(dark?"#888":"#555");
+          return(
+            <div key={item.id} style={{background:cardBg,borderRadius:14,overflow:"hidden",
+              border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e8e8e8"}`,
+              opacity:!isOwned&&precio>0?.8:1}}>
+              {/* Preview visual de los colores de texto */}
+              <div style={{padding:"10px 10px 6px",background:dark?"#1a1828":"#f8f8f8"}}>
+                <div style={{fontWeight:800,fontSize:13,color:previewTxt,marginBottom:2,lineHeight:1.2}}>
+                  {item.nombre}
+                </div>
+                <div style={{fontSize:10,color:previewSub}}>
+                  Así se verá el subtítulo
+                </div>
+                <div style={{display:"flex",gap:4,marginTop:4}}>
+                  <div style={{width:14,height:14,borderRadius:"50%",background:previewTxt,flexShrink:0}}/>
+                  <div style={{width:14,height:14,borderRadius:"50%",background:previewSub,flexShrink:0}}/>
+                </div>
+              </div>
+              <div style={{padding:"6px 8px"}}>
+                {isActive&&dias!==null&&(
+                  <div style={{fontSize:9,fontWeight:700,color:dias<=3?"#ef4444":dias<=7?"#f59e0b":"#10b981",marginBottom:3}}>
+                    ⏳{dias}d restantes
+                  </div>
+                )}
+                {precio===0&&<div style={{fontSize:9,color:"#10b981",fontWeight:700,marginBottom:3}}>Gratis</div>}
+                {isSub&&precio>0&&<div style={{fontSize:9,color:sub,marginBottom:3}}>🔄{item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}</div>}
+                {isOwned
+                  ? <button onClick={()=>equipar("text_style",item.id)}
+                      style={{width:"100%",background:isActive?accent:"none",
+                        border:`1px solid ${isActive?accent:dark?"#3a3758":"#e0e0e0"}`,
+                        borderRadius:99,padding:"4px 0",fontSize:10,
+                        color:isActive?"white":accent,fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {isActive?"✅ Activo":"Equipar"}
+                    </button>
+                  : <button onClick={()=>isSub?suscribir(item,item.periodo_default||"monthly"):comprar(item)}
+                      disabled={buying===item.id||precio>balance}
+                      style={{width:"100%",background:precio>balance?"#f0f0f0":accent,
+                        color:precio>balance?"#aaa":"white",border:"none",borderRadius:99,
+                        padding:"4px 0",fontSize:10,fontWeight:800,cursor:precio>balance?"not-allowed":"pointer",
+                        fontFamily:"Nunito,sans-serif"}}>
+                      {buying===item.id?"...":`🪙${precio}${isSub?"/mes":""}`}
+                    </button>
+                }
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Item personalizado — ocupa ancho completo */}
+      {customItem&&(
+        <div style={{background:cardBg,borderRadius:14,marginTop:10,overflow:"hidden",
+          border:`2px solid ${isCustomActive?accent:dark?"#2d2a45":"#e8e8e8"}`}}>
+          <div style={{padding:"12px 14px",borderBottom:`1px solid ${dark?"#2d2a45":"#f0f0f0"}`}}>
+            <div style={{fontWeight:800,fontSize:14,color:txt,marginBottom:2}}>🎨 Estilo Personalizado</div>
+            <div style={{fontSize:11,color:sub}}>Elegí vos el color de cada elemento de texto</div>
+          </div>
+          {hasCustom?(
+            <div style={{padding:"14px"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+                {[
+                  {key:"txt",label:"Títulos",desc:"Texto principal"},
+                  {key:"sub",label:"Subtítulos",desc:"Texto secundario"},
+                ].map(({key,label,desc})=>(
+                  <div key={key}>
+                    <div style={{fontSize:11,fontWeight:700,color:txt,marginBottom:4}}>{label}</div>
+                    <div style={{fontSize:10,color:sub,marginBottom:6}}>{desc}</div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <input type="color" value={customColors[key]}
+                        onChange={e=>setCustomColors(c=>({...c,[key]:e.target.value}))}
+                        style={{width:40,height:36,borderRadius:8,border:"none",cursor:"pointer",padding:2}}/>
+                      <div style={{flex:1,height:36,borderRadius:8,background:customColors[key],
+                        border:`1px solid ${dark?"#3a3758":"#e0e0e0"}`}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Preview */}
+              <div style={{background:dark?"#1a1828":"#f8f8f8",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+                <div style={{fontWeight:800,fontSize:14,color:customColors.txt}}>Título de ejemplo</div>
+                <div style={{fontSize:12,color:customColors.sub,marginTop:2}}>Subtítulo de ejemplo</div>
+              </div>
+              <button onClick={saveCustomColors} disabled={savingCustom}
+                style={{width:"100%",background:savingCustom?"#ccc":accent,border:"none",
+                  borderRadius:50,color:"white",padding:"12px",fontWeight:800,fontSize:13,
+                  cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                {savingCustom?"Guardando...":"Guardar estilo"}
+              </button>
+            </div>
+          ):(
+            <div style={{padding:"14px",textAlign:"center"}}>
+              <div style={{fontSize:12,color:sub,marginBottom:12}}>
+                Comprá el pase para poder personalizar cada color de texto
+              </div>
+              <button onClick={()=>customItem.es_suscripcion
+                  ?suscribir(customItem,customItem.periodo_default||"monthly")
+                  :comprar(customItem)}
+                disabled={buying===customItem.id||(customItem.precio_mensual??customItem.precio)>balance}
+                style={{background:accent,border:"none",borderRadius:50,color:"white",
+                  padding:"11px 24px",fontWeight:800,fontSize:13,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                {buying===customItem.id?"Comprando..."
+                  :(customItem.precio_mensual??customItem.precio)>balance
+                  ?`Sin saldo (🪙${customItem.precio_mensual??customItem.precio})`
+                  :`Comprar 🪙${customItem.precio_mensual??customItem.precio}/mes`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 // TIENDA DE PERSONALIZACIÓN
 // ════════════════════════════════════════════════════════════
@@ -2085,7 +2259,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
     onBack();
   };
 
-  const SECS=[["app","🎨 App"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
+  const SECS=[["pantalla","🖥️ Pantalla"],["texto","✍️ Estilo"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
 
   const loadAll=async()=>{
     setLoading(true);
@@ -2183,12 +2357,12 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const ownedIds=new Set(owned.map(o=>o.id));
 
   const filteredItems=items.filter(i=>{
-    if(sec==="app")     return false;
-    if(sec==="temas")   return i.tipo==="theme";
-    if(sec==="colores") return i.tipo==="name_color";
-    if(sec==="emojis")  return i.tipo==="emoji_pack";
-    if(sec==="efectos") return ["title_effect","name_effect","avatar_frame"].includes(i.tipo);
-    if(sec==="apodo")   return i.tipo==="nickname";
+    if(sec==="pantalla") return false; // sección especial
+    if(sec==="texto")    return false; // sección especial
+    if(sec==="colores")  return i.tipo==="name_color";
+    if(sec==="emojis")   return i.tipo==="emoji_pack";
+    if(sec==="efectos")  return ["title_effect","name_effect","avatar_frame"].includes(i.tipo);
+    if(sec==="apodo")    return i.tipo==="nickname";
     return true;
   });
 
@@ -2278,109 +2452,69 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
         {sec==="titulo"&&!loading&&<TituloCustomPanel me={me} owned={owned} items={items} balance={balance} showToast={showToast} onRefresh={loadAll} onRefreshBalance={refreshBalance} cardBg={cardBg} txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}/>}
 
         {/* Sección de tema de APP — duales primario+secundario */}
-        {sec==="app"&&(
+        {/* ── SECCIÓN PANTALLA ─────────────────────────────── */}
+        {sec==="pantalla"&&!loading&&(
           <div>
-            {/* ── Modos de pantalla ─────────────────────────── */}
             <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",marginBottom:12,
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>🖥️ Modo de pantalla</div>
+              <div style={{fontSize:11,color:sub,marginBottom:10,lineHeight:1.6}}>
+                Modos de fondo. Elegí uno — no se combinan entre sí.
+              </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {[{d:false,icon:"☀️",lbl:"Claro"},{d:true,icon:"🌙",lbl:"Oscuro"}].map(m=>(
-                  <button key={m.lbl} onClick={()=>onDarkChange&&onDarkChange(m.d)}
-                    style={{background:isDark===m.d?accent:dark?"#2d2a45":"#f0f0f0",
-                      color:isDark===m.d?"white":txt,
-                      border:`2px solid ${isDark===m.d?accent:"transparent"}`,
-                      borderRadius:14,padding:"14px 8px",fontWeight:800,fontSize:13,
-                      cursor:"pointer",fontFamily:"Nunito,sans-serif",
-                      display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                    <span style={{fontSize:26}}>{m.icon}</span>
-                    <span>{m.lbl}</span>
-                    {isDark===m.d&&<span style={{fontSize:9,opacity:.8}}>✅ Activo</span>}
-                  </button>
+                {/* Claro y Oscuro — siempre gratis, controlados por toggle */}
+                {[{d:false,icon:"☀️",lbl:"Claro",sub2:"Gratis"},{d:true,icon:"🌙",lbl:"Oscuro",sub2:"Gratis"}].map(m=>(
+                  <div key={m.lbl} onClick={()=>{onDarkChange&&onDarkChange(m.d); api.customEquip("screen_mode",null).catch(()=>{});}}
+                    style={{borderRadius:14,overflow:"hidden",cursor:"pointer",
+                      border:`2px solid ${isDark===m.d&&!active?.screen_mode_id?accent:dark?"#2d2a45":"#e8e8e8"}`,
+                      background:dark?"#2d2a45":"#f8f8f8"}}>
+                    <div style={{height:44,
+                      background:m.d?"linear-gradient(135deg,#0d0d1a,#1a1828)":"linear-gradient(135deg,#F0F0F0,#ffffff)",
+                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
+                      {isDark===m.d&&!active?.screen_mode_id?"✅":m.icon}
+                    </div>
+                    <div style={{padding:"6px",textAlign:"center"}}>
+                      <div style={{fontWeight:800,fontSize:11,color:txt}}>{m.lbl}</div>
+                      <div style={{fontSize:9,color:sub}}>{m.sub2}</div>
+                    </div>
+                  </div>
                 ))}
-                {/* Modos extra comprables (tipo screen_mode en la DB) */}
+                {/* Modos de pantalla de la DB (screen_mode) */}
                 {items.filter(i=>i.tipo==="screen_mode").map(item=>{
                   const isOwned=ownedIds.has(item.id)||item.precio===0;
                   const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
                   const isActive=active?.screen_mode_id===item.id;
+                  const isSub=item.es_suscripcion;
+                  const precio=isSub?(item.precio_mensual??item.precio):item.precio;
                   const isCustomMode=cfg.custom;
+                  if(isCustomMode) return null; // Custom va en "texto"
                   return(
                     <div key={item.id} style={{borderRadius:14,overflow:"hidden",
                       border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e8e8e8"}`,
                       background:dark?"#2d2a45":"#f8f8f8",
-                      gridColumn: isCustomMode?"1 / -1":"auto", // custom ocupa full width
-                      opacity:!isOwned&&item.precio>0?.8:1}}>
-                      {/* Preview visual */}
-                      <div style={{height:isCustomMode?40:44,cursor:isOwned?"pointer":"default",
-                        background:isCustomMode&&isActive&&active?.custom_bg_color
-                          ?`linear-gradient(135deg,${active.custom_bg_color},${active.custom_accent_color||active.custom_bg_color})`
-                          :cfg.bg_preview||"linear-gradient(135deg,#667,#334)",
-                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}
-                        onClick={isOwned&&!isCustomMode?()=>equipar("screen_mode",item.id):undefined}>
+                      opacity:!isOwned&&precio>0?.8:1}}>
+                      <div style={{height:44,cursor:isOwned?"pointer":"default",
+                        background:cfg.bg_preview||`linear-gradient(135deg,${cfg.bg||"#333"},${cfg.card||"#444"})`,
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}
+                        onClick={isOwned?()=>equipar("screen_mode",item.id):undefined}>
                         {isActive?"✅":item.preview||"🖥️"}
                       </div>
-                      <div style={{padding:"6px 8px"}}>
-                        <div style={{fontWeight:800,fontSize:10,color:txt,textAlign:"center",marginBottom:4}}>
-                          {item.nombre}
-                        </div>
-                        {/* Modo personalizable — mostrar color pickers */}
-                        {isCustomMode&&isOwned&&(
-                          <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:9,color:sub,marginBottom:2}}>Fondo</div>
-                              <input type="color"
-                                defaultValue={active?.custom_bg_color||"#1a1a2e"}
-                                onChange={e=>{
-                                  // Aplicar preview inmediato y guardar al cambiar
-                                  const col=e.target.value;
-                                  api.customEquip("screen_mode",item.id,col,col).then(d=>{
-                                    if(onCustomChange) onCustomChange(d.data||d);
-                                  }).catch(()=>{});
-                                }}
-                                style={{width:"100%",height:28,borderRadius:6,border:"none",
-                                  cursor:"pointer",padding:2}}/>
-                            </div>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:9,color:sub,marginBottom:2}}>Acento</div>
-                              <input type="color"
-                                defaultValue={active?.custom_accent_color||"#667eea"}
-                                onChange={e=>{
-                                  const col=e.target.value;
-                                  const bg=active?.custom_bg_color||"#1a1a2e";
-                                  api.customEquip("screen_mode",item.id,bg,col).then(d=>{
-                                    if(onCustomChange) onCustomChange(d.data||d);
-                                    if(onThemeChange) onThemeChange(null,col,false);
-                                  }).catch(()=>{});
-                                }}
-                                style={{width:"100%",height:28,borderRadius:6,border:"none",
-                                  cursor:"pointer",padding:2}}/>
-                            </div>
-                          </div>
+                      <div style={{padding:"6px",textAlign:"center"}}>
+                        <div style={{fontWeight:800,fontSize:11,color:txt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.nombre}</div>
+                        {isActive&&(
+                          <div style={{fontSize:9,color:"#10b981",fontWeight:700}}>Activo</div>
                         )}
-                        {/* Botón equipar/comprar */}
-                        {isOwned&&!isCustomMode&&(
+                        {!isActive&&isOwned&&(
                           <button onClick={()=>equipar("screen_mode",item.id)}
-                            style={{width:"100%",background:"none",border:"none",fontSize:10,
-                              color:isActive?accent:sub,fontWeight:isActive?800:600,cursor:"pointer",
-                              fontFamily:"Nunito,sans-serif",paddingBottom:4}}>
-                            {isActive?"✅ Activo":"Equipar"}
-                          </button>
-                        )}
-                        {isOwned&&isCustomMode&&!isActive&&(
-                          <button onClick={()=>equipar("screen_mode",item.id)}
-                            style={{width:"100%",background:accent,border:"none",borderRadius:99,
-                              fontSize:10,color:"white",fontWeight:800,cursor:"pointer",
-                              fontFamily:"Nunito,sans-serif",padding:"4px 0"}}>
-                            Activar
+                            style={{background:"none",border:"none",fontSize:9,color:accent,fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                            Equipar
                           </button>
                         )}
                         {!isOwned&&(
-                          <button onClick={()=>comprar(item)} disabled={buying===item.id||item.precio>balance}
-                            style={{width:"100%",background:"none",border:"none",fontSize:10,
-                              color:item.precio>balance?sub:accent,fontWeight:800,
-                              cursor:item.precio>balance?"not-allowed":"pointer",
-                              fontFamily:"Nunito,sans-serif",paddingBottom:4}}>
-                            {buying===item.id?"...":`🪙${item.precio}`}
+                          <button onClick={()=>isSub?suscribir(item,item.periodo_default||"monthly"):comprar(item)}
+                            disabled={buying===item.id||precio>balance}
+                            style={{background:"none",border:"none",fontSize:9,
+                              color:precio>balance?sub:accent,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                            {buying===item.id?"...":`🪙${precio}${isSub?"/mes":""}`}
                           </button>
                         )}
                       </div>
@@ -2390,122 +2524,77 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
               </div>
             </div>
 
-            {/* ── Paletas de color (tipo theme en la DB) ─────── */}
+            {/* Paletas de color — tipo theme de la DB */}
             <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>🎨 Paleta de color</div>
+              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:10}}>🎨 Paleta de acento</div>
               {items.filter(i=>i.tipo==="theme").length===0&&(
-                <div style={{textAlign:"center",color:sub,fontSize:12,padding:16}}>
-                  El administrador aún no configuró paletas de color
-                </div>
+                <div style={{textAlign:"center",color:sub,fontSize:12,padding:16}}>Sin paletas configuradas</div>
               )}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 {items.filter(i=>i.tipo==="theme").map(item=>{
-                  const isOwned=ownedIds.has(item.id)||item.precio===0;
+                  const isOwned=ownedIds.has(item.id)||item.precio===0||item.precio_mensual===0;
                   const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
                   const isActive=active?.theme_id===item.id;
                   const isSub=item.es_suscripcion;
                   const precio=isSub?(item.precio_mensual??item.precio):item.precio;
-                  const dias=diasRestantes(item.nombre);
                   const isPreviewing=preview?.id===item.id;
+                  const dias=diasRestantes(item.nombre);
                   return(
                     <div key={item.id} style={{borderRadius:16,overflow:"hidden",
                       border:`2px solid ${isActive?cfg.primary||accent:isPreviewing?accent+"99":dark?"#2d2a45":"transparent"}`,
                       boxShadow:isActive?`0 0 0 3px ${cfg.primary||accent}44`:isPreviewing?`0 0 0 2px ${accent}33`:"none",
-                      transition:"all .2s",
-                      opacity:!isOwned&&precio>0?.8:1}}>
-                      {/* Preview — tap para ver en tiempo real */}
+                      transition:"all .2s",opacity:!isOwned&&precio>0?.8:1}}>
                       <div style={{height:54,cursor:"pointer",
                         background:`linear-gradient(135deg,${cfg.primary||"#00c1fc"} 50%,${cfg.accent||cfg.secondary||"#0ea5e9"} 50%)`,
-                        display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:24,position:"relative"}}
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,position:"relative"}}
                         onClick={()=>{
-                          if(isOwned){
-                            // Si lo tiene, equipar directamente (permanente)
-                            equipar("theme",item.id);
-                          } else {
-                            // Preview temporal — aplica el color pero NO guarda
-                            if(isPreviewing){
-                              // Quitar preview — restaurar color original
-                              setPreview(null);
-                              if(onThemeChange) onThemeChange(currentThemeId, originalPrimaryRef.current);
-                            } else {
-                              // Activar preview de este tema
-                              setPreview(item);
-                              if(onThemeChange) onThemeChange(null, cfg.primary||null);
-                            }
+                          if(isOwned){ equipar("theme",item.id); }
+                          else{
+                            if(isPreviewing){ setPreview(null); if(onThemeChange) onThemeChange(currentThemeId,originalPrimaryRef.current); }
+                            else{ setPreview(item); if(onThemeChange) onThemeChange(null,cfg.primary||null); }
                           }
                         }}>
                         {isActive?"✅":isPreviewing?"👁️":item.preview||cfg.icon||"🎨"}
                         {!isOwned&&!isPreviewing&&precio>0&&(
-                          <div style={{position:"absolute",top:4,right:4,
-                            background:"rgba(0,0,0,.4)",borderRadius:99,padding:"2px 6px",
-                            fontSize:9,color:"white",fontWeight:800}}>🔒</div>
+                          <div style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,.4)",
+                            borderRadius:99,padding:"2px 6px",fontSize:9,color:"white",fontWeight:800}}>🔒</div>
                         )}
                         {isPreviewing&&!isOwned&&(
-                          <div style={{position:"absolute",bottom:3,left:0,right:0,
-                            textAlign:"center",fontSize:8,color:"white",fontWeight:700,
-                            background:"rgba(0,0,0,.4)"}}>Vista previa</div>
+                          <div style={{position:"absolute",bottom:0,left:0,right:0,textAlign:"center",
+                            fontSize:8,color:"white",fontWeight:700,background:"rgba(0,0,0,.4)",padding:"2px"}}>Vista previa</div>
                         )}
                       </div>
-                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 6px"}}>
-                        <div style={{fontWeight:800,fontSize:11,color:isActive?cfg.primary||accent:txt,
-                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
-                          padding:"0 2px",textAlign:"center",marginBottom:4}}>{item.nombre}</div>
-                        {/* Período de renovación */}
-                        {isSub&&precio>0&&(
-                          <div style={{fontSize:8,color:sub,textAlign:"center",marginBottom:2}}>
-                            🔄 {item.periodo_default==="weekly"?"Semanal":item.periodo_default==="annual"?"Anual":"Mensual"}
-                          </div>
-                        )}
-                        {/* Días restantes si está suscripto */}
-                        {isActive&&dias!==null&&(
-                          <div style={{fontSize:9,fontWeight:700,textAlign:"center",marginBottom:4,
-                            color:dias<=3?"#ef4444":dias<=7?"#f59e0b":"#10b981"}}>
-                            {dias===0?"⚠️ Vence hoy":`⏳ ${dias}d`}
-                          </div>
-                        )}
-                        {!isActive&&isOwned&&(
-                          <button onClick={()=>equipar("theme",item.id)}
-                            style={{width:"100%",background:"none",border:`1px solid ${accent}`,
-                              borderRadius:99,padding:"3px 0",fontSize:10,color:accent,
-                              fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                            Equipar
-                          </button>
-                        )}
-                        {!isOwned&&precio===0&&(
-                          <button onClick={()=>equipar("theme",item.id)}
-                            style={{width:"100%",background:"#10b98122",border:"none",borderRadius:99,
-                              padding:"3px 0",fontSize:10,color:"#10b981",fontWeight:700,
-                              cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                            Gratis
-                          </button>
-                        )}
-                        {!isOwned&&precio>0&&(
-                          <button onClick={()=>isSub?suscribir(item,item.periodo_default||"monthly"):comprar(item)}
-                            disabled={buying===item.id||precio>balance}
-                            style={{width:"100%",
-                              background:buying===item.id?"#ccc":precio>balance?"#f0f0f0":cfg.primary||accent,
-                              color:precio>balance?"#aaa":"white",border:"none",borderRadius:99,
-                              padding:"4px 0",fontSize:10,fontWeight:800,cursor:precio>balance?"not-allowed":"pointer",
-                              fontFamily:"Nunito,sans-serif",display:"block"}}>
-                            {buying===item.id?"...":`🪙${precio}${isSub?`/${item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}`:""}`}
-                          </button>
-                        )}
+                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"7px 5px"}}>
+                        <div style={{fontWeight:800,fontSize:10,color:isActive?cfg.primary||accent:txt,
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center"}}>{item.nombre}</div>
+                        {isSub&&precio>0&&<div style={{fontSize:8,color:sub,textAlign:"center"}}>🔄{item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}</div>}
+                        {isActive&&dias!==null&&<div style={{fontSize:9,fontWeight:700,textAlign:"center",color:dias<=3?"#ef4444":dias<=7?"#f59e0b":"#10b981"}}>⏳{dias}d</div>}
+                        {isActive&&dias===null&&<div style={{fontSize:9,color:"#10b981",fontWeight:700,textAlign:"center"}}>✅</div>}
+                        {!isActive&&isOwned&&<button onClick={()=>equipar("theme",item.id)} style={{width:"100%",background:"none",border:`1px solid ${accent}`,borderRadius:99,padding:"3px 0",fontSize:9,color:accent,fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Equipar</button>}
+                        {!isOwned&&precio===0&&<button onClick={()=>equipar("theme",item.id)} style={{width:"100%",background:"none",border:"none",fontSize:9,color:"#10b981",fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Gratis</button>}
+                        {!isOwned&&precio>0&&<button onClick={()=>isSub?suscribir(item,item.periodo_default||"monthly"):comprar(item)} disabled={buying===item.id||precio>balance} style={{width:"100%",background:precio>balance?"#f0f0f0":cfg.primary||accent,color:precio>balance?"#aaa":"white",border:"none",borderRadius:99,padding:"4px 0",fontSize:9,fontWeight:800,cursor:precio>balance?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif",display:"block"}}>{buying===item.id?"...":`🪙${precio}${isSub?`/${item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}`:""}`}</button>}
                       </div>
                     </div>
                   );
                 })}
               </div>
-              {subs.filter(s=>s.item_tipo==="theme"&&s.activo).length>0&&(
-                <div style={{marginTop:10,fontSize:10,color:sub,textAlign:"center",lineHeight:1.6}}>
-                  Suscripciones activas: {subs.filter(s=>s.item_tipo==="theme").length} • Se renuevan automáticamente
-                </div>
-              )}
             </div>
           </div>
         )}
-        {sec!=="apodo"&&sec!=="app"&&filteredItems.map(item=>{
+
+        {/* ── SECCIÓN ESTILO DE TEXTO ───────────────────────── */}
+        {sec==="texto"&&!loading&&(
+          <TextoStylePanel
+            items={items.filter(i=>i.tipo==="text_style")}
+            owned={owned} ownedIds={ownedIds} active={active} subs={subs}
+            balance={balance} buying={buying} dark={dark} cardBg={cardBg}
+            txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}
+            equipar={equipar} comprar={comprar} suscribir={suscribir}
+            showToast={showToast} onCustomChange={onCustomChange}
+          />
+        )}
+        {sec!=="apodo"&&sec!=="pantalla"&&sec!=="texto"&&filteredItems.map(item=>{
           const isOwned   = ownedIds.has(item.id)||item.precio===0;
           const isFree    = item.precio===0;
           const isEquipped= active&&Object.values(active).includes(item.id);

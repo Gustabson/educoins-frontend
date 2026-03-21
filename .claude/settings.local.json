@@ -29,7 +29,8 @@
       "Bash(grep -iE \"^App\\\\.js$|^customization\\\\.js$|012_subscriptions\")",
       "Bash(grep -iE \"^App\\\\.js$|012_subscriptions\")",
       "Bash(grep -iE \"^App\\\\.js$|^customization\\\\.js$|013_screen\")",
-      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/013_screen_mode_fix.sql\")"
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/013_screen_mode_fix.sql\")",
+      "Bash(grep -iE \"^App\\\\.js$|^customization\\\\.js$\")"
     ]
   }
 }
