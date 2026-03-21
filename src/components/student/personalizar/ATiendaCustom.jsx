@@ -415,6 +415,114 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
             </div>
           </div>
         )}
+                {/* Claro y Oscuro */}
+                {[
+                  {d:false,icon:"☀️",lbl:"Claro",c1:"#f0f0f0",c2:"#ffffff",sub2:"Gratis"},
+                  {d:true, icon:"🌙",lbl:"Oscuro",c1:"#0d0d1a",c2:"#1a1828",sub2:"Gratis"}
+                ].map(m=>{
+                  const isActive=!active?.screen_mode_id&&isDark===m.d;
+                  return(
+                    <div key={m.lbl} onClick={()=>{
+                      onDarkChange&&onDarkChange(m.d);
+                      if(active?.screen_mode_id) equipar("screen_mode",active.screen_mode_id);
+                    }}
+                      style={{borderRadius:16,overflow:"hidden",cursor:"pointer",
+                        border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e0e0e0"}`,
+                        boxShadow:isActive?`0 0 0 3px ${accent}33`:"none",
+                        transition:"all .2s"}}>
+                      {/* Preview degradado */}
+                      <div style={{height:56,
+                        background:`linear-gradient(135deg,${m.c1} 50%,${m.c2} 50%)`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:26,position:"relative"}}>
+                        {isActive
+                          ? <div style={{background:"rgba(0,0,0,.3)",borderRadius:"50%",
+                              width:28,height:28,display:"flex",alignItems:"center",
+                              justifyContent:"center",fontSize:14}}>✅</div>
+                          : m.icon}
+                      </div>
+                      {/* Info + puntitos */}
+                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 10px",
+                        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div>
+                          <div style={{fontWeight:800,fontSize:12,color:txt}}>{m.lbl}</div>
+                          <div style={{fontSize:9,color:sub,fontWeight:600}}>{m.sub2}</div>
+                        </div>
+                        <div style={{display:"flex",gap:4}}>
+                          <div style={{width:12,height:12,borderRadius:"50%",background:m.c1,
+                            border:`1px solid ${dark?"#555":"#ddd"}`}}/>
+                          <div style={{width:12,height:12,borderRadius:"50%",background:m.c2,
+                            border:`1px solid ${dark?"#555":"#ddd"}`}}/>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Modos de pantalla de la DB */}
+                {items.filter(i=>i.tipo==="screen_mode").map(item=>{
+                  const isOwned=ownedIds.has(item.id)||item.precio===0;
+                  const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
+                  const isActive=active?.screen_mode_id===item.id;
+                  const isSub=item.es_suscripcion;
+                  const precio=isSub?(item.precio_mensual??item.precio):item.precio;
+                  if(cfg.custom) return null;
+                  // Extraer los dos colores principales para los puntitos
+                  const c1=cfg.bg||cfg.pageBg||"#888";
+                  const c2=cfg.card||"#aaa";
+                  const prevBg=cfg.bg_preview||`linear-gradient(135deg,${c1} 50%,${c2} 50%)`;
+                  return(
+                    <div key={item.id} style={{borderRadius:16,overflow:"hidden",
+                      border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e0e0e0"}`,
+                      boxShadow:isActive?`0 0 0 3px ${accent}33`:"none",
+                      transition:"all .2s",
+                      opacity:!isOwned&&precio>0?.75:1}}>
+                      {/* Preview degradado */}
+                      <div style={{height:56,cursor:isOwned?"pointer":"default",
+                        background:prevBg,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:26,position:"relative"}}
+                        onClick={isOwned?()=>equipar("screen_mode",item.id):undefined}>
+                        {isActive
+                          ? <div style={{background:"rgba(0,0,0,.3)",borderRadius:"50%",
+                              width:28,height:28,display:"flex",alignItems:"center",
+                              justifyContent:"center",fontSize:14}}>✅</div>
+                          : item.preview||"🖥️"}
+                        {!isOwned&&precio>0&&(
+                          <div style={{position:"absolute",top:4,right:4,
+                            background:"rgba(0,0,0,.45)",borderRadius:99,
+                            padding:"2px 6px",fontSize:9,color:"white",fontWeight:800}}>
+                            🔒
+                          </div>
+                        )}
+                      </div>
+                      {/* Info + puntitos */}
+                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 10px",
+                        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:800,fontSize:12,color:txt,
+                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                            {item.nombre}
+                          </div>
+                          <div style={{fontSize:9,color:isActive?"#10b981":sub,fontWeight:600}}>
+                            {isActive?"✓ Activo":isOwned?"Toca para equipar"
+                              :`🪙${precio}${isSub?"/mes":""}`}
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:4,flexShrink:0,marginLeft:6}}>
+                          <div style={{width:12,height:12,borderRadius:"50%",background:c1,
+                            border:`1px solid ${dark?"#555":"#ddd"}`}}/>
+                          <div style={{width:12,height:12,borderRadius:"50%",background:c2,
+                            border:`1px solid ${dark?"#555":"#ddd"}`}}/>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {sec==="texto"&&!loading&&(
           <TextoStylePanel
