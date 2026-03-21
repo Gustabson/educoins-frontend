@@ -2456,72 +2456,108 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
           <div>
             <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",marginBottom:12,
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontSize:11,color:sub,marginBottom:10,lineHeight:1.6}}>
-                Modos de fondo. Elegí uno — no se combinan entre sí.
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {/* Claro y Oscuro — siempre gratis, desequipan cualquier screen_mode */}
-                {[{d:false,icon:"☀️",lbl:"Claro",sub2:"Gratis"},{d:true,icon:"🌙",lbl:"Oscuro",sub2:"Gratis"}].map(m=>(
-                  <div key={m.lbl} onClick={()=>{
-                    onDarkChange&&onDarkChange(m.d);
-                    // Desequipar screen_mode si había uno activo
-                    if(active?.screen_mode_id){
-                      equipar("screen_mode",active.screen_mode_id); // toggle = desequipar
-                    }
-                  }}
-                    style={{borderRadius:14,overflow:"hidden",cursor:"pointer",
-                      border:`2px solid ${!active?.screen_mode_id&&isDark===m.d?accent:dark?"#2d2a45":"#e8e8e8"}`,
-                      background:dark?"#2d2a45":"#f8f8f8"}}>
-                    <div style={{height:44,
-                      background:m.d?"linear-gradient(135deg,#0d0d1a,#1a1828)":"linear-gradient(135deg,#F0F0F0,#ffffff)",
-                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
-                      {!active?.screen_mode_id&&isDark===m.d?"✅":m.icon}
+              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:12}}>🖥️ Modo de pantalla</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {/* Claro y Oscuro */}
+                {[
+                  {d:false,icon:"☀️",lbl:"Claro",c1:"#f0f0f0",c2:"#ffffff",sub2:"Gratis"},
+                  {d:true, icon:"🌙",lbl:"Oscuro",c1:"#0d0d1a",c2:"#1a1828",sub2:"Gratis"}
+                ].map(m=>{
+                  const isActive=!active?.screen_mode_id&&isDark===m.d;
+                  return(
+                    <div key={m.lbl} onClick={()=>{
+                      onDarkChange&&onDarkChange(m.d);
+                      if(active?.screen_mode_id) equipar("screen_mode",active.screen_mode_id);
+                    }}
+                      style={{borderRadius:16,overflow:"hidden",cursor:"pointer",
+                        border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e0e0e0"}`,
+                        boxShadow:isActive?`0 0 0 3px ${accent}33`:"none",
+                        transition:"all .2s"}}>
+                      {/* Preview degradado */}
+                      <div style={{height:56,
+                        background:`linear-gradient(135deg,${m.c1} 50%,${m.c2} 50%)`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:26,position:"relative"}}>
+                        {isActive
+                          ? <div style={{background:"rgba(0,0,0,.3)",borderRadius:"50%",
+                              width:28,height:28,display:"flex",alignItems:"center",
+                              justifyContent:"center",fontSize:14}}>✅</div>
+                          : m.icon}
+                      </div>
+                      {/* Info + puntitos */}
+                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 10px",
+                        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div>
+                          <div style={{fontWeight:800,fontSize:12,color:txt}}>{m.lbl}</div>
+                          <div style={{fontSize:9,color:sub,fontWeight:600}}>{m.sub2}</div>
+                        </div>
+                        <div style={{display:"flex",gap:4}}>
+                          <div style={{width:12,height:12,borderRadius:"50%",background:m.c1,
+                            border:`1px solid ${dark?"#555":"#ddd"}`}}/>
+                          <div style={{width:12,height:12,borderRadius:"50%",background:m.c2,
+                            border:`1px solid ${dark?"#555":"#ddd"}`}}/>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{padding:"6px",textAlign:"center"}}>
-                      <div style={{fontWeight:800,fontSize:11,color:txt}}>{m.lbl}</div>
-                      <div style={{fontSize:9,color:sub}}>{m.sub2}</div>
-                    </div>
-                  </div>
-                ))}
-                {/* Modos de pantalla de la DB (screen_mode) */}
+                  );
+                })}
+
+                {/* Modos de pantalla de la DB */}
                 {items.filter(i=>i.tipo==="screen_mode").map(item=>{
                   const isOwned=ownedIds.has(item.id)||item.precio===0;
                   const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
                   const isActive=active?.screen_mode_id===item.id;
                   const isSub=item.es_suscripcion;
                   const precio=isSub?(item.precio_mensual??item.precio):item.precio;
-                  const isCustomMode=cfg.custom;
-                  if(isCustomMode) return null; // Custom va en "texto"
+                  if(cfg.custom) return null;
+                  // Extraer los dos colores principales para los puntitos
+                  const c1=cfg.bg||cfg.pageBg||"#888";
+                  const c2=cfg.card||"#aaa";
+                  const prevBg=cfg.bg_preview||`linear-gradient(135deg,${c1} 50%,${c2} 50%)`;
                   return(
-                    <div key={item.id} style={{borderRadius:14,overflow:"hidden",
-                      border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e8e8e8"}`,
-                      background:dark?"#2d2a45":"#f8f8f8",
-                      opacity:!isOwned&&precio>0?.8:1}}>
-                      <div style={{height:44,cursor:isOwned?"pointer":"default",
-                        background:cfg.bg_preview||`linear-gradient(135deg,${cfg.bg||"#333"},${cfg.card||"#444"})`,
-                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}
+                    <div key={item.id} style={{borderRadius:16,overflow:"hidden",
+                      border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e0e0e0"}`,
+                      boxShadow:isActive?`0 0 0 3px ${accent}33`:"none",
+                      transition:"all .2s",
+                      opacity:!isOwned&&precio>0?.75:1}}>
+                      {/* Preview degradado */}
+                      <div style={{height:56,cursor:isOwned?"pointer":"default",
+                        background:prevBg,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:26,position:"relative"}}
                         onClick={isOwned?()=>equipar("screen_mode",item.id):undefined}>
-                        {isActive?"✅":item.preview||"🖥️"}
+                        {isActive
+                          ? <div style={{background:"rgba(0,0,0,.3)",borderRadius:"50%",
+                              width:28,height:28,display:"flex",alignItems:"center",
+                              justifyContent:"center",fontSize:14}}>✅</div>
+                          : item.preview||"🖥️"}
+                        {!isOwned&&precio>0&&(
+                          <div style={{position:"absolute",top:4,right:4,
+                            background:"rgba(0,0,0,.45)",borderRadius:99,
+                            padding:"2px 6px",fontSize:9,color:"white",fontWeight:800}}>
+                            🔒
+                          </div>
+                        )}
                       </div>
-                      <div style={{padding:"6px",textAlign:"center"}}>
-                        <div style={{fontWeight:800,fontSize:11,color:txt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.nombre}</div>
-                        {isActive&&(
-                          <div style={{fontSize:9,color:"#10b981",fontWeight:700}}>Activo</div>
-                        )}
-                        {!isActive&&isOwned&&(
-                          <button onClick={()=>equipar("screen_mode",item.id)}
-                            style={{background:"none",border:"none",fontSize:9,color:accent,fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                            Equipar
-                          </button>
-                        )}
-                        {!isOwned&&(
-                          <button onClick={()=>isSub?suscribir(item,item.periodo_default||"monthly"):comprar(item)}
-                            disabled={buying===item.id||precio>balance}
-                            style={{background:"none",border:"none",fontSize:9,
-                              color:precio>balance?sub:accent,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                            {buying===item.id?"...":`🪙${precio}${isSub?"/mes":""}`}
-                          </button>
-                        )}
+                      {/* Info + puntitos */}
+                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 10px",
+                        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:800,fontSize:12,color:txt,
+                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                            {item.nombre}
+                          </div>
+                          <div style={{fontSize:9,color:isActive?"#10b981":sub,fontWeight:600}}>
+                            {isActive?"✓ Activo":isOwned?"Toca para equipar"
+                              :`🪙${precio}${isSub?"/mes":""}`}
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:4,flexShrink:0,marginLeft:6}}>
+                          <div style={{width:12,height:12,borderRadius:"50%",background:c1,
+                            border:`1px solid ${dark?"#555":"#ddd"}`}}/>
+                          <div style={{width:12,height:12,borderRadius:"50%",background:c2,
+                            border:`1px solid ${dark?"#555":"#ddd"}`}}/>
+                        </div>
                       </div>
                     </div>
                   );
@@ -7210,9 +7246,15 @@ function PerfilModal({userId, onClose, showToast}){
   const [blocking,setBlocking]=useState(false);
 
   useEffect(()=>{
+    if(!userId) return;
+    setLoading(true);
     api.publicProfile(userId)
-      .then(d=>setPerfil(d.data||d))
-      .catch(()=>{})
+      .then(d=>{
+        const data = d.data||d;
+        if(data?.id) setPerfil(data);
+        else setPerfil(null);
+      })
+      .catch(()=>setPerfil(null))
       .finally(()=>setLoading(false));
   },[userId]);
 
