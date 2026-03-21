@@ -2015,29 +2015,42 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
   const [sec,setSec]     = useState("app");    // app|colores|emojis|efectos|apodo
   const [items,setItems] = useState([]);
-  const [owned,setOwned] = useState([]);
-  const [active,setActive]= useState(null);
-  const [gifts,setGifts] = useState([]);
+  const [owned,setOwned]   = useState([]);
+  const [active,setActive]  = useState(null);
+  const [subs,setSubs]      = useState([]); // suscripciones activas del alumno
+  const [gifts,setGifts]   = useState([]);
   const [loading,setLoading]=useState(true);
-  const [buying,setBuying]=useState(null);
+  const [buying,setBuying]  = useState(null);
+  const [preview,setPreview]= useState(null); // item en preview (tap en cuadro)
   const [giftOpen,setGiftOpen]=useState(null);
-  const [giftTo,setGiftTo]=useState("");
-  const [giftMsg,setGiftMsg]=useState("");
+  const [giftTo,setGiftTo]  = useState("");
+  const [giftMsg,setGiftMsg]= useState("");
 
   const SECS=[["app","🎨 App"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
 
   const loadAll=async()=>{
     setLoading(true);
     try{
-      const [shop,me2,g]=await Promise.all([api.customShop(),api.customMe(),api.customGifts()]);
+      const [shop,me2,g,mysubs]=await Promise.all([
+        api.customShop(), api.customMe(), api.customGifts(), api.mySubscriptions()
+      ]);
       setItems(Array.isArray(shop)?shop:shop.data||[]);
       setOwned((me2.data||me2)?.owned||[]);
       setActive((me2.data||me2)?.active||null);
       setGifts((g.data||g||[]).filter(x=>!x.leido));
+      setSubs((mysubs.data||mysubs||[]));
     }catch(e){}
     setLoading(false);
   };
   useEffect(()=>{ loadAll(); },[]);
+
+  // Helper: días restantes de suscripción de un item
+  const diasRestantes=(item_nombre)=>{
+    const sub=subs.find(s=>s.item_nombre===item_nombre);
+    if(!sub) return null;
+    const diff=new Date(sub.next_charge)-new Date();
+    return Math.max(0,Math.ceil(diff/86400000));
+  };
 
   const comprar=async(item)=>{
     if(item.precio>balance){showToast("Saldo insuficiente","error");return;}
@@ -2226,22 +2239,34 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                   const isOwned=ownedIds.has(item.id)||item.precio===0;
                   const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
                   const isActive=active?.screen_mode_id===item.id;
+                  const isPreviewing=preview?.id===item.id;
                   return(
                     <div key={item.id} style={{borderRadius:14,overflow:"hidden",
-                      border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e8e8e8"}`,
-                      background:dark?"#2d2a45":"#f8f8f8",textAlign:"center",
-                      opacity:!isOwned&&item.precio>0?.65:1}}>
-                      <div style={{padding:"10px 6px 4px",fontSize:26}}>{item.preview||"🌑"}</div>
-                      <div style={{fontWeight:800,fontSize:11,color:txt,padding:"0 4px 4px"}}>{item.nombre}</div>
+                      border:`2px solid ${isActive?accent:isPreviewing?accent+"88":dark?"#2d2a45":"#e8e8e8"}`,
+                      background:dark?"#2d2a45":"#f8f8f8",
+                      opacity:!isOwned&&item.precio>0?.8:1}}>
+                      {/* Tap para preview */}
+                      <div style={{padding:"10px 6px 4px",fontSize:26,textAlign:"center",cursor:"pointer"}}
+                        onClick={()=>{
+                          if(isOwned) equipar("screen_mode",item.id);
+                          else setPreview(isPreviewing?null:item);
+                        }}>
+                        {item.preview||"🌑"}
+                      </div>
+                      <div style={{fontWeight:800,fontSize:10,color:txt,padding:"0 4px 2px",textAlign:"center"}}>
+                        {item.nombre}
+                      </div>
                       {isOwned
-                        ? <button onClick={()=>equipar("screen_mode",item.id)} style={{background:"none",border:"none",
-                            fontSize:10,color:accent,fontWeight:700,cursor:"pointer",
-                            fontFamily:"Nunito,sans-serif",paddingBottom:8}}>
+                        ? <button onClick={()=>equipar("screen_mode",item.id)}
+                            style={{background:"none",border:"none",fontSize:10,color:accent,
+                              fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                              width:"100%",paddingBottom:8}}>
                             {isActive?"✅ Activo":"Equipar"}
                           </button>
                         : <button onClick={()=>comprar(item)} disabled={buying===item.id||item.precio>balance}
                             style={{background:"none",border:"none",fontSize:10,color:accent,
-                              fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif",paddingBottom:8}}>
+                              fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                              width:"100%",paddingBottom:8}}>
                             🪙{item.precio}
                           </button>
                       }
@@ -2262,52 +2287,84 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
               )}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 {items.filter(i=>i.tipo==="theme").map(item=>{
-                  const isOwned=ownedIds.has(item.id)||item.precio===0||item.precio_mensual===0;
+                  const isOwned=ownedIds.has(item.id)||item.precio===0;
                   const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
                   const isActive=active?.theme_id===item.id;
                   const isSub=item.es_suscripcion;
                   const precio=isSub?(item.precio_mensual??item.precio):item.precio;
+                  const dias=diasRestantes(item.nombre);
+                  const isPreviewing=preview?.id===item.id;
                   return(
                     <div key={item.id} style={{borderRadius:16,overflow:"hidden",
-                      border:`2px solid ${isActive?cfg.primary||accent:dark?"#2d2a45":"transparent"}`,
-                      boxShadow:isActive?`0 0 0 3px ${cfg.primary||accent}44`:"none",
-                      opacity:!isOwned&&precio>0?.72:1}}>
-                      {/* Preview */}
-                      <div style={{height:54,
+                      border:`2px solid ${isActive?cfg.primary||accent:isPreviewing?accent+"99":dark?"#2d2a45":"transparent"}`,
+                      boxShadow:isActive?`0 0 0 3px ${cfg.primary||accent}44`:isPreviewing?`0 0 0 2px ${accent}33`:"none",
+                      transition:"all .2s",
+                      opacity:!isOwned&&precio>0?.8:1}}>
+                      {/* Preview — tap para ver en tiempo real */}
+                      <div style={{height:54,cursor:"pointer",
                         background:`linear-gradient(135deg,${cfg.primary||"#00c1fc"} 50%,${cfg.accent||cfg.secondary||"#0ea5e9"} 50%)`,
                         display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,
-                        cursor:isOwned?"pointer":"default"}}
-                        onClick={isOwned?()=>equipar("theme",item.id):undefined}>
-                        {isActive?"✅":item.preview||cfg.icon||"🎨"}
+                        position:"relative"}}
+                        onClick={()=>{
+                          if(isOwned){
+                            equipar("theme",item.id);
+                          } else {
+                            // Preview temporal del color
+                            setPreview(isPreviewing?null:item);
+                            if(!isPreviewing&&onThemeChange) onThemeChange(null, cfg.primary||null);
+                            else if(onThemeChange) onThemeChange("oceano",null); // reset
+                          }
+                        }}>
+                        {isActive?"✅":isPreviewing?"👁️":item.preview||cfg.icon||"🎨"}
+                        {!isOwned&&!isPreviewing&&precio>0&&(
+                          <div style={{position:"absolute",top:4,right:4,
+                            background:"rgba(0,0,0,.4)",borderRadius:99,padding:"2px 6px",
+                            fontSize:9,color:"white",fontWeight:800}}>
+                            🔒
+                          </div>
+                        )}
                       </div>
-                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 6px",textAlign:"center"}}>
+                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 6px"}}>
                         <div style={{fontWeight:800,fontSize:11,color:isActive?cfg.primary||accent:txt,
                           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
-                          padding:"0 4px"}}>{item.nombre}</div>
-                        {/* Estado / botón */}
-                        {isActive&&<span style={{fontSize:10,color:"#10b981",fontWeight:700}}>✅ Activo</span>}
+                          padding:"0 2px",textAlign:"center",marginBottom:4}}>{item.nombre}</div>
+                        {/* Estado / días restantes */}
+                        {isActive&&dias!==null&&(
+                          <div style={{fontSize:9,color:dias<=3?"#ef4444":"#10b981",fontWeight:700,
+                            textAlign:"center",marginBottom:4}}>
+                            🔄 {dias===0?"Vence hoy":`${dias}d restantes`}
+                          </div>
+                        )}
+                        {isActive&&dias===null&&(
+                          <div style={{fontSize:9,color:"#10b981",fontWeight:700,textAlign:"center",marginBottom:4}}>
+                            ✅ Activo
+                          </div>
+                        )}
                         {!isActive&&isOwned&&(
                           <button onClick={()=>equipar("theme",item.id)}
-                            style={{background:"none",border:"none",fontSize:10,color:accent,
+                            style={{width:"100%",background:"none",border:`1px solid ${accent}`,
+                              borderRadius:99,padding:"3px 0",fontSize:10,color:accent,
                               fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                             Equipar
                           </button>
                         )}
                         {!isOwned&&precio===0&&(
                           <button onClick={()=>equipar("theme",item.id)}
-                            style={{background:"none",border:"none",fontSize:10,color:"#10b981",
-                              fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                            style={{width:"100%",background:"#10b98122",border:"none",borderRadius:99,
+                              padding:"3px 0",fontSize:10,color:"#10b981",fontWeight:700,
+                              cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                             Gratis
                           </button>
                         )}
                         {!isOwned&&precio>0&&(
-                          <button onClick={()=>isSub?suscribir(item,"monthly"):comprar(item)}
+                          <button onClick={()=>isSub?suscribir(item,item.periodo_default||"monthly"):comprar(item)}
                             disabled={buying===item.id||precio>balance}
-                            style={{background:precio>balance?"#f0f0f0":cfg.primary||accent,
+                            style={{width:"100%",
+                              background:buying===item.id?"#ccc":precio>balance?"#f0f0f0":cfg.primary||accent,
                               color:precio>balance?"#aaa":"white",border:"none",borderRadius:99,
-                              padding:"4px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
-                              fontFamily:"Nunito,sans-serif",marginTop:2,display:"block",margin:"2px auto 0"}}>
-                            {buying===item.id?"...":`🪙${precio}${isSub?"/mes":""}`}
+                              padding:"4px 0",fontSize:10,fontWeight:800,cursor:precio>balance?"not-allowed":"pointer",
+                              fontFamily:"Nunito,sans-serif",display:"block"}}>
+                            {buying===item.id?"...":`🪙${precio}${isSub?`/${item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}`:""}`}
                           </button>
                         )}
                       </div>
@@ -2315,9 +2372,9 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                   );
                 })}
               </div>
-              {items.some(i=>i.tipo==="theme"&&i.es_suscripcion&&i.precio_mensual>0)&&(
-                <div style={{marginTop:10,fontSize:10,color:sub,textAlign:"center",lineHeight:1.5}}>
-                  🔄 Suscripción mensual • Se renueva automáticamente • Cancelá cuando quieras
+              {subs.filter(s=>s.item_tipo==="theme"&&s.activo).length>0&&(
+                <div style={{marginTop:10,fontSize:10,color:sub,textAlign:"center",lineHeight:1.6}}>
+                  Suscripciones activas: {subs.filter(s=>s.item_tipo==="theme").length} • Se renuevan automáticamente
                 </div>
               )}
             </div>
@@ -7092,37 +7149,44 @@ function AdminEconomiaSec({sec, onBack, showToast}){
               Editar: {editing.nombre||editing.descripcion||editing.item_key||""}
             </div>
 
-            {/* Precio simple */}
+            {/* Precio */}
             {(["colores","temas","emojis","efectos"].includes(sec)||sec==="ranking")&&(
-              <div style={{marginBottom:10}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:4}}>
-                  {sec==="ranking"?"Premio (monedas)":"Precio base (monedas)"}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:6}}>
+                  {sec==="ranking"?"Premio 🪙":"Precio 🪙"}
                 </div>
                 <input type="number" min="0"
                   value={editVal.precio??editing.precio??editVal.premio??editing.premio??0}
                   onChange={e=>setEditVal(v=>({...v,
                     [sec==="ranking"?"premio":"precio"]:parseInt(e.target.value)||0}))}
                   style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
-                    borderRadius:12,padding:"11px 14px",fontSize:18,fontWeight:900,outline:"none",
+                    borderRadius:12,padding:"11px 14px",fontSize:22,fontWeight:900,outline:"none",
                     color:"#10b981",textAlign:"center",fontFamily:"Nunito,sans-serif"}}/>
               </div>
             )}
 
-            {/* Precios de suscripción para colores y temas */}
+            {/* Duración de suscripción — UN solo período a elegir */}
             {PERIODO_PER_SEC.includes(sec)&&editing.es_suscripcion&&(
-              <>
-                {[["precio_semanal","Por semana"],["precio_mensual","Por mes"],["precio_anual","Por año"]].map(([k,l])=>(
-                  <div key={k} style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:4}}>{l}</div>
-                    <input type="number" min="0"
-                      value={editVal[k]??editing[k]??0}
-                      onChange={e=>setEditVal(v=>({...v,[k]:parseInt(e.target.value)||0}))}
-                      style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
-                        borderRadius:12,padding:"9px 14px",fontSize:15,fontWeight:800,outline:"none",
-                        color:"#8b5cf6",fontFamily:"Nunito,sans-serif"}}/>
-                  </div>
-                ))}
-              </>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:6}}>Duración de la suscripción</div>
+                <div style={{display:"flex",gap:6}}>
+                  {[["weekly","📅 Semanal"],["monthly","🗓️ Mensual"],["annual","📆 Anual"]].map(([v,l])=>{
+                    const sel=(editVal.periodo_default??editing.periodo_default??"monthly")===v;
+                    return(
+                      <button key={v} onClick={()=>setEditVal(ev=>({...ev,periodo_default:v}))}
+                        style={{flex:1,background:sel?"#8b5cf6":"#f0f0f0",color:sel?"white":"#555",
+                          border:`2px solid ${sel?"#8b5cf6":"transparent"}`,borderRadius:12,
+                          padding:"10px 4px",fontWeight:800,fontSize:11,cursor:"pointer",
+                          fontFamily:"Nunito,sans-serif",lineHeight:1.4,textAlign:"center"}}>
+                        {l}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{fontSize:10,color:"#aaa",marginTop:6,textAlign:"center"}}>
+                  El alumno se suscribe a este período y se renueva automáticamente
+                </div>
+              </div>
             )}
 
             {/* Activo */}
@@ -7167,17 +7231,19 @@ function AdminEconomiaSec({sec, onBack, showToast}){
               <span style={{fontSize:20}}>{item.preview||"✨"}</span>
               <div style={{flex:1}}>
                 <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{item.nombre}</div>
-                <div style={{display:"flex",gap:6,marginTop:2,flexWrap:"wrap"}}>
-                  <span style={{fontSize:10,fontWeight:800,color:"#10b981"}}>
+                <div style={{display:"flex",gap:6,marginTop:2,flexWrap:"wrap",alignItems:"center"}}>
+                  <span style={{fontSize:11,fontWeight:800,color:"#10b981"}}>
                     {item.precio===0?"Gratis":`🪙${item.precio}`}
                   </span>
-                  {item.es_suscripcion&&(
-                    <>
-                      {item.precio_semanal!=null&&<span style={{fontSize:9,color:"#8b5cf6",fontWeight:700}}>sem:🪙{item.precio_semanal}</span>}
-                      {item.precio_mensual!=null&&<span style={{fontSize:9,color:"#8b5cf6",fontWeight:700}}>mes:🪙{item.precio_mensual}</span>}
-                      <span style={{background:"#8b5cf622",color:"#8b5cf6",borderRadius:99,
-                        padding:"1px 5px",fontSize:8,fontWeight:800}}>SUSCRIPCIÓN</span>
-                    </>
+                  {item.es_suscripcion&&item.precio>0&&(
+                    <span style={{background:"#8b5cf622",color:"#8b5cf6",borderRadius:99,
+                      padding:"2px 7px",fontSize:9,fontWeight:800}}>
+                      🔄 {item.periodo_default==="weekly"?"Semanal":item.periodo_default==="annual"?"Anual":"Mensual"}
+                    </span>
+                  )}
+                  {item.es_suscripcion&&item.precio===0&&(
+                    <span style={{background:"#10b98122",color:"#10b981",borderRadius:99,
+                      padding:"2px 7px",fontSize:9,fontWeight:800}}>Gratis</span>
                   )}
                   {!item.activo&&<span style={{fontSize:9,color:"#aaa",fontWeight:700}}>Inactivo</span>}
                 </div>
