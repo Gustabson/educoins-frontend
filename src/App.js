@@ -134,6 +134,14 @@ const api = {
   customAdminCreate: (data)  => apiFetch("/custom/admin/items",       { method:"POST",  body:data }),
   customAdminUpdate: (id,d)  => apiFetch(`/custom/admin/items/${id}`, { method:"PATCH", body:d }),
   setApodo:       (apodo)    => apiFetch("/profile/apodo",            { method:"PATCH", body:{apodo} }),
+  setFoto:        (foto_url) => apiFetch("/profile/foto",             { method:"PATCH", body:{foto_url} }),
+  setTituloCustom:(titulo)   => apiFetch("/profile/titulo-custom",    { method:"PATCH", body:{titulo} }),
+  publicProfile:  (id)       => apiFetch(`/profile/user/${id}`),
+  blockUser:      (user_id)  => apiFetch("/profile/block",            { method:"POST", body:{user_id} }),
+  unblockUser:    (id)       => apiFetch(`/profile/block/${id}`,      { method:"DELETE" }),
+  blockedUsers:   ()         => apiFetch("/profile/blocked"),
+  adminEconomy:   ()         => apiFetch("/admin/economy"),
+  adminEconomyUpdate:(id,d)  => apiFetch(`/admin/economy/${id}`,      { method:"PATCH", body:d }),
   // ── Check-in ──────────────────────────────────────────────
   checkin:        ()         => apiFetch("/checkin",          { method:"POST" }),
   checkinMe:      ()         => apiFetch("/checkin/me"),
@@ -271,6 +279,13 @@ function Av({user,sz}){
   const s=sz||48;
   const sk=SKINS.find(x=>x.id===(user?.skin||"s1"))||SKINS[0];
   const br=BORDERS.find(x=>x.id===(user?.border||"b1"))||BORDERS[0];
+  // Si tiene foto personalizada, mostrarla
+  if(user?.foto_url) return(
+    <div style={{width:s,height:s,borderRadius:"50%",border:br.bs,overflow:"hidden",
+      flexShrink:0,boxShadow:`0 2px 10px rgba(0,0,0,.2)`}}>
+      <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+    </div>
+  );
   return(
     <div style={{width:s,height:s,borderRadius:"50%",background:sk.bg,border:br.bs,
       display:"flex",alignItems:"center",justifyContent:"center",fontSize:s*.46,flexShrink:0,
@@ -888,11 +903,11 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
 
           {/* 5 botones acción */}
           <div style={{display:"flex",justifyContent:"space-around",paddingBottom:4}}>
-            <CircBtn icon="💸" label="Enviar"   onClick={()=>onNav("enviar")}/>
-            <CircBtn icon="⬇️" label="Ingresar" onClick={()=>onNav("ingresar")}/>
-            <CircBtn icon="💰" label="Cobrar"   onClick={()=>onNav("ingresar")}/>
-            <CircBtn icon="⚡" label="Misiones" onClick={()=>onNav("misiones")}/>
-            <CircBtn icon="🏆" label="Ranking"  onClick={()=>onNav("ranking")}/>
+            <CircBtn icon="💸" label="Enviar"    onClick={()=>onNav("enviar")}/>
+            <CircBtn icon="⬇️" label="Ingresar"  onClick={()=>onNav("ingresar")}/>
+            <CircBtn icon="👥" label="Amigos"    onClick={()=>onNav("chat")}/>
+            <CircBtn icon="⚡" label="Misiones"  onClick={()=>onNav("misiones")}/>
+            <CircBtn icon="🏆" label="Ranking"   onClick={()=>onNav("ranking")}/>
           </div>
         </div>
       </div>
@@ -1786,6 +1801,191 @@ function ApodoPanel({me,owned,items,balance,dark,showToast,onRefresh,onRefreshBa
   );
 }
 
+// ── Panel de Foto de Perfil ───────────────────────────────────
+function FotoPanel({me,owned,items,balance,showToast,onRefresh,onRefreshBalance,cardBg,txt,sub,accent}){
+  const hasPermiso = owned.some(o=>o.tipo==="photo_profile");
+  const fotoItem   = items.find(i=>i.tipo==="photo_profile");
+  const [buying,setBuying] = useState(false);
+  const [saving,setSaving] = useState(false);
+
+  const comprar=async()=>{
+    if(!fotoItem||balance<fotoItem.precio){showToast("Saldo insuficiente","error");return;}
+    setBuying(true);
+    try{ await api.customBuy(fotoItem.id); showToast("Foto desbloqueada!"); await onRefreshBalance(); onRefresh(); }
+    catch(e){showToast(e.message||"Error","error");}
+    finally{setBuying(false);}
+  };
+
+  const subirFoto=async(e)=>{
+    const file=e.target.files?.[0]; if(!file) return;
+    if(file.size>500000){showToast("Imagen muy grande (max 500KB)","error");return;}
+    const reader=new FileReader();
+    reader.onload=async(ev)=>{
+      setSaving(true);
+      try{ await api.setFoto(ev.target.result); showToast("Foto actualizada!"); onRefresh(); }
+      catch(err){showToast(err.message||"Error","error");}
+      finally{setSaving(false);}
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const quitarFoto=async()=>{
+    setSaving(true);
+    try{ await api.setFoto(null); showToast("Foto eliminada"); onRefresh(); }
+    catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  if(!hasPermiso) return(
+    <div style={{background:cardBg,borderRadius:20,padding:24,textAlign:"center",
+      boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+      <div style={{fontSize:48,marginBottom:8}}>📸</div>
+      <div style={{fontWeight:800,fontSize:16,color:txt,marginBottom:6}}>Foto de Perfil</div>
+      <div style={{fontSize:12,color:sub,lineHeight:1.6,marginBottom:16}}>
+        Subi tu propia foto. Se verá en tu perfil, ranking y chat.
+      </div>
+      {fotoItem?(
+        <button onClick={comprar} disabled={buying||balance<(fotoItem.precio||0)}
+          style={{width:"100%",background:buying||balance<(fotoItem.precio||0)?"#ccc":accent,
+            border:"none",borderRadius:50,color:"white",padding:"14px",fontWeight:900,
+            fontSize:15,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+          {buying?"Comprando...":balance<(fotoItem.precio||0)
+            ?`Sin saldo (necesitas 🪙${fotoItem.precio})`
+            :`Comprar por 🪙${fotoItem.precio}`}
+        </button>
+      ):(
+        <div style={{background:"#f0f0f0",borderRadius:12,padding:"12px 16px",
+          fontSize:12,color:sub,textAlign:"center"}}>
+          El administrador aún no habilitó este item
+        </div>
+      )}
+    </div>
+  );
+
+  return(
+    <div style={{background:cardBg,borderRadius:20,padding:20,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+      <div style={{fontWeight:800,fontSize:15,color:txt,marginBottom:4}}>📸 Tu Foto de Perfil</div>
+      <div style={{fontSize:12,color:sub,marginBottom:14}}>Se verá en tu perfil, ranking y chat.</div>
+      {me.foto_url&&(
+        <div style={{textAlign:"center",marginBottom:14}}>
+          <img src={me.foto_url} alt="" style={{width:80,height:80,borderRadius:"50%",
+            objectFit:"cover",border:`3px solid ${accent}`}}/>
+        </div>
+      )}
+      <label style={{display:"block",cursor:"pointer",marginBottom:10}}>
+        <input type="file" accept="image/*" onChange={subirFoto} style={{display:"none"}}/>
+        <div style={{border:`1.5px dashed ${accent}`,borderRadius:12,padding:"14px",
+          textAlign:"center",fontSize:13,color:accent,fontWeight:700}}>
+          {saving?"Subiendo...":"📱 Subir foto desde el celular"}
+        </div>
+      </label>
+      {me.foto_url&&(
+        <button onClick={quitarFoto} disabled={saving}
+          style={{width:"100%",background:"#fee2e2",border:"none",borderRadius:50,
+            color:"#ef4444",padding:"11px",fontWeight:800,fontSize:13,cursor:"pointer",
+            fontFamily:"Nunito,sans-serif"}}>
+          Quitar foto
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Panel Título Personalizado ────────────────────────────────
+function TituloCustomPanel({me,owned,items,balance,showToast,onRefresh,onRefreshBalance,cardBg,txt,sub,accent,inputBg,inputBd}){
+  const hasPermiso = owned.some(o=>o.tipo==="title_custom");
+  const titleItem  = items.find(i=>i.tipo==="title_custom");
+  const [tituloVal,setTituloVal] = useState(me.titulo_custom||"");
+  const [saving,setSaving] = useState(false);
+  const [buying,setBuying] = useState(false);
+
+  const comprar=async()=>{
+    if(!titleItem||balance<titleItem.precio){showToast("Saldo insuficiente","error");return;}
+    setBuying(true);
+    try{ await api.customBuy(titleItem.id); showToast("Título desbloqueado!"); await onRefreshBalance(); onRefresh(); }
+    catch(e){showToast(e.message||"Error","error");}
+    finally{setBuying(false);}
+  };
+
+  const guardar=async()=>{
+    if(!tituloVal.trim()){showToast("Escribí un título","error");return;}
+    setSaving(true);
+    try{ await api.setTituloCustom(tituloVal.trim()); showToast("Título guardado!"); onRefresh(); }
+    catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  const borrar=async()=>{
+    setSaving(true);
+    try{ await api.setTituloCustom(null); setTituloVal(""); showToast("Título eliminado"); onRefresh(); }
+    catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  if(!hasPermiso) return(
+    <div style={{background:cardBg,borderRadius:20,padding:24,textAlign:"center",
+      boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+      <div style={{fontSize:48,marginBottom:8}}>👑</div>
+      <div style={{fontWeight:800,fontSize:16,color:txt,marginBottom:6}}>Título Personalizado</div>
+      <div style={{fontSize:12,color:sub,lineHeight:1.6,marginBottom:16}}>
+        Escribí tu propio título único. Máximo 20 caracteres. Se verá en tu perfil y chat.
+      </div>
+      {titleItem?(
+        <button onClick={comprar} disabled={buying||balance<(titleItem.precio||0)}
+          style={{width:"100%",background:buying||balance<(titleItem.precio||0)?"#ccc":accent,
+            border:"none",borderRadius:50,color:"white",padding:"14px",fontWeight:900,
+            fontSize:15,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+          {buying?"Comprando...":balance<(titleItem.precio||0)
+            ?`Sin saldo (🪙${titleItem.precio})`
+            :`Comprar por 🪙${titleItem.precio}`}
+        </button>
+      ):(
+        <div style={{background:"#f0f0f0",borderRadius:12,padding:"12px 16px",fontSize:12,color:sub,textAlign:"center"}}>
+          El administrador aún no habilitó este item
+        </div>
+      )}
+    </div>
+  );
+
+  return(
+    <div style={{background:cardBg,borderRadius:20,padding:20,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+      <div style={{fontWeight:800,fontSize:15,color:txt,marginBottom:4}}>👑 Tu Título</div>
+      <div style={{fontSize:12,color:sub,marginBottom:14}}>Máximo 20 caracteres. Visible en perfil y chat.</div>
+      {me.titulo_custom&&(
+        <div style={{background:accent+"18",borderRadius:12,padding:"10px 14px",marginBottom:12,
+          display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontWeight:900,fontSize:16,color:accent}}>{me.titulo_custom}</span>
+          <span style={{fontSize:11,color:sub}}>— tu título actual</span>
+        </div>
+      )}
+      <input value={tituloVal} onChange={e=>setTituloVal(e.target.value.slice(0,20))} maxLength={20}
+        placeholder="Ej: El más rápido..."
+        style={{width:"100%",boxSizing:"border-box",background:inputBg,border:`1.5px solid ${inputBd}`,
+          borderRadius:12,padding:"11px 14px",fontSize:15,fontWeight:700,outline:"none",
+          color:txt,fontFamily:"Nunito,sans-serif",marginBottom:4}}/>
+      <div style={{fontSize:10,color:sub,textAlign:"right",marginBottom:10}}>
+        {tituloVal.length}/20 caracteres
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={guardar} disabled={saving||!tituloVal.trim()}
+          style={{flex:1,background:saving||!tituloVal.trim()?"#ccc":accent,border:"none",
+            borderRadius:50,color:"white",padding:"12px",fontWeight:800,fontSize:13,
+            cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+          {saving?"Guardando...":"Guardar título"}
+        </button>
+        {me.titulo_custom&&(
+          <button onClick={borrar} disabled={saving}
+            style={{background:"#f0f0f0",border:"none",borderRadius:50,color:sub,
+              padding:"12px 14px",fontWeight:700,fontSize:12,cursor:"pointer",
+              fontFamily:"Nunito,sans-serif"}}>
+            Quitar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 // TIENDA DE PERSONALIZACIÓN
 // ════════════════════════════════════════════════════════════
@@ -1802,7 +2002,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const [giftTo,setGiftTo]=useState("");
   const [giftMsg,setGiftMsg]=useState("");
 
-  const SECS=[["app","🎨 App"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
+  const SECS=[["app","🎨 App"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"],["foto","📸 Foto"],["titulo","👑 Título"]];
 
   const loadAll=async()=>{
     setLoading(true);
@@ -1852,12 +2052,14 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const ownedIds=new Set(owned.map(o=>o.id));
 
   const filteredItems=items.filter(i=>{
-    if(sec==="app")     return false; // sección especial
+    if(sec==="app")     return false;
     if(sec==="temas")   return i.tipo==="theme";
     if(sec==="colores") return i.tipo==="name_color";
     if(sec==="emojis")  return i.tipo==="emoji_pack";
     if(sec==="efectos") return ["title_effect","name_effect","avatar_frame"].includes(i.tipo);
     if(sec==="apodo")   return i.tipo==="nickname";
+    if(sec==="foto")    return i.tipo==="photo_profile";
+    if(sec==="titulo")  return i.tipo==="title_custom";
     return true;
   });
 
@@ -1943,6 +2145,8 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
         {/* Sección especial de apodo */}
         {sec==="apodo"&&!loading&&<ApodoPanel me={me} owned={owned} items={items} balance={balance} showToast={showToast} onRefresh={loadAll} onRefreshBalance={refreshBalance} cardBg={cardBg} txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}/>}
+        {sec==="foto"&&!loading&&<FotoPanel me={me} owned={owned} items={items} balance={balance} showToast={showToast} onRefresh={loadAll} onRefreshBalance={refreshBalance} cardBg={cardBg} txt={txt} sub={sub} accent={accent}/>}
+        {sec==="titulo"&&!loading&&<TituloCustomPanel me={me} owned={owned} items={items} balance={balance} showToast={showToast} onRefresh={loadAll} onRefreshBalance={refreshBalance} cardBg={cardBg} txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}/>}
 
         {/* Sección de tema de APP — duales primario+secundario */}
         {sec==="app"&&(
@@ -2001,7 +2205,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
           </div>
         )}
 
-        {sec!=="apodo"&&sec!=="app"&&filteredItems.map(item=>{
+        {sec!=="apodo"&&sec!=="app"&&sec!=="foto"&&sec!=="titulo"&&filteredItems.map(item=>{
           const isOwned   = ownedIds.has(item.id)||item.precio===0;
           const isFree    = item.precio===0;
           const isEquipped= active&&Object.values(active).includes(item.id);
@@ -2214,7 +2418,7 @@ function ARanking({nameColorConfig}){
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando ranking...</div>;
 
   return(
-    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:bg,minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="Ranking 🏆"/>
       <div style={{padding:"0 14px",marginTop:12}}>
         {users.map((u,i)=>{
@@ -2230,18 +2434,16 @@ function ARanking({nameColorConfig}){
               <Av user={u} sz={42}/>
               <div style={{flex:1}}>
                 <div style={{fontWeight:800,fontSize:14,
-                  color: nameColorConfig?.rainbow
-                    ? "transparent"
-                    : nameColorConfig?.color || (dark?"#e0e0e0":"#1a1a1a"),
+                  color: nameColorConfig?.rainbow ? "transparent"
+                       : nameColorConfig?.color || txt,
                   background: nameColorConfig?.rainbow
-                    ? "linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)"
-                    : "none",
+                    ? "linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)" : "none",
                   WebkitBackgroundClip: nameColorConfig?.rainbow ? "text" : "unset",
                   WebkitTextFillColor: nameColorConfig?.rainbow ? "transparent" : "unset",
                 }}>{displayName(u)}</div>
                 <Pill text={lv.icon+" "+lv.name} col={lv.color}/>
               </div>
-              <div style={{fontWeight:900,color:themeAccent||(dark?"#c084fc":"#00c1fc"),fontSize:14}}>🪙 {(u.total_earned||0).toLocaleString("es-AR")}</div>
+              <div style={{fontWeight:900,color:accent,fontSize:14}}>🪙 {(u.total_earned||0).toLocaleString("es-AR")}</div>
             </div>
           );
         })}
@@ -2382,14 +2584,14 @@ function useChatSocket(token, onMessage, onTyping) {
 function AChat({me, showToast, onBack, nameColorConfig}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,inputBg,inputBd} = useTheme();
   const [sec, setSec]           = useState(0);
-  const [friend, setFriend]     = useState(null);  // {id, nombre, skin, border, friendship_id}
+  const [friend, setFriend]     = useState(null);
   const [friends, setFriends]   = useState([]);
   const [pendientes, setPend]   = useState([]);
   const [classInfo, setClass]   = useState(null);
   const [globalMsgs, setGlobal] = useState([]);
   const globalConvIdRef = useRef(null);
-  const classConvIdRef  = useRef(null); // ref para aula
-  const personalConvIdRef = useRef(null); // ref para chat personal
+  const classConvIdRef  = useRef(null);
+  const personalConvIdRef = useRef(null);
   const [classMsgs,  setClass_] = useState([]);
   const [personMsgs, setPerson] = useState([]);
   const [convId, setConvId]     = useState(null);
@@ -2399,6 +2601,7 @@ function AChat({me, showToast, onBack, nameColorConfig}){
   const [results, setResults]   = useState([]);
   const [addOpen, setAddOpen]   = useState(false);
   const [loading, setLoading]   = useState(true);
+  const [perfilUserId,setPerfilUserId] = useState(null); // modal perfil
   const bottomRef               = useRef(null);
   const typingTimer             = useRef(null);
   const token                   = localStorage.getItem("ec_token");
@@ -2606,7 +2809,11 @@ function AChat({me, showToast, onBack, nameColorConfig}){
             <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
               {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||""}} sz={28}/>}
               <div style={{maxWidth:"72%"}}>
-                {!isMe&&<div style={{fontSize:10,color:sub,marginBottom:2,marginLeft:4}}>{m.sender_nombre}</div>}
+                {!isMe&&<div onClick={()=>setPerfilUserId(m.sender_id)}
+                  style={{fontSize:10,color:sub,marginBottom:2,marginLeft:4,cursor:"pointer",
+                    fontWeight:700,"&:hover":{textDecoration:"underline"}}}>
+                  {m.sender_nombre}
+                </div>}
                 <div style={{padding:"9px 13px",
                   borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
                   background:isMe?accent:cardBg,color:isMe?"white":txt,
@@ -2659,8 +2866,10 @@ function AChat({me, showToast, onBack, nameColorConfig}){
               {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||""}} sz={28}/>}
               <div style={{maxWidth:"75%"}}>
                 {!isMe&&(
-                  <div style={{fontSize:10,color:m.sender_rol==='teacher'?accent:sub,
-                    marginBottom:2,marginLeft:4,fontWeight:m.sender_rol==='teacher'?800:600}}>
+                  <div onClick={()=>setPerfilUserId(m.sender_id)}
+                    style={{fontSize:10,color:m.sender_rol==='teacher'?accent:sub,
+                      marginBottom:2,marginLeft:4,fontWeight:m.sender_rol==='teacher'?800:600,
+                      cursor:"pointer"}}>
                     {m.sender_nombre}{m.sender_rol==='teacher'?' 👩‍🏫':''}
                   </div>
                 )}
@@ -2857,6 +3066,11 @@ function AChat({me, showToast, onBack, nameColorConfig}){
             )}
           </div>
         </div>
+      )}
+
+      {/* Modal perfil de usuario */}
+      {perfilUserId&&(
+        <PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>
       )}
     </div>
   );
@@ -4150,6 +4364,7 @@ function Admin({me,logout}){
         {tab==="reportes"   && <AdminReportes  showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="aulas"      && <AdminAulas     showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="custom"     && <AdminCustomShop showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="economia"   && <AdminEconomia   showToast={showToast} onBack={()=>setTab("home")}/>}
       </div>
       {!hideNav&&(
       <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
@@ -4243,6 +4458,7 @@ function AdminHome({me,onNav,showToast}){
           {icon:"🏛️",title:"Banco",             sub:"Transferir a alumnos y docentes",           dest:"banco",     col:"#10b981"},
           {icon:"🏫",title:"Aulas",             sub:"Crear aulas y asignar miembros",            dest:"aulas",     col:"#f59e0b"},
           {icon:"🎨",title:"Tienda Custom",     sub:"Temas, emojis, colores, efectos",           dest:"custom",    col:"#ec4899"},
+          {icon:"💹",title:"Economía",           sub:"Precios de skins, títulos, check-in",       dest:"economia",  col:"#10b981"},
           {icon:"📋",title:"Audit Log",         sub:"Historial de todas las acciones",           dest:"audit",     col:"#64748b"},
         ].map(item=>(
           <WCard key={item.dest} onClick={()=>onNav(item.dest)}
@@ -6351,6 +6567,235 @@ function AdminCustomShop({showToast, onBack}){
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ADMIN — ECONOMÍA (precios de skins, títulos, check-in, custom)
+// ════════════════════════════════════════════════════════════
+function AdminEconomia({showToast, onBack}){
+  const [items,setItems]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [editing,setEditing]=useState(null);
+  const [newPrecio,setNewPrecio]=useState("");
+  const [saving,setSaving]=useState(false);
+  const [sec,setSec]=useState("all");
+
+  useEffect(()=>{
+    api.adminEconomy()
+      .then(d=>setItems(d.data||d||[]))
+      .catch(()=>{})
+      .finally(()=>setLoading(false));
+  },[]);
+
+  const guardar=async()=>{
+    if(!editing||newPrecio==="") return;
+    setSaving(true);
+    try{
+      const d=await api.adminEconomyUpdate(editing.id,{precio:parseInt(newPrecio)||0});
+      setItems(prev=>prev.map(i=>i.id===editing.id?{...i,precio:parseInt(newPrecio)||0}:i));
+      showToast("Precio actualizado");
+      setEditing(null);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
+  const CAT_LABEL={skin:"🎨 Skins",title:"🏷️ Títulos",name_color:"🖊️ Colores",checkin:"🔥 Check-in",custom:"✨ Custom"};
+  const cats=[...new Set(items.map(i=>i.categoria))];
+  const filtered=sec==="all"?items:items.filter(i=>i.categoria===sec);
+
+  return(
+    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
+      <div style={{background:"#10b981",color:"white",padding:"22px 16px 16px",
+        position:"sticky",top:0,zIndex:50}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+          <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",
+            alignItems:"center",justifyContent:"center"}}>←</button>
+          <div>
+            <div style={{fontWeight:900,fontSize:20}}>💹 Economía</div>
+            <div style={{fontSize:11,opacity:.85}}>Configura precios de todos los items</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,overflowX:"auto"}}>
+          <button onClick={()=>setSec("all")}
+            style={{background:sec==="all"?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
+              border:"1.5px solid "+(sec==="all"?"rgba(255,255,255,.6)":"rgba(255,255,255,.2)"),
+              borderRadius:99,padding:"4px 11px",fontSize:10,fontWeight:800,color:"white",
+              cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Nunito,sans-serif",flexShrink:0}}>
+            Todos
+          </button>
+          {cats.map(c=>(
+            <button key={c} onClick={()=>setSec(c)}
+              style={{background:sec===c?"rgba(255,255,255,.3)":"rgba(255,255,255,.12)",
+                border:"1.5px solid "+(sec===c?"rgba(255,255,255,.6)":"rgba(255,255,255,.2)"),
+                borderRadius:99,padding:"4px 11px",fontSize:10,fontWeight:800,color:"white",
+                cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Nunito,sans-serif",flexShrink:0}}>
+              {CAT_LABEL[c]||c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Modal edición precio */}
+      {editing&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
+          display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          onClick={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
+          <div style={{background:"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
+            padding:"20px 20px 40px"}}>
+            <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 16px"}}/>
+            <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>{editing.descripcion||editing.item_key}</div>
+            <div style={{fontSize:12,color:"#aaa",marginBottom:14}}>Categoría: {editing.categoria}</div>
+            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Nuevo precio (monedas)</div>
+            <input type="number" min="0" value={newPrecio}
+              onChange={e=>setNewPrecio(e.target.value)}
+              style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+                padding:"12px 14px",fontSize:20,fontWeight:900,outline:"none",color:"#10b981",
+                textAlign:"center",fontFamily:"Nunito,sans-serif",marginBottom:14}}/>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setEditing(null)}
+                style={{flex:1,background:"#f0f0f0",border:"none",borderRadius:50,padding:"12px",
+                  fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>Cancelar</button>
+              <button onClick={guardar} disabled={saving}
+                style={{flex:2,background:saving?"#ccc":"#10b981",border:"none",borderRadius:50,
+                  color:"white",padding:"12px",fontWeight:800,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                {saving?"Guardando...":"Guardar precio"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{padding:"12px 14px"}}>
+        {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
+        {filtered.map(item=>(
+          <div key={item.id} style={{background:"white",borderRadius:14,padding:"12px 14px",
+            marginBottom:8,boxShadow:"0 1px 8px rgba(0,0,0,.06)",
+            display:"flex",alignItems:"center",gap:10}}>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{item.descripcion||item.item_key}</div>
+              <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{CAT_LABEL[item.categoria]||item.categoria} · {item.item_key}</div>
+            </div>
+            <div style={{fontWeight:900,fontSize:15,color:"#10b981",marginRight:8}}>
+              {item.precio===0?"Gratis":`🪙${item.precio}`}
+            </div>
+            <button onClick={()=>{setEditing(item);setNewPrecio(String(item.precio));}}
+              style={{background:"#f0f0f0",border:"none",borderRadius:10,padding:"7px 12px",
+                fontSize:11,fontWeight:800,cursor:"pointer",color:"#555",
+                fontFamily:"Nunito,sans-serif"}}>
+              Editar
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Modal Perfil Público ──────────────────────────────────────
+function PerfilModal({userId, onClose, showToast}){
+  const {primary:accent,isDark:dark,txt,sub,cardBg} = useTheme();
+  const [perfil,setPerfil]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [bloqueado,setBloqueado]=useState(false);
+  const [blocking,setBlocking]=useState(false);
+
+  useEffect(()=>{
+    api.publicProfile(userId)
+      .then(d=>setPerfil(d.data||d))
+      .catch(()=>{})
+      .finally(()=>setLoading(false));
+  },[userId]);
+
+  const toggleBloquear=async()=>{
+    setBlocking(true);
+    try{
+      if(bloqueado){ await api.unblockUser(userId); setBloqueado(false); showToast("Usuario desbloqueado"); }
+      else{ await api.blockUser(userId); setBloqueado(true); showToast("Usuario bloqueado"); }
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setBlocking(false);}
+  };
+
+  const lv = perfil ? getLv(perfil.total_earned||0) : null;
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:500,
+      display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:cardBg,borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
+        padding:"20px 20px 44px",animation:"slideUp .25s ease",maxHeight:"80vh",overflowY:"auto"}}>
+        <div style={{width:36,height:4,background:dark?"#555":"#ddd",borderRadius:2,margin:"0 auto 16px"}}/>
+
+        {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
+        {!loading&&!perfil&&<div style={{textAlign:"center",padding:32,color:sub}}>Perfil no encontrado</div>}
+        {perfil&&(
+          <>
+            {/* Avatar y nombre */}
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{margin:"0 auto 12px"}}>
+                <Av user={perfil} sz={80}/>
+              </div>
+              <div style={{fontWeight:900,fontSize:20,color:txt}}>{displayName(perfil)}</div>
+              {perfil.titulo_custom&&(
+                <div style={{fontSize:12,color:accent,fontWeight:700,marginTop:2}}>{perfil.titulo_custom}</div>
+              )}
+              {!perfil.titulo_custom&&perfil.rol&&(
+                <div style={{fontSize:11,color:sub,marginTop:2}}>
+                  {perfil.rol==="teacher"?"👩‍🏫 Docente":"🎓 Alumno"}
+                </div>
+              )}
+            </div>
+
+            {/* Stats */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+              {[
+                {icon:"🪙",v:(perfil.total_earned||0).toLocaleString("es-AR"),l:"Ganadas"},
+                {icon:"⚡",v:perfil.misiones||0,l:"Misiones"},
+                {icon:"🔥",v:perfil.racha||0,l:"Racha"},
+              ].map(s=>(
+                <div key={s.l} style={{background:dark?"#2d2a45":"#f8f8f8",borderRadius:14,
+                  padding:"12px 8px",textAlign:"center"}}>
+                  <div style={{fontSize:18}}>{s.icon}</div>
+                  <div style={{fontWeight:900,fontSize:16,color:accent}}>{s.v}</div>
+                  <div style={{fontSize:10,color:sub,fontWeight:700}}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Nivel */}
+            {lv&&(
+              <div style={{background:dark?"#2d2a45":"#f8f8f8",borderRadius:14,padding:"10px 14px",
+                marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:22}}>{lv.icon}</span>
+                <div>
+                  <div style={{fontWeight:800,color:txt,fontSize:13}}>{lv.name}</div>
+                  <div style={{fontSize:10,color:sub}}>{perfil.total_earned||0} XP total</div>
+                </div>
+              </div>
+            )}
+
+            {/* Acciones */}
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={toggleBloquear} disabled={blocking}
+                style={{flex:1,background:bloqueado?"#fee2e2":"#f0f0f0",
+                  color:bloqueado?"#ef4444":sub,border:"none",borderRadius:50,
+                  padding:"11px",fontWeight:800,fontSize:12,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                {blocking?"...":(bloqueado?"✓ Bloqueado":"Bloquear")}
+              </button>
+              <button onClick={onClose}
+                style={{flex:1,background:accent,color:"white",border:"none",borderRadius:50,
+                  padding:"11px",fontWeight:800,fontSize:12,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                Cerrar
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
