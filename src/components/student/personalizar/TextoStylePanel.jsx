@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { api, connectSocket } from "../../api";
-import { useTheme } from "../../ThemeContext";
-import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
+import { api, connectSocket } from "../../../api";
+import { useTheme } from "../../../ThemeContext";
+import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../../shared/index";
 
 
 function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,cardBg,txt,sub,accent,inputBg,inputBd,equipar,comprar,suscribir,showToast,onCustomChange}){
