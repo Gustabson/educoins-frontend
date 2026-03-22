@@ -6,7 +6,7 @@ import { Av, CircBtn, OHdrA, PBtn, Pill, Toast, WCard, displayName, useToast } f
 
 
 function AMisiones({me,balance,showToast,refreshBalance}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg} = useTheme();
   const [missions,setMissions]=useState([]);
   const [mySubmissions,setMySubmissions]=useState([]);
   const [loading,setLoading]=useState(true);

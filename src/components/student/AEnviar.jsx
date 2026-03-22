@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function AEnviar({me,balance,showToast,refreshBalance}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd} = useTheme();
   const [friends,setFriends]   = useState([]);
   const [search,setSearch]     = useState("");
   const [results,setResults]   = useState([]);

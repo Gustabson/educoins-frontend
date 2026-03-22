@@ -6,7 +6,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function APerfil({me,balance,logout,showToast,setMe}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg, inputBg} = useTheme();
   const uS=me.unlocked_skins||["s1"];
   const uB=me.unlocked_borders||["b1"];
   const uT=me.unlocked_titles||["tl1"];

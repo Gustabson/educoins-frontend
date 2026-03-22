@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function AIngresar({me, onBack}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg} = useTheme();
   const [copied,setCopied] = useState(false);
 
   // CVU = primeros 8 chars del ID del usuario, formateado

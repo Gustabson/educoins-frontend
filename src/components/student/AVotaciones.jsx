@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function AVotaciones({me,showToast,onBack}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd} = useTheme();
   const [sec,setSec]         = useState("global"); // "global"|"aula"
   const [polls,setPolls]     = useState([]);
   const [loading,setLoading] = useState(true);

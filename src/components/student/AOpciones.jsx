@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function AOpciones({me,logout,notifs=[]}){
-  const {primary:accent,isDark,txt,sub,cardBg,inputBg,navInact,pageBg} = useTheme();
+  const {primary:accent, isDark, txt, sub, cardBg, inputBg, navInact, pageBg} = useTheme();
   const dark = isDark;
   const noLeidas=notifs.filter(n=>!n.leida).length;
 

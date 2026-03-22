@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function ATienda({me,balance,showToast,refreshBalance}){
-  const {primary:accent,isDark:dark,txt,sub:subTxt,cardBg,pageBg:bg,inputBg,inputBd,navInact} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub:subTxt, cardBg, pageBg:bg, inputBg, inputBd, navInact} = useTheme();
   const [items,setItems]=useState([]);
   const [loading,setLoading]=useState(true);
   const [buying,setBuying]=useState(null);

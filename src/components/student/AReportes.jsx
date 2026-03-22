@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 import { REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR } from "../../constants";
 
 function AReportes({me,showToast,onBack}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd,navBord} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd, navBord} = useTheme();
   const [vista,setVista]       = useState("lista"); // "lista" | "nuevo" | "chat"
   const [reporteSel,setRepSel] = useState(null);
   const [tipo,setTipo]         = useState(null);

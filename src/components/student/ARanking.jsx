@@ -6,7 +6,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function ARanking({nameColorConfig}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg} = useTheme();
   const [periodo,setPeriodo] = useState("weekly");
   const [scope,setScope]     = useState("global");
   const [classrooms,setCl]   = useState([]);

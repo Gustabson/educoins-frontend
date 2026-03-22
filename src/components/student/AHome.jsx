@@ -5,7 +5,7 @@ import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
 function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg} = useTheme();
   const lv=getLv(me.total_earned||0);
   const next=nextLv(me.total_earned||0);
   const prog=next?Math.min(100,((me.total_earned||0)-lv.min)/(next.min-lv.min)*100):100;

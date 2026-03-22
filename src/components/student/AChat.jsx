@@ -45,7 +45,7 @@ function useChatSocket(token, onMessage, onTyping) {
 }
 
 function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg,inputBd,navBord,navInact} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg, inputBg, inputBd, navBord, navInact} = useTheme();
   const [sec, setSec]           = useState(0);
   const [friend, setFriend]     = useState(null);
   const [friends, setFriends]   = useState([]);

@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function ANotificaciones({me,onBack,notifs=[],setNotifs}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg} = useTheme();
   const [serverNotifs,setServerNotifs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [unread,setUnread]=useState(0);

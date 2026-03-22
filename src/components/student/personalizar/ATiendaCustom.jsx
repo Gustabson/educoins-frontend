@@ -9,7 +9,7 @@ import TituloCustomPanel from "./TituloCustomPanel";
 
 
 function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChange,onDarkChange,isDark,onPreviewAccent,onClearPreview,onSetMode,currentModeId,currentPrimary,currentMode}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd} = useTheme();
   const [sec,setSec]     = useState("pantalla");  // pantalla|texto|colores|emojis|efectos|apodo
   const [items,setItems] = useState([]);
   const [owned,setOwned]   = useState([]);

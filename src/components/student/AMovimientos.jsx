@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function AMovimientos(){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg,inputBd} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg, inputBg, inputBd} = useTheme();
   const [txs,setTxs]       = useState([]);
   const [loading,setLoading]= useState(true);
   const [search,setSearch]  = useState("");
