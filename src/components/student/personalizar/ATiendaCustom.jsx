@@ -20,12 +20,10 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const [buying,setBuying]  = useState(null);
   const [preview,setPreview]= useState(null); // item de paleta en preview
   // Modo personalizado — colores que el alumno elige
+  // customMode solo guarda los campos editables — normalizeMode deriva el resto
   const savedCustomMode = (() => { try { const s=localStorage.getItem("ec_custom_mode"); return s?JSON.parse(s):null; } catch{return null;} })();
   const [customMode,setCustomMode] = useState(savedCustomMode||{
-    bg:"#1a1a2e", pageBg:"#1a1a2e", card:"#16213e", nav:"#16213e",
-    navBord:"#0f3460", navPill:"#0f3460", navInact:"#888",
-    txt:"#e0e0e0", sub:"#888888", inputBg:"#0f3460", inputBd:"#1a4a7a",
-    isDark:true,
+    bg:"#1a1a2e", card:"#16213e", nav:"#16213e", inputBg:"#0f3460", isDark:true,
   });
   const isCustomModeActive = currentModeId==="personalizado";
   const [giftOpen,setGiftOpen]=useState(null);
@@ -549,10 +547,10 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
   const [saved,setSaved]   = useState(false);
 
   const FIELDS = [
-    {key:"bg",      label:"🎨 Fondo de la app",      derived:["pageBg","darkBg"]},
-    {key:"card",    label:"🗂️ Tarjetas y paneles",   derived:[]},
-    {key:"nav",     label:"🧭 Barra de navegación",   derived:["navBord","navPill"]},
-    {key:"inputBg", label:"✏️ Campos para escribir",  derived:["inputBd"]},
+    {key:"bg",      label:"🎨 Fondo de la app"},
+    {key:"card",    label:"🗂️ Tarjetas y paneles"},
+    {key:"nav",     label:"🧭 Barra de navegación"},
+    {key:"inputBg", label:"✏️ Campos para escribir"},
   ];
 
   const updateField=(key,val,derived)=>{
@@ -599,7 +597,7 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
         Los colores se aplican al instante. Tocá Guardar para que se mantengan en todas las pantallas.
       </div>
 
-      {FIELDS.map(({key,label,derived})=>(
+      {FIELDS.map(({key,label})=>(
         <div key={key} style={{display:"flex",alignItems:"center",
           justifyContent:"space-between",marginBottom:12}}>
           <span style={{fontSize:12,fontWeight:700,color:txt,flex:1}}>{label}</span>
@@ -611,7 +609,7 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
               cursor:"pointer",position:"relative",overflow:"hidden",flexShrink:0}}>
               <input type="color"
                 value={customMode[key]||"#888888"}
-                onChange={e=>updateField(key,e.target.value,derived)}
+                onChange={e=>updateField(key,e.target.value)}
                 style={{position:"absolute",inset:"-8px",opacity:0,
                   cursor:"pointer",width:"300%",height:"300%"}}/>
             </div>
@@ -632,7 +630,7 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
           <div style={{fontSize:12,fontWeight:700,color:txt}}>🌙 Fondo oscuro</div>
           <div style={{fontSize:10,color:sub}}>Afecta el contraste automático del texto</div>
         </div>
-        <div onClick={()=>updateField("isDark",!customMode.isDark,[])}
+        <div onClick={()=>updateField("isDark",!customMode.isDark)}
           style={{width:48,height:26,borderRadius:99,cursor:"pointer",flexShrink:0,
             background:customMode.isDark?accent:"#ccc",position:"relative",
             transition:"background .2s"}}>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { api, connectSocket } from "../../api";
 import { ThemeCtx, useTheme } from "../../ThemeContext";
-import { DUAL_THEMES, BUILTIN_SCREEN_MODES, GS } from "../../constants";
+import { DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode, GS } from "../../constants";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, useCountUp, displayName } from "../shared/index";
 import PerfilModal from "../shared/PerfilModal";
 import AHome from "./AHome";
@@ -41,7 +41,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [customActive,  setCustomActive]  = useState(null);
 
   // Resolver el modo activo: buscar en built-ins primero, luego puede venir de DB
-  const savedModeCfg = (() => { try { const s=localStorage.getItem("ec_mode_cfg"); return s?JSON.parse(s):null; } catch{return null;} })();
+  const savedModeCfg = (() => { try { const s=localStorage.getItem("ec_mode_cfg"); return s?normalizeMode(JSON.parse(s)):null; } catch{return null;} })();
   const [dbModeCfg, setDbModeCfg] = useState(savedModeCfg); // config completo de un modo de DB
 
   const sm = dbModeCfg || BUILTIN_SCREEN_MODES.find(m=>m.id===activeModeId) || BUILTIN_SCREEN_MODES[0];
@@ -116,11 +116,12 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const setMode=(modeId, modeCfg=null)=>{
     setPreviewPrimary(null);
     if(modeCfg){
-      // Modo de DB — guardar config completo
-      setDbModeCfg(modeCfg);
-      setActiveModeId(modeCfg.id||"custom");
-      localStorage.setItem("ec_mode_id", modeCfg.id||"custom");
-      localStorage.setItem("ec_mode_cfg", JSON.stringify(modeCfg));
+      // Normalizar al mismo formato que BUILTIN_SCREEN_MODES antes de aplicar
+      const normalized = normalizeMode({...modeCfg, id: modeCfg.id||modeId||"personalizado"});
+      setDbModeCfg(normalized);
+      setActiveModeId(normalized.id);
+      localStorage.setItem("ec_mode_id", normalized.id);
+      localStorage.setItem("ec_mode_cfg", JSON.stringify(normalized));
     } else {
       // Modo built-in (claro/oscuro)
       setDbModeCfg(null);
@@ -156,14 +157,12 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     // Modo de pantalla
     if(tipo===null||tipo==="screen_mode"){
       if(active.screen_mode_config){
+        // Normalizar el config del server al formato estándar
         const sc = typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
-        setMode(sc.id||"custom", sc);
+        setMode(sc.id||"custom", sc); // setMode ya normaliza internamente
       } else if(active.custom_mode_config){
-        // Modo personalizado guardado en el servidor
         const cm = typeof active.custom_mode_config==="string"?JSON.parse(active.custom_mode_config):active.custom_mode_config;
-        setMode("personalizado", cm);
-        localStorage.setItem("ec_mode_id","personalizado");
-        localStorage.setItem("ec_mode_cfg",JSON.stringify(cm));
+        setMode("personalizado", cm); // setMode ya normaliza
       } else {
         // Sin screen_mode — restaurar al modo guardado (claro/oscuro)
         const savedId = localStorage.getItem("ec_mode_id")||"claro";

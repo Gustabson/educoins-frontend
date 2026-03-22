@@ -36,6 +36,36 @@ const BUILTIN_SCREEN_MODES = [
 ];
 
 
+// Convierte cualquier config de modo al formato estándar de BUILTIN_SCREEN_MODES
+// Así el modo personalizado es idéntico a Claro/Oscuro para todo el sistema
+const normalizeMode = (raw) => {
+  if(!raw) return BUILTIN_SCREEN_MODES[0];
+  const bg       = raw.bg || raw.pageBg || "#F0F0F0";
+  const card     = raw.card || "#ffffff";
+  const nav      = raw.nav || card;
+  const inputBg  = raw.inputBg || bg;
+  const isDark   = raw.isDark || false;
+  // Derivar colores secundarios si no están definidos
+  const navBord  = raw.navBord || (isDark ? darken(nav, 0.15) : lighten(bg, 0.05));
+  const navPill  = raw.navPill || (isDark ? lighten(nav, 0.08) : lighten(bg, 0.08));
+  const navInact = raw.navInact || (isDark ? "#888888" : "#777777");
+  const inputBd  = raw.inputBd || (isDark ? lighten(inputBg, 0.12) : darken(inputBg, 0.06));
+  const txt      = raw.txt || (isDark ? "#e8e8f0" : "#1a1a1a");
+  const sub      = raw.sub || (isDark ? "#888888" : "#555555");
+  return {
+    id:      raw.id      || "personalizado",
+    nombre:  raw.nombre  || "Personalizado",
+    icon:    raw.icon    || "🎨",
+    isDark, bg, pageBg: bg, card, nav,
+    navBord, navPill, navInact, inputBg, inputBd, txt, sub,
+  };
+};
+// Helpers de color simples (hex → ajuste de brillo)
+const _hexToRgb = h => { const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16); return [r,g,b]; };
+const _rgbToHex = (r,g,b) => "#"+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")).join("");
+const lighten = (hex,amt) => { try { const [r,g,b]=_hexToRgb(hex); return _rgbToHex(r+255*amt,g+255*amt,b+255*amt); } catch{return hex;} };
+const darken  = (hex,amt) => { try { const [r,g,b]=_hexToRgb(hex); return _rgbToHex(r-255*amt,g-255*amt,b-255*amt); } catch{return hex;} };
+
 // ── SOCKET SINGLETON ──────────────────────────────────────────
 let _socket = null;
 
@@ -117,7 +147,7 @@ input::placeholder{color:#bbb;}
 // ── COMPONENTES BASE ──────────────────────────────────────────
 
 export {
-  THEMES_DEFAULT, DUAL_THEMES, BUILTIN_SCREEN_MODES,
+  THEMES_DEFAULT, DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode,
   LEVELS, getLv, nextLv,
   SKINS, BORDERS, TITLES,
   DIFCOL, GS,
