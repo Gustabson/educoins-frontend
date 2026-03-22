@@ -279,7 +279,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
               display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
 
           {/* 2. Perfil del amigo */}
-          <div onClick={()=>{ console.log('[AChat] click perfil, friend.id:', friend?.id, 'onOpenPerfil:', !!onOpenPerfil); onOpenPerfil&&onOpenPerfil(friend.id); }}
+          <div onClick={()=>{ onOpenPerfil&&onOpenPerfil(friend.user_id); }}
             style={{flex:1,display:"flex",alignItems:"center",gap:10,cursor:"pointer",
               minWidth:0}}>
             <div style={{flexShrink:0}}><Av user={friend} sz={36}/></div>
@@ -358,7 +358,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {[
                   {icon:"🗑️", label:"Limpiar chat", action:()=>{setPerson([]);setOptionsOpen(false);showToast("Chat limpiado localmente");}},
-                  {icon:"👤", label:"Ver perfil",    action:()=>{onOpenPerfil&&onOpenPerfil(friend.id);setOptionsOpen(false);}},
+                  {icon:"👤", label:"Ver perfil",    action:()=>{onOpenPerfil&&onOpenPerfil(friend.user_id);setOptionsOpen(false);}},
                   {icon:"🔕", label:"Silenciar",     action:()=>{showToast("Próximamente");setOptionsOpen(false);}},
                 ].map(opt=>(
                   <button key={opt.label} onClick={opt.action}
