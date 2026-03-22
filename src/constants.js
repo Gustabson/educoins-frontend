@@ -98,3 +98,14 @@ input::placeholder{color:#bbb;}
 `;
 
 // ── COMPONENTES BASE ──────────────────────────────────────────
+
+export {
+  THEMES_DEFAULT, DUAL_THEMES,
+  LEVELS, getLv, nextLv,
+  SKINS, BORDERS, TITLES,
+  DIFCOL, GS,
+  TAG_COLORS, TAG_LIST,
+  REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR,
+  ESTADO_COL, ESTADO_LABEL2, TIPO_ICON,
+  CHAT_SECTIONS
+};
