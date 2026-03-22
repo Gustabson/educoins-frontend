@@ -60,7 +60,7 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
               border:`2px solid ${isActive?accent:inputBg}`,
               opacity:!isOwned&&precio>0?.8:1}}>
               {/* Preview visual de los colores de texto */}
-              <div style={{padding:"10px 10px 6px",background:pageBg}}>
+              <div style={{padding:"10px 10px 6px",background:dark?"#1a1828":"#f8f8f8"}}>
                 <div style={{fontWeight:800,fontSize:13,color:previewTxt,marginBottom:2,lineHeight:1.2}}>
                   {item.nombre}
                 </div>
@@ -132,7 +132,7 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
                 ))}
               </div>
               {/* Preview */}
-              <div style={{background:pageBg,borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+              <div style={{background:dark?"#2d2a45":"#f0f4ff",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
                 <div style={{fontWeight:800,fontSize:14,color:customColors.txt}}>Título de ejemplo</div>
                 <div style={{fontSize:12,color:customColors.sub,marginTop:2}}>Subtítulo de ejemplo</div>
               </div>
