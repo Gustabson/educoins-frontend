@@ -45,7 +45,7 @@ function useChatSocket(token, onMessage, onTyping) {
 }
 
 function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,inputBg,inputBd} = useTheme();
+  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg,inputBd} = useTheme();
   const [sec, setSec]           = useState(0);
   const [friend, setFriend]     = useState(null);
   const [friends, setFriends]   = useState([]);
@@ -72,7 +72,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   const typingTimer             = useRef(null);
   const token                   = localStorage.getItem("ec_token");
 
-  const bg       = dark?"#12101e":"#F5F5F5";
+  const bg       = pageBg;
   const inputBord= dark?"#3d3a55":"#E8E8E8";
 
   // Cargar emoji packs del usuario
