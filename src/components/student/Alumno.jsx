@@ -133,12 +133,18 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       if(active.screen_mode_config){
         const sc = typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
         setMode(sc.id||"custom", sc);
+      } else if(active.custom_mode_config){
+        // Modo personalizado guardado en el servidor
+        const cm = typeof active.custom_mode_config==="string"?JSON.parse(active.custom_mode_config):active.custom_mode_config;
+        setMode("personalizado", cm);
+        localStorage.setItem("ec_mode_id","personalizado");
+        localStorage.setItem("ec_mode_cfg",JSON.stringify(cm));
       } else {
         // Sin screen_mode — restaurar al modo guardado (claro/oscuro)
         const savedId = localStorage.getItem("ec_mode_id")||"claro";
         const isBuiltin = ["claro","oscuro"].includes(savedId);
         if(isBuiltin) setMode(savedId, null);
-        else setMode("claro", null); // fallback a claro
+        else setMode("claro", null);
       }
     }
 

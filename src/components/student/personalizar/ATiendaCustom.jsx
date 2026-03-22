@@ -327,65 +327,12 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
             {/* ── Editor modo personalizado ─── */}
             {isCustomModeActive&&(
-              <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",marginBottom:12,
-                boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-                <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:12}}>🎨 Diseñá tu modo</div>
-                {[
-                  {key:"bg",     label:"Fondo principal"},
-                  {key:"card",   label:"Tarjetas"},
-                  {key:"nav",    label:"Barra de nav"},
-                  {key:"txt",    label:"Texto principal"},
-                  {key:"sub",    label:"Texto secundario"},
-                  {key:"inputBg",label:"Fondo de inputs"},
-                ].map(({key,label})=>(
-                  <div key={key} style={{display:"flex",alignItems:"center",
-                    justifyContent:"space-between",marginBottom:10}}>
-                    <span style={{fontSize:12,fontWeight:700,color:txt}}>{label}</span>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:28,height:28,borderRadius:8,background:customMode[key]||"#888",
-                        border:`1.5px solid ${dark?"#3a3758":"#ddd"}`,cursor:"pointer",flexShrink:0,
-                        overflow:"hidden",position:"relative"}}>
-                        <input type="color" value={customMode[key]||"#888888"}
-                          onChange={e=>{
-                            const newMode={...customMode,[key]:e.target.value};
-                            // Also update derived fields
-                            if(key==="bg") { newMode.pageBg=e.target.value; newMode.darkBg=e.target.value; }
-                            if(key==="nav") { newMode.navBord=e.target.value+"88"; newMode.navPill=e.target.value+"66"; newMode.navInact=newMode.sub||"#888"; }
-                            if(key==="inputBg") { newMode.inputBd=e.target.value+"aa"; }
-                            setCustomMode(newMode);
-                            localStorage.setItem("ec_custom_mode",JSON.stringify(newMode));
-                            const cfg={...newMode,id:"personalizado",nombre:"Personalizado"};
-                            if(onSetMode) onSetMode("personalizado",cfg);
-                            localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
-                          }}
-                          style={{position:"absolute",inset:"-4px",opacity:0,cursor:"pointer",
-                            width:"200%",height:"200%"}}/>
-                      </div>
-                      <span style={{fontSize:11,color:sub,fontFamily:"monospace"}}>
-                        {customMode[key]||"#888888"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:4}}>
-                  <span style={{fontSize:12,fontWeight:700,color:txt}}>Modo oscuro</span>
-                  <div onClick={()=>{
-                    const newMode={...customMode,isDark:!customMode.isDark};
-                    setCustomMode(newMode);
-                    localStorage.setItem("ec_custom_mode",JSON.stringify(newMode));
-                    const cfg={...newMode,id:"personalizado",nombre:"Personalizado"};
-                    if(onSetMode) onSetMode("personalizado",cfg);
-                    localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
-                  }}
-                    style={{width:44,height:24,borderRadius:99,cursor:"pointer",
-                      background:customMode.isDark?accent:"#ccc",position:"relative",
-                      transition:"background .2s"}}>
-                    <div style={{position:"absolute",top:2,
-                      left:customMode.isDark?22:2,width:20,height:20,
-                      borderRadius:"50%",background:"white",transition:"left .2s"}}/>
-                  </div>
-                </div>
-              </div>
+              <CustomModeEditor
+                customMode={customMode}
+                setCustomMode={setCustomMode}
+                onSetMode={onSetMode}
+                accent={accent} dark={dark} txt={txt} sub={sub} cardBg={cardBg}
+              />
             )}
 
             {/* ── Paletas de acento ─── */}
@@ -596,5 +543,118 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 }
 
 // ── NOTIFICACIONES ────────────────────────────────────────────
+
+function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, txt, sub, cardBg}){
+  const [saving,setSaving] = useState(false);
+  const [saved,setSaved]   = useState(false);
+
+  const FIELDS = [
+    {key:"bg",      label:"🎨 Fondo de la app",      derived:["pageBg","darkBg"]},
+    {key:"card",    label:"🗂️ Tarjetas y paneles",   derived:[]},
+    {key:"nav",     label:"🧭 Barra de navegación",   derived:["navBord","navPill"]},
+    {key:"inputBg", label:"✏️ Campos para escribir",  derived:["inputBd"]},
+  ];
+
+  const updateField=(key,val,derived)=>{
+    const newMode={...customMode,[key]:val};
+    derived.forEach(d=>{
+      if(d==="pageBg"||d==="darkBg") newMode[d]=val;
+      if(d==="navBord") newMode[d]=val+"88";
+      if(d==="navPill") newMode[d]=val+"55";
+      if(d==="inputBd") newMode[d]=val+"aa";
+    });
+    setCustomMode(newMode);
+    // Aplicar en tiempo real
+    const cfg={...newMode,id:"personalizado",nombre:"Personalizado"};
+    if(onSetMode) onSetMode("personalizado",cfg);
+    localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
+    localStorage.setItem("ec_custom_mode",JSON.stringify(newMode));
+    setSaved(false);
+  };
+
+  const guardar=async()=>{
+    setSaving(true);
+    try{
+      const cfg={...customMode,id:"personalizado",nombre:"Personalizado",custom:true};
+      await api.saveCustomMode(cfg);
+      // También actualizar localStorage
+      localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
+      localStorage.setItem("ec_custom_mode",JSON.stringify(customMode));
+      setSaved(true);
+      setTimeout(()=>setSaved(false),2500);
+    }catch(e){
+      // Fallback: guardar solo en localStorage
+      localStorage.setItem("ec_mode_cfg",JSON.stringify({...customMode,id:"personalizado",nombre:"Personalizado",custom:true}));
+      localStorage.setItem("ec_custom_mode",JSON.stringify(customMode));
+      setSaved(true);
+      setTimeout(()=>setSaved(false),2500);
+    }finally{setSaving(false);}
+  };
+
+  return(
+    <div style={{background:cardBg,borderRadius:18,padding:"16px",marginBottom:12,
+      boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+      <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:4}}>🎨 Diseñá tu pantalla</div>
+      <div style={{fontSize:11,color:sub,marginBottom:14,lineHeight:1.5}}>
+        Los colores se aplican al instante. Tocá Guardar para que se mantengan en todas las pantallas.
+      </div>
+
+      {FIELDS.map(({key,label,derived})=>(
+        <div key={key} style={{display:"flex",alignItems:"center",
+          justifyContent:"space-between",marginBottom:12}}>
+          <span style={{fontSize:12,fontWeight:700,color:txt,flex:1}}>{label}</span>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+            {/* Preview del color */}
+            <div style={{width:36,height:36,borderRadius:10,
+              background:customMode[key]||"#888888",
+              border:`2px solid ${dark?"rgba(255,255,255,.15)":"rgba(0,0,0,.1)"}`,
+              cursor:"pointer",position:"relative",overflow:"hidden",flexShrink:0}}>
+              <input type="color"
+                value={customMode[key]||"#888888"}
+                onChange={e=>updateField(key,e.target.value,derived)}
+                style={{position:"absolute",inset:"-8px",opacity:0,
+                  cursor:"pointer",width:"300%",height:"300%"}}/>
+            </div>
+            <span style={{fontSize:11,color:sub,fontFamily:"monospace",
+              background:dark?"rgba(255,255,255,.06)":"rgba(0,0,0,.04)",
+              borderRadius:6,padding:"2px 6px"}}>
+              {customMode[key]||"#888888"}
+            </span>
+          </div>
+        </div>
+      ))}
+
+      {/* Toggle modo oscuro */}
+      <div style={{display:"flex",alignItems:"center",
+        justifyContent:"space-between",paddingTop:10,
+        borderTop:`1px solid ${dark?"#2d2a45":"#f0f0f0"}`,marginBottom:14}}>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:txt}}>🌙 Fondo oscuro</div>
+          <div style={{fontSize:10,color:sub}}>Afecta el contraste automático del texto</div>
+        </div>
+        <div onClick={()=>updateField("isDark",!customMode.isDark,[])}
+          style={{width:48,height:26,borderRadius:99,cursor:"pointer",flexShrink:0,
+            background:customMode.isDark?accent:"#ccc",position:"relative",
+            transition:"background .2s"}}>
+          <div style={{position:"absolute",top:3,
+            left:customMode.isDark?24:3,width:20,height:20,
+            borderRadius:"50%",background:"white",transition:"left .2s",
+            boxShadow:"0 1px 4px rgba(0,0,0,.2)"}}/>
+        </div>
+      </div>
+
+      {/* Botón guardar */}
+      <button onClick={guardar} disabled={saving}
+        style={{width:"100%",background:saved?"#10b981":saving?"#ccc":accent,
+          border:"none",borderRadius:50,color:"white",padding:"12px",
+          fontWeight:800,fontSize:13,cursor:saving?"not-allowed":"pointer",
+          fontFamily:"Nunito,sans-serif",transition:"background .3s",
+          boxShadow:saved?"0 4px 14px #10b98133":saving?"none":`0 4px 14px ${accent}44`}}>
+        {saving?"Guardando...":(saved?"✅ ¡Guardado!":"Guardar modo personalizado")}
+      </button>
+    </div>
+  );
+}
+
 
 export default ATiendaCustom;

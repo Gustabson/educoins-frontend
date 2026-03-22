@@ -105,6 +105,7 @@ const api = {
   customBuy:      (item_id)  => apiFetch("/custom/buy",    { method:"POST", body:{item_id} }),
   customEquip:    (tipo,item_id,custom_bg_color,custom_accent_color) => apiFetch("/custom/equip",{ method:"POST", body:{tipo,item_id,custom_bg_color,custom_accent_color} }),
   customEquipText:(item_id,txt,sub) => apiFetch("/custom/equip",{ method:"POST", body:{tipo:"text_style",item_id,custom_txt_color:txt,custom_sub_color:sub} }),
+  saveCustomMode:  (config)            => apiFetch("/custom/save-mode", { method:"POST", body:{config} }),
   customGift:     (data)     => apiFetch("/custom/gift",   { method:"POST", body:data }),
   customGifts:    ()         => apiFetch("/custom/gifts"),
   customGiftRead: (id)       => apiFetch(`/custom/gifts/${id}/read`, { method:"PATCH" }),
