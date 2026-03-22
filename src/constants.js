@@ -19,6 +19,23 @@ const DUAL_THEMES = [
   { id:'aurora',   name:'Aurora',        primary:'#a855f7', secondary:'#06b6d4', dark:false, icon:'🌈' },
 ];
 
+// Modos de pantalla built-in — misma estructura que screen_modes de la DB
+const BUILTIN_SCREEN_MODES = [
+  {
+    id:"claro", nombre:"Claro", icon:"☀️", isDark:false,
+    bg:"#F0F0F0", pageBg:"#F0F0F0", card:"white", nav:"white",
+    navBord:"#EFEFEF", navPill:"#f0f9ff", navInact:"#777777",
+    txt:"#1a1a1a", sub:"#555555", inputBg:"#F7F7F7", inputBd:"#E8E8E8",
+  },
+  {
+    id:"oscuro", nombre:"Oscuro", icon:"🌙", isDark:true,
+    bg:"#0d0d1a", pageBg:"#0d0d1a", card:"#1a1828", nav:"#1a1828",
+    navBord:"#2a2740", navPill:"#2a2740", navInact:"#666666",
+    txt:"#e8e8f0", sub:"#888888", inputBg:"#2a2740", inputBd:"#3a3758",
+  },
+];
+
+
 // ── SOCKET SINGLETON ──────────────────────────────────────────
 let _socket = null;
 
@@ -100,7 +117,7 @@ input::placeholder{color:#bbb;}
 // ── COMPONENTES BASE ──────────────────────────────────────────
 
 export {
-  THEMES_DEFAULT, DUAL_THEMES,
+  THEMES_DEFAULT, DUAL_THEMES, BUILTIN_SCREEN_MODES,
   LEVELS, getLv, nextLv,
   SKINS, BORDERS, TITLES,
   DIFCOL, GS,

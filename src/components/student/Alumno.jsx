@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { api, connectSocket } from "../../api";
 import { ThemeCtx, useTheme } from "../../ThemeContext";
-import { DUAL_THEMES, GS } from "../../constants";
+import { DUAL_THEMES, BUILTIN_SCREEN_MODES, GS } from "../../constants";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, useCountUp, displayName } from "../shared/index";
 import PerfilModal from "../shared/PerfilModal";
 import AHome from "./AHome";
@@ -28,119 +28,136 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [badges,setBadges]=useState({chat:0,notifs:0});
   const [perfilUserId,setPerfilUserId]=useState(null); // perfil modal global
 
-  // ── Tema dual ────────────────────────────────────────────────
-  const savedThemeId = localStorage.getItem("ec_theme")||"oceano";
-  const savedDark    = localStorage.getItem("ec_dark")==="true";
-  const savedPrimary = localStorage.getItem("ec_primary")||null; // guardado para evitar flash
-  const [themeId,setThemeId]         = useState(savedThemeId);
-  const [isDark,setIsDark]           = useState(savedDark);
-  const [dbThemePrimary,setDbThemePrimary] = useState(savedPrimary); // color real equipado
-  const [screenModeCfg,setScreenModeCfg]=useState(null); // config del modo de pantalla activo
-  const [previewPrimary,setPreviewPrimary] = useState(null); // preview temporal (no se guarda)
-  const [customActive,setCustomActive]=useState(null);
-  const [textStyleCfg,setTextStyleCfg]=useState(null);
+  // ── Sistema de tema unificado ────────────────────────────────
+  // activeMode: objeto con todos los colores del modo activo (claro/oscuro/sepia/etc)
+  // activePrimary: color de acento equipado (null = usa el default del modo)
+  const savedModeId  = localStorage.getItem("ec_mode_id")||"claro";
+  const savedPrimary = localStorage.getItem("ec_primary")||null;
 
-  // Prioridad: preview temporal > color DB real > DUAL_THEMES locales
-  const baseTheme = DUAL_THEMES.find(t=>t.id===themeId)||DUAL_THEMES[0];
-  const primary   = previewPrimary || dbThemePrimary || baseTheme.primary;
-  const secondary = baseTheme.secondary;
+  const [activeModeId,  setActiveModeId]  = useState(savedModeId);
+  const [activePrimary, setActivePrimary] = useState(savedPrimary);
+  const [previewPrimary,setPreviewPrimary]= useState(null);
+  const [textStyleCfg,  setTextStyleCfg]  = useState(null);
+  const [customActive,  setCustomActive]  = useState(null);
 
-  // ── Screen mode activo — define TODO el tema de fondo ────────
-  // Si hay screen_mode activo con config completo, SUS valores reemplazan claro/oscuro
-  const sm = screenModeCfg || {};
-  const hasScreenMode = !!(screenModeCfg && sm.mode);  // solo si tiene un mode definido
+  // Resolver el modo activo: buscar en built-ins primero, luego puede venir de DB
+  const savedModeCfg = (() => { try { const s=localStorage.getItem("ec_mode_cfg"); return s?JSON.parse(s):null; } catch{return null;} })();
+  const [dbModeCfg, setDbModeCfg] = useState(savedModeCfg); // config completo de un modo de DB
 
-  // El "dark" efectivo: screen_mode define isDark, o toggle del usuario
-  const smDark = hasScreenMode ? (sm.isDark || sm.dark || false) : isDark;
+  const resolveMode = () => {
+    if(dbModeCfg) return dbModeCfg;
+    return BUILTIN_SCREEN_MODES.find(m=>m.id===activeModeId)||BUILTIN_SCREEN_MODES[0];
+  };
+  const sm = resolveMode();
 
   // Text style overrides
-  const ts = textStyleCfg || {};
-  const isContrast = ts.contrast || ts.preset === "contraste";
-  const isCustomTs = ts.preset === "custom";
-  const forceDark  = ts.force_dark;
-  const tsTxt = isCustomTs && ts.custom_txt ? ts.custom_txt
-              : ts.txt && ts.txt !== "default" ? ts.txt : null;
-  const tsSub = isCustomTs && ts.custom_sub ? ts.custom_sub
-              : ts.sub && ts.sub !== "default" ? ts.sub : null;
+  const ts     = textStyleCfg || {};
+  const tsTxt  = ts.preset==="custom" && ts.custom_txt ? ts.custom_txt
+               : ts.txt && ts.txt!=="default" ? ts.txt : null;
+  const tsSub  = ts.preset==="custom" && ts.custom_sub ? ts.custom_sub
+               : ts.sub && ts.sub!=="default" ? ts.sub : null;
 
-  // Dark final: screen_mode > text_style fuerza dark > toggle usuario
-  const finalDark = smDark || forceDark;
+  const primary = previewPrimary || activePrimary || "#00c1fc";
 
   const theme = {
-    primary:  primary,
-    secondary,
-    isDark:   finalDark,
-
-    // Fondos — screen_mode reemplaza todo claro/oscuro
-    pageBg:  hasScreenMode ? sm.pageBg  : (finalDark ? "#0d0d1a" : "#F0F0F0"),
-    darkBg:  hasScreenMode ? sm.bg      : (finalDark ? "#0d0d1a" : "#F0F0F0"),
-    cardBg:  hasScreenMode ? sm.card    : (finalDark ? "#1a1828" : "white"),
-    navBg:   hasScreenMode ? sm.nav     : (finalDark ? "#1a1828" : "white"),
-    navBord: hasScreenMode ? sm.navBord : (finalDark ? "#2a2740" : "#EFEFEF"),
-    navPill: hasScreenMode ? sm.navPill : (finalDark ? "#2a2740" : "#f0f9ff"),
-    navInact:hasScreenMode ? sm.navInact: (finalDark ? "#666"    : "#777777"),
-    navActiv: primary,
-    inputBg: hasScreenMode ? sm.inputBg : (finalDark ? "#2a2740" : "#F7F7F7"),
-    inputBd: hasScreenMode ? sm.inputBd : (finalDark ? "#3a3758" : "#E8E8E8"),
-
-    // Texto — text_style override > contraste > screen_mode > default
-    txt: tsTxt ? tsTxt
-       : isContrast ? (finalDark ? "#ffffff" : "#000000")
-       : hasScreenMode ? sm.txt
-       : (finalDark ? "#e8e8f0" : "#1a1a1a"),
-    sub: tsSub ? tsSub
-       : isContrast ? (finalDark ? "#dddddd" : "#222222")
-       : hasScreenMode ? sm.sub
-       : (finalDark ? "#888" : "#555"),
+    primary,
+    secondary: "#0369a1",
+    isDark:    sm.isDark||false,
+    pageBg:    sm.pageBg,
+    darkBg:    sm.bg||sm.pageBg,
+    cardBg:    sm.card,
+    navBg:     sm.nav,
+    navBord:   sm.navBord,
+    navPill:   sm.navPill,
+    navInact:  sm.navInact,
+    navActiv:  primary,
+    inputBg:   sm.inputBg,
+    inputBd:   sm.inputBd,
+    txt:       tsTxt || sm.txt,
+    sub:       tsSub || sm.sub,
   };
 
-  const setTheme=(id, directPrimary, isPreview=false)=>{
+  // ── Funciones de tema unificadas ─────────────────────────────
+
+  // Cambiar color de acento (paleta)
+  const setAccent=(primary, isPreview=false)=>{
     if(isPreview){
-      // Solo cambia visualmente, no persiste
-      setPreviewPrimary(directPrimary||null);
+      setPreviewPrimary(primary||null);
     } else {
-      // Cambio real — persiste
-      setPreviewPrimary(null); // limpiar preview
-      if(id) setThemeId(id);
-      setDbThemePrimary(directPrimary||null);
-      if(id) localStorage.setItem("ec_theme", id);
-      // Guardar primary para evitar flash en recarga
-      if(directPrimary) localStorage.setItem("ec_primary", directPrimary);
+      setPreviewPrimary(null);
+      setActivePrimary(primary||null);
+      if(primary) localStorage.setItem("ec_primary", primary);
       else localStorage.removeItem("ec_primary");
     }
   };
-  // Llamado al salir de personalización — restaura el color real y borra preview
+
+  // Cambiar modo de pantalla (claro/oscuro/sepia/etc — todos iguales)
+  const setMode=(modeId, modeCfg=null)=>{
+    setPreviewPrimary(null);
+    if(modeCfg){
+      // Modo de DB — guardar config completo
+      setDbModeCfg(modeCfg);
+      setActiveModeId(modeCfg.id||"custom");
+      localStorage.setItem("ec_mode_id", modeCfg.id||"custom");
+      localStorage.setItem("ec_mode_cfg", JSON.stringify(modeCfg));
+    } else {
+      // Modo built-in (claro/oscuro)
+      setDbModeCfg(null);
+      setActiveModeId(modeId||"claro");
+      localStorage.setItem("ec_mode_id", modeId||"claro");
+      localStorage.removeItem("ec_mode_cfg");
+    }
+  };
+
+  // Limpiar preview al salir de personalización
   const clearPreview=()=>{ setPreviewPrimary(null); };
+
+  // Compatibilidad con ATiendaCustom (usa onThemeChange y onDarkChange)
+  const setTheme=(id, directPrimary, isPreview=false)=>{
+    setAccent(directPrimary, isPreview);
+  };
   const toggleDark=(d)=>{
-    setIsDark(d);
-    localStorage.setItem("ec_dark",d?"true":"false");
+    setMode(d?"oscuro":"claro");
   };
 
   // ── Personalización del server ───────────────────────────────
 
   const applyActive=(active, changedTipo=null)=>{
     if(!active) return;
-    // Solo tocar el tema si: carga inicial de Alumno (null) o se equipó theme explícitamente
-    // "__init__" = carga de ATiendaCustom — NO tocar el tema para no pisarlo
-    if((changedTipo===null||changedTipo==="theme")&&changedTipo!=="__init__"){
+    const tipo = changedTipo;
+
+    // Color de acento (paleta de color)
+    if(tipo===null||tipo==="theme"){
       if(active.theme_config){
-        const tc=typeof active.theme_config==="string"?JSON.parse(active.theme_config):active.theme_config;
-        if(tc?.primary){ const match=DUAL_THEMES.find(t=>t.primary===tc.primary); setTheme(match?.id||null,tc.primary,false); }
+        const tc = typeof active.theme_config==="string"?JSON.parse(active.theme_config):active.theme_config;
+        if(tc?.primary) setAccent(tc.primary, false);
+      } else if(tipo===null){
+        setAccent(null, false);
       }
     }
-    // Solo tocar screen_mode si es carga inicial o se equipó un screen_mode
-    if(changedTipo===null||changedTipo==="screen_mode"){
+
+    // Modo de pantalla
+    if(tipo===null||tipo==="screen_mode"){
       if(active.screen_mode_config){
-        const sc=typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
-        setScreenModeCfg(sc||null);
-      } else if(changedTipo===null){ setScreenModeCfg(null); }
+        const sc = typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
+        setMode(sc.id||"custom", sc);
+      } else {
+        // Sin screen_mode — restaurar al modo guardado (claro/oscuro)
+        const savedId = localStorage.getItem("ec_mode_id")||"claro";
+        const isBuiltin = ["claro","oscuro"].includes(savedId);
+        if(isBuiltin) setMode(savedId, null);
+        else setMode("claro", null); // fallback a claro
+      }
     }
-    // Solo tocar text_style si es carga inicial o se equipó un text_style
-    if(changedTipo===null||changedTipo==="text_style"){
+
+    // Estilo de texto
+    if(tipo===null||tipo==="text_style"){
       if(active.text_style_config){
-        const ts=typeof active.text_style_config==="string"?JSON.parse(active.text_style_config):active.text_style_config;
-        setTextStyleCfg({...ts,custom_txt:active.custom_txt_color,custom_sub:active.custom_sub_color,custom_card:active.custom_card_color});
-      } else if(changedTipo===null){ setTextStyleCfg(null); }
+        const ts = typeof active.text_style_config==="string"?JSON.parse(active.text_style_config):active.text_style_config;
+        setTextStyleCfg({...ts, custom_txt:active.custom_txt_color, custom_sub:active.custom_sub_color});
+      } else if(tipo===null){
+        setTextStyleCfg(null);
+      }
     }
   };
 
@@ -228,8 +245,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           }}
           onThemeChange={(id,directPrimary,isPreview)=>setTheme(id,directPrimary,isPreview)}
           onDarkChange={toggleDark}
-          currentThemeId={themeId} isDark={isDark}
-          currentPrimary={dbThemePrimary||theme.primary}/>}
+          currentThemeId={activeModeId} isDark={theme.isDark}
+          currentPrimary={activePrimary||theme.primary}/>}
         {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig} onOpenPerfil={setPerfilUserId}/>}
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
