@@ -12,14 +12,16 @@ function PerfilModal({userId, onClose, showToast}){
 
   useEffect(()=>{
     if(!userId){ setLoading(false); return; }
+    console.log('[PerfilModal] fetching userId:', userId);
     setLoading(true);
     api.publicProfile(userId)
       .then(d=>{
-        // apiFetch ya devuelve data.data, así que d es el usuario directo
+        console.log('[PerfilModal] response:', d);
         const data = d?.id ? d : (d?.data || d);
+        console.log('[PerfilModal] parsed data:', data);
         setPerfil(data?.id ? data : null);
       })
-      .catch((e)=>{ console.warn('publicProfile error:', e); setPerfil(null); })
+      .catch((e)=>{ console.error('[PerfilModal] ERROR:', e); setPerfil(null); })
       .finally(()=>setLoading(false));
   },[userId]);
 

@@ -279,7 +279,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
               display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
 
           {/* 2. Perfil del amigo */}
-          <div onClick={()=>onOpenPerfil&&onOpenPerfil(friend.id)}
+          <div onClick={()=>{ console.log('[AChat] click perfil, friend.id:', friend?.id, 'onOpenPerfil:', !!onOpenPerfil); onOpenPerfil&&onOpenPerfil(friend.id); }}
             style={{flex:1,display:"flex",alignItems:"center",gap:10,cursor:"pointer",
               minWidth:0}}>
             <div style={{flexShrink:0}}><Av user={friend} sz={36}/></div>
