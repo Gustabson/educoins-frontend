@@ -67,6 +67,8 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   // perfilUserId manejado en Alumno via onOpenPerfil prop
   // Emoji picker
   const [emojiOpen, setEmojiOpen]     = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [emojiPacks, setEmojiPacks]   = useState([]); // packs desbloqueados
   const bottomRef               = useRef(null);
   const typingTimer             = useRef(null);
@@ -263,18 +265,114 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   // ── Render chat individual v2 ─────────────────────────────────
   if (friend) return(
     <div style={{background:bg,height:"100%",display:"flex",flexDirection:"column"}}>
-      <div style={{background:accent,padding:"22px 16px 16px",color:"white",
-        display:"flex",alignItems:"center",gap:12,flexShrink:0,
+      {/* ── Header fijo — 3 zonas ─────────────────────────── */}
+      <div style={{background:accent,color:"white",flexShrink:0,
         position:"sticky",top:0,zIndex:10}}>
-        <button onClick={()=>{setFriend(null);setPerson([]);setConvId(null);personalConvIdRef.current=null;}}
-          style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
-            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
-            display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-        <div onClick={()=>onOpenPerfil&&onOpenPerfil(friend.id)} style={{cursor:"pointer"}}><Av user={friend} sz={36}/></div>
-        <div style={{flex:1}}>
-          <div onClick={()=>onOpenPerfil&&onOpenPerfil(friend.id)} style={{fontWeight:800,fontSize:15,cursor:"pointer"}}>{friend.nombre}</div>
-          {typing&&<div style={{fontSize:11,opacity:.8}}>escribiendo...</div>}
+
+        {/* Zona principal: ← | Perfil | ⋯ */}
+        <div style={{padding:"22px 16px 14px",display:"flex",alignItems:"center",gap:10}}>
+
+          {/* 1. Volver */}
+          <button onClick={()=>{setFriend(null);setPerson([]);setConvId(null);personalConvIdRef.current=null;setOptionsOpen(false);setSearchQuery("");}}
+            style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
+              color:"white",width:34,height:34,cursor:"pointer",fontSize:18,flexShrink:0,
+              display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
+
+          {/* 2. Perfil del amigo */}
+          <div onClick={()=>onOpenPerfil&&onOpenPerfil(friend.id)}
+            style={{flex:1,display:"flex",alignItems:"center",gap:10,cursor:"pointer",
+              minWidth:0}}>
+            <div style={{flexShrink:0}}><Av user={friend} sz={36}/></div>
+            <div style={{minWidth:0}}>
+              <div style={{fontWeight:800,fontSize:15,
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {friend.nombre}
+              </div>
+              {typing
+                ? <div style={{fontSize:11,opacity:.8}}>escribiendo...</div>
+                : <div style={{fontSize:11,opacity:.65}}>Toca para ver perfil</div>
+              }
+            </div>
+          </div>
+
+          {/* 3. Opciones */}
+          <button onClick={()=>setOptionsOpen(o=>!o)}
+            style={{background:optionsOpen?"rgba(255,255,255,.35)":"rgba(255,255,255,.2)",
+              border:"none",borderRadius:50,color:"white",width:34,height:34,
+              cursor:"pointer",fontSize:18,flexShrink:0,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              transition:"background .2s"}}>
+            ⋯
+          </button>
         </div>
+
+        {/* Panel de opciones — se despliega debajo del header */}
+        {optionsOpen&&(
+          <div style={{background:"rgba(0,0,0,.25)",backdropFilter:"blur(8px)",
+            padding:"8px 14px 14px",borderTop:"1px solid rgba(255,255,255,.15)"}}>
+
+            {/* Buscador */}
+            <div style={{display:"flex",alignItems:"center",gap:8,
+              background:"rgba(255,255,255,.15)",borderRadius:50,padding:"7px 14px",
+              marginBottom:10}}>
+              <span style={{fontSize:14}}>🔍</span>
+              <input
+                value={searchQuery}
+                onChange={e=>setSearchQuery(e.target.value)}
+                placeholder="Buscar en la conversación..."
+                style={{flex:1,background:"none",border:"none",outline:"none",
+                  color:"white",fontSize:13,fontWeight:600,fontFamily:"Nunito,sans-serif"}}/>
+              {searchQuery&&(
+                <button onClick={()=>setSearchQuery("")}
+                  style={{background:"none",border:"none",color:"rgba(255,255,255,.7)",
+                    cursor:"pointer",fontSize:14,padding:0}}>✕</button>
+              )}
+            </div>
+
+            {/* Resultados de búsqueda */}
+            {searchQuery.trim()&&(()=>{
+              const hits = personMsgs.filter(m=>
+                m.texto?.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+              return hits.length>0?(
+                <div style={{maxHeight:160,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
+                  {hits.slice(-10).map((m,i)=>(
+                    <div key={i} style={{background:"rgba(255,255,255,.12)",borderRadius:10,
+                      padding:"6px 10px",fontSize:12,color:"white"}}>
+                      <span style={{opacity:.7,marginRight:6}}>
+                        {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                      </span>
+                      {m.texto}
+                    </div>
+                  ))}
+                </div>
+              ):(
+                <div style={{fontSize:11,color:"rgba(255,255,255,.6)",textAlign:"center",padding:"4px 0"}}>
+                  Sin resultados para "{searchQuery}"
+                </div>
+              );
+            })()}
+
+            {/* Acciones rápidas */}
+            {!searchQuery&&(
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {[
+                  {icon:"🗑️", label:"Limpiar chat", action:()=>{setPerson([]);setOptionsOpen(false);showToast("Chat limpiado localmente");}},
+                  {icon:"👤", label:"Ver perfil",    action:()=>{onOpenPerfil&&onOpenPerfil(friend.id);setOptionsOpen(false);}},
+                  {icon:"🔕", label:"Silenciar",     action:()=>{showToast("Próximamente");setOptionsOpen(false);}},
+                ].map(opt=>(
+                  <button key={opt.label} onClick={opt.action}
+                    style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:99,
+                      padding:"7px 14px",color:"white",fontSize:11,fontWeight:700,
+                      cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                      display:"flex",alignItems:"center",gap:5}}>
+                    {opt.icon} {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <div style={{flex:1,padding:"12px 14px 12px",overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
         {personMsgs.length===0&&(

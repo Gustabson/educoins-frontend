@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { api, connectSocket } from "../../api";
 import { ThemeCtx, useTheme } from "../../ThemeContext";
 import { DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode, GS } from "../../constants";
@@ -361,7 +362,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       </div>
       )}
     </div>
-    {perfilUserId&&<PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>}
+    {perfilUserId&&createPortal(<PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>, document.body)}
     </ThemeCtx.Provider>
   );
 }
