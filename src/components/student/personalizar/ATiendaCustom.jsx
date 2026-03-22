@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { api, connectSocket } from "../../../api";
 import { useTheme } from "../../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../../shared/index";
+import TextoStylePanel from "./TextoStylePanel";
+import ApodoPanel from "./ApodoPanel";
+import FotoPanel from "./FotoPanel";
+import TituloCustomPanel from "./TituloCustomPanel";
 
 
 function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChange,onThemeChange,onDarkChange,currentThemeId,isDark,currentPrimary}){

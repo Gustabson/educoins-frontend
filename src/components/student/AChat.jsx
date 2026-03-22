@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';;
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CHAT_SECTIONS } from "../../constants";
-import { api, connectSocket } from "../../api";;
+import { api, connectSocket, getSocket } from "../../api";;
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, Sheet, Toast, WCard, displayName, useToast } from "../shared/index";
 
