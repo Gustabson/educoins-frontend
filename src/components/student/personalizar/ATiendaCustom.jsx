@@ -219,7 +219,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
             {/* ── Modos de pantalla ─── */}
             <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",marginBottom:12,
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:12}}>🖥️ Modo de pantalla</div>
+              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:12}}>🖥️ Fondos de pantalla</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
 
                 {/* Claro y Oscuro — botones grandes con fondo del color del modo */}
@@ -336,7 +336,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
             {/* ── Paletas de acento ─── */}
             <div style={{background:cardBg,borderRadius:18,padding:"14px 16px",
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:6}}>🎨 Paleta de acento</div>
+              <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:6}}>🎨 Tema</div>
               <div style={{fontSize:11,color:sub,marginBottom:10}}>Tocá para previsualizar · doble toque para equipar</div>
               {items.filter(i=>i.tipo==="theme").length===0&&(
                 <div style={{textAlign:"center",color:sub,fontSize:12,padding:16}}>Sin paletas configuradas</div>
@@ -553,14 +553,8 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
     {key:"inputBg", label:"✏️ Campos para escribir"},
   ];
 
-  const updateField=(key,val,derived)=>{
+  const updateField=(key,val)=>{
     const newMode={...customMode,[key]:val};
-    derived.forEach(d=>{
-      if(d==="pageBg"||d==="darkBg") newMode[d]=val;
-      if(d==="navBord") newMode[d]=val+"88";
-      if(d==="navPill") newMode[d]=val+"55";
-      if(d==="inputBd") newMode[d]=val+"aa";
-    });
     setCustomMode(newMode);
     // Aplicar en tiempo real
     const cfg={...newMode,id:"personalizado",nombre:"Personalizado"};
