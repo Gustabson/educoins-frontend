@@ -263,8 +263,7 @@ function AChat({me, showToast, onBack, nameColorConfig}){
 
   // ── Render chat individual v2 ─────────────────────────────────
   if (friend) return(
-    <>
-    <div style={{background:bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div style={{background:bg,height:"100%",display:"flex",flexDirection:"column"}}>
       <div style={{background:accent,padding:"22px 16px 16px",color:"white",
         display:"flex",alignItems:"center",gap:12,flexShrink:0,
         position:"sticky",top:0,zIndex:10}}>
@@ -638,12 +637,11 @@ function AChat({me, showToast, onBack, nameColorConfig}){
         </div>
       )}
 
+      {/* Modal perfil */}
+      {perfilUserId&&(
+        <PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>
+      )}
     </div>
-    {/* Modal perfil — fuera del container overflow:hidden */}
-    {perfilUserId&&(
-      <PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>
-    )}
-    </>
   );
 }
 

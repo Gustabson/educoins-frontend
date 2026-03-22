@@ -10,6 +10,7 @@ function AdminEconomia({showToast, onBack}){
     {id:"colores",    icon:"🖊️", title:"Colores de Nombre",  sub:"Precios y suscripciones", col:"#8b5cf6"},
     {id:"temas",      icon:"🎨", title:"Temas de App",        sub:"Paletas y suscripciones", col:"#ec4899"},
     {id:"modos",      icon:"🖥️", title:"Modos de Pantalla",  sub:"AMOLED, Sepia, Custom...", col:"#6366f1"},
+    {id:"estilos",    icon:"✍️", title:"Estilos de Texto",    sub:"Precios y colores",       col:"#06b6d4"},
     {id:"emojis",     icon:"😄", title:"Packs de Emojis",     sub:"Precios de packs",        col:"#f59e0b"},
     {id:"efectos",    icon:"✨", title:"Efectos y Animaciones",sub:"Títulos y nombre",        col:"#3b82f6"},
     {id:"ranking",    icon:"🏆", title:"Premios del Ranking", sub:"Diario, semanal, mensual", col:"#10b981"},
@@ -65,12 +66,13 @@ function AdminEconomiaSec({sec, onBack, showToast}){
 
   const SEC_TIPO = {
     colores: "name_color", temas: "theme", modos: "screen_mode", emojis: "emoji_pack",
+    estilos: "text_style",
     efectos: ["title_effect","name_effect","avatar_frame"],
   };
-  const PERIODO_PER_SEC = ["colores","temas"];
+  const PERIODO_PER_SEC = ["colores","temas","estilos","modos"];
 
   useEffect(()=>{
-    if(["colores","temas","modos","emojis","efectos"].includes(sec)){
+    if(["colores","temas","modos","emojis","estilos","efectos"].includes(sec)){
       const tipo = SEC_TIPO[sec];
       const tipoParam = Array.isArray(tipo)?tipo[0]:tipo;
       api.customAdminItems()
@@ -234,7 +236,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
         {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
 
         {/* Items de personalización */}
-        {["colores","temas","modos","emojis","efectos"].includes(sec)&&!loading&&items.map(item=>(
+        {["colores","temas","modos","emojis","estilos","efectos"].includes(sec)&&!loading&&items.map(item=>(
           <div key={item.id} style={{background:"white",borderRadius:14,marginBottom:8,
             overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",opacity:item.activo?1:.5}}>
             {item.tipo==="theme"&&(
