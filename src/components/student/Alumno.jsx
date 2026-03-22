@@ -112,10 +112,6 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   // Limpiar preview al salir de personalización
   const clearPreview=()=>{ setPreviewPrimary(null); };
 
-  // Compatibilidad con ATiendaCustom (usa onThemeChange y onDarkChange)
-  const setTheme=(id, directPrimary, isPreview=false)=>{
-    setAccent(directPrimary, isPreview);
-  };
   const toggleDark=(d)=>{
     setMode(d?"oscuro":"claro");
   };
@@ -243,7 +239,6 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
             setCustomActive(active);
             applyActive(active, tipo||null);
           }}
-          onThemeChange={(id,directPrimary,isPreview)=>setTheme(id,directPrimary,isPreview)}
           onDarkChange={toggleDark}
           currentThemeId={activeModeId} isDark={theme.isDark}
           currentPrimary={activePrimary||theme.primary}/>}

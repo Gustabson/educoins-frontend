@@ -8,7 +8,7 @@ import FotoPanel from "./FotoPanel";
 import TituloCustomPanel from "./TituloCustomPanel";
 
 
-function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChange,onThemeChange,onDarkChange,currentThemeId,isDark,currentPrimary}){
+function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChange,onDarkChange,isDark}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
   const [sec,setSec]     = useState("pantalla");  // pantalla|texto|colores|emojis|efectos|apodo
   const [items,setItems] = useState([]);
@@ -23,14 +23,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const [giftTo,setGiftTo]  = useState("");
   const [giftMsg,setGiftMsg]= useState("");
 
-  // originalPrimaryRef — guardamos el color REAL al montar para restaurar al salir
-  const originalPrimaryRef = useRef(currentPrimary);
-
-  // Al salir, siempre restaurar el color real (borrar preview)
-  const handleBack = () => {
-    if(onThemeChange) onThemeChange(null, originalPrimaryRef.current, false); // restaura real
-    onBack();
-  };
+  const handleBack = () => { onBack(); };
 
   const SECS=[["pantalla","🖥️ Pantalla"],["texto","✍️ Estilo"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
 
@@ -72,9 +65,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
       showToast(`Compraste: ${item.nombre} ✅`);
       await refreshBalance();
       await loadAll();
-      // Limpiar cualquier preview activo
       setPreview(null);
-      if(onThemeChange) onThemeChange(currentThemeId, null, false);
     }catch(e){showToast(e.message||"Error","error");}
     finally{setBuying(null);}
   };
@@ -328,8 +319,8 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                         onClick={()=>{
                           if(isOwned){ equipar("theme",item.id); }
                           else{
-                            if(isPreviewing){ setPreview(null); if(onThemeChange) onThemeChange(currentThemeId,originalPrimaryRef.current); }
-                            else{ setPreview(item); if(onThemeChange) onThemeChange(null,col1); }
+                            if(isPreviewing){ setPreview(null); }
+                            else{ setPreview(item); }
                           }
                         }}>
                         {isActive
