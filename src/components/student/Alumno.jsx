@@ -115,8 +115,9 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
 
   const applyActive=(active, changedTipo=null)=>{
     if(!active) return;
-    // Solo tocar el tema si es carga inicial o se equipó un theme
-    if(changedTipo===null||changedTipo==="theme"){
+    // Solo tocar el tema si: carga inicial de Alumno (null) o se equipó theme explícitamente
+    // "__init__" = carga de ATiendaCustom — NO tocar el tema para no pisarlo
+    if((changedTipo===null||changedTipo==="theme")&&changedTipo!=="__init__"){
       if(active.theme_config){
         const tc=typeof active.theme_config==="string"?JSON.parse(active.theme_config):active.theme_config;
         if(tc?.primary){ const match=DUAL_THEMES.find(t=>t.primary===tc.primary); setTheme(match?.id||null,tc.primary,false); }

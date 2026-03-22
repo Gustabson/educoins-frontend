@@ -34,21 +34,27 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
   const SECS=[["pantalla","🖥️ Pantalla"],["texto","✍️ Estilo"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
 
-  const loadAll=async()=>{
+  const loadAll=async(notifyTheme=false)=>{
     setLoading(true);
     try{
       const [shop,me2,g,mysubs]=await Promise.all([
         api.customShop(), api.customMe(), api.customGifts(), api.mySubscriptions()
       ]);
+      const activeData = (me2.data||me2)?.active||null;
       setItems(Array.isArray(shop)?shop:shop.data||[]);
       setOwned((me2.data||me2)?.owned||[]);
-      setActive((me2.data||me2)?.active||null);
+      setActive(activeData);
       setGifts((g.data||g||[]).filter(x=>!x.leido));
       setSubs((mysubs.data||mysubs||[]));
+      // Al montar, notificar a Alumno el estado real (sin cambiar tema)
+      // Solo notificamos screen_mode y text_style para no pisar el tema
+      if(notifyTheme&&activeData&&onCustomChange){
+        onCustomChange(activeData, "__init__");
+      }
     }catch(e){}
     setLoading(false);
   };
-  useEffect(()=>{ loadAll(); },[]);
+  useEffect(()=>{ loadAll(true); },[]);
 
   // Helper: días restantes de suscripción de un item
   const diasRestantes=(item_nombre)=>{
