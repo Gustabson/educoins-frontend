@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { api, connectSocket } from "../../api";
 import { ThemeCtx, useTheme } from "../../ThemeContext";
 import { DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode, GS } from "../../constants";
@@ -254,7 +253,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     <ThemeCtx.Provider value={theme}>
     <div style={{maxWidth:480,margin:"0 auto",height:"100vh",background:theme.pageBg,
       display:"flex",flexDirection:"column",fontFamily:"Nunito,sans-serif",
-      transition:"background .3s",overflow:"hidden"}}>
+      transition:"background .3s",position:"relative"}}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
@@ -362,7 +361,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       </div>
       )}
     </div>
-    {perfilUserId&&createPortal(<PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>, document.body)}
+    {perfilUserId&&<PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>}
     </ThemeCtx.Provider>
   );
 }
