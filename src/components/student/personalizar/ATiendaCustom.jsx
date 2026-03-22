@@ -3,7 +3,6 @@ import { api, connectSocket } from "../../../api";
 import { useTheme } from "../../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../../shared/index";
 import TextoStylePanel from "./TextoStylePanel";
-import ApodoPanel from "./ApodoPanel";
 import FotoPanel from "./FotoPanel";
 import TituloCustomPanel from "./TituloCustomPanel";
 
@@ -32,7 +31,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
   const handleBack = () => { onBack(); };
 
-  const SECS=[["pantalla","🖥️ Pantalla"],["texto","✍️ Estilo"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"],["apodo","🏷️ Apodo"]];
+  const SECS=[["pantalla","🖥️ Pantalla"],["texto","✍️ Estilo"],["colores","🖊️ Nombres"],["emojis","😄 Emojis"],["efectos","✨ Efectos"]];
 
   const loadAll=async(notifyTheme=false)=>{
     setLoading(true);
@@ -123,7 +122,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
     if(sec==="colores")  return i.tipo==="name_color";
     if(sec==="emojis")   return i.tipo==="emoji_pack";
     if(sec==="efectos")  return ["title_effect","name_effect","avatar_frame"].includes(i.tipo);
-    if(sec==="apodo")    return i.tipo==="nickname";
+    
     return true;
   });
 
@@ -207,8 +206,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
       <div style={{padding:"10px 14px"}}>
         {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
 
-        {/* Sección especial de apodo */}
-        {sec==="apodo"&&!loading&&<ApodoPanel me={me} owned={owned} items={items} balance={balance} showToast={showToast} onRefresh={loadAll} onRefreshBalance={refreshBalance} cardBg={cardBg} txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}/>}
+
         {sec==="foto"&&!loading&&<FotoPanel me={me} owned={owned} items={items} balance={balance} showToast={showToast} onRefresh={loadAll} onRefreshBalance={refreshBalance} cardBg={cardBg} txt={txt} sub={sub} accent={accent}/>}
         {sec==="titulo"&&!loading&&<TituloCustomPanel me={me} owned={owned} items={items} balance={balance} showToast={showToast} onRefresh={loadAll} onRefreshBalance={refreshBalance} cardBg={cardBg} txt={txt} sub={sub} accent={accent} inputBg={inputBg} inputBd={inputBd}/>}
 

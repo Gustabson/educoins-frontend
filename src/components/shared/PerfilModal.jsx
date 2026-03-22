@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
-import { getLv, LEVELS } from "../../constants";
+import { getLv, LEVELS, TITLES } from "../../constants";
 import { Av, displayName } from "./index";
 
 const ROL_LABEL = { student:"Alumno", teacher:"Profe", admin:"Admin" };
@@ -75,7 +75,22 @@ function PerfilModal({userId, onClose}){
             display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
           ←
         </button>
-        <span style={{fontWeight:800,fontSize:16}}>Perfil</span>
+        <span style={{fontWeight:800,fontSize:16,flex:1}}>Perfil</span>
+        {perfil&&(
+          <button onClick={()=>{
+            navigator.clipboard?.writeText(perfil.id||userId).then(()=>{
+              // Visual feedback
+              const el=document.getElementById('copy-id-btn');
+              if(el){el.textContent='✅';setTimeout(()=>{el.textContent='🪪 Copiar ID';},1500);}
+            });
+          }}
+            id="copy-id-btn"
+            style={{background:"rgba(0,0,0,.2)",border:"none",borderRadius:99,
+              color:"white",padding:"5px 10px",fontSize:10,fontWeight:800,
+              cursor:"pointer",fontFamily:"Nunito,sans-serif",flexShrink:0,whiteSpace:"nowrap"}}>
+            🪪 Copiar ID
+          </button>
+        )}
       </div>
 
       {/* Loading */}
@@ -111,18 +126,30 @@ function PerfilModal({userId, onClose}){
                   {perfil.nombre}
                 </div>
               )}
-              <div style={{marginTop:6,display:"inline-flex",alignItems:"center",gap:4,
-                background:"rgba(0,0,0,.2)",borderRadius:99,padding:"3px 10px"}}>
-                <span>{ROL_ICON[perfil.rol]||"🎓"}</span>
-                <span style={{fontSize:11,fontWeight:700,color:"white"}}>
-                  {ROL_LABEL[perfil.rol]||"Alumno"}
-                </span>
+              {/* Badges de títulos — igual estilo, no muestra "Alumno" */}
+              <div style={{marginTop:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                {(()=>{
+                  const badges = [];
+                  // Título del sistema (si no es tl1 "Estudiante" que es el default)
+                  if(perfil.title && perfil.title!=="tl1"){
+                    const t = TITLES.find(t=>t.id===perfil.title);
+                    if(t) badges.push(t.name);
+                  }
+                  // Título personalizado
+                  if(perfil.titulo_custom) badges.push(perfil.titulo_custom);
+                  // Solo rol para teacher/admin
+                  if(perfil.rol==="teacher"||perfil.rol==="admin"){
+                    badges.push(ROL_ICON[perfil.rol]+" "+ROL_LABEL[perfil.rol]);
+                  }
+                  // Máximo 3
+                  return badges.slice(0,3).map((b,i)=>(
+                    <div key={i} style={{display:"inline-flex",alignItems:"center",gap:4,
+                      background:"rgba(0,0,0,.2)",borderRadius:99,padding:"3px 12px"}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"white"}}>{b}</span>
+                    </div>
+                  ));
+                })()}
               </div>
-              {perfil.titulo_custom&&(
-                <div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:4,fontWeight:700}}>
-                  {perfil.titulo_custom}
-                </div>
-              )}
               {perfil.estado&&(
                 <div style={{fontSize:11,color:"rgba(255,255,255,.65)",marginTop:3,fontStyle:"italic"}}>
                   "{perfil.estado}"
