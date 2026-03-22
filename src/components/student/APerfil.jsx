@@ -6,7 +6,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function APerfil({me,balance,logout,showToast,setMe}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg} = useTheme();
+  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg} = useTheme();
   const uS=me.unlocked_skins||["s1"];
   const uB=me.unlocked_borders||["b1"];
   const uT=me.unlocked_titles||["tl1"];
@@ -110,7 +110,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
   };
 
   return(
-    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:pageBg,minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="Mi Perfil 👤"/>
       <div style={{padding:"0 14px",marginTop:12}}>
         <div style={{background:cardBg,borderRadius:20,padding:24,textAlign:"center",marginBottom:12,
@@ -119,7 +119,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
             <Av user={me} sz={72}/>
           </div>
           <div style={{fontWeight:900,fontSize:20,color:txt}}>{me.nombre}</div>
-          <div style={{fontSize:13,color:dark?"#888":"#666",marginBottom:8}}>{me.email}</div>
+          <div style={{fontSize:13,color:sub,marginBottom:8}}>{me.email}</div>
           <div style={{fontWeight:800,color:accent,fontSize:16}}>🪙 {balance.toLocaleString("es-AR")}</div>
         </div>
 
@@ -130,7 +130,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
             const equipped=me.skin===s.id;
             return(
               <div key={s.id} onClick={()=>{if(owned)equip("skin",s.id);}}
-                style={{background:equipped?s.bg:cardBg,border:`2px solid ${equipped?"#FFB800":owned?dark?"#2d2a45":"#E8E8E8":dark?"#1e1b2e":"#F0F0F0"}`,
+                style={{background:equipped?s.bg:cardBg,border:`2px solid ${equipped?"#FFB800":owned?inputBg:pageBg}`,
                   borderRadius:16,padding:"12px 6px",textAlign:"center",cursor:owned?"pointer":"default",
                   opacity:!owned?.4:1,transition:"all .2s",position:"relative"}}>
                 {equipped&&<div style={{position:"absolute",top:4,right:5,fontSize:10}}>✅</div>}
@@ -142,7 +142,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
           })}
           {/* Foto personalizada como extra skin */}
           <div style={{borderRadius:16,overflow:"hidden",
-            border:`2px solid ${me.foto_url?accent:dark?"#2d2a45":"#e8e8e8"}`,
+            border:`2px solid ${me.foto_url?accent:inputBg}`,
             background:cardBg,textAlign:"center",padding:"12px 6px",
             position:"relative"}}>
             {me.foto_url
@@ -191,7 +191,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
               style={{marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",
                 padding:"14px 16px",borderRadius:20,cursor:owned?"pointer":"default",
                 background:equipped?dark?"#2d1a4e":cardBg:cardBg,
-                border:`1.5px solid ${equipped?accent:dark?"#2d2a45":"#E8E8E8"}`,
+                border:`1.5px solid ${equipped?accent:inputBg}`,
                 opacity:!owned?.4:1,boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
               <div>
                 <div style={{fontWeight:800,fontSize:15,color:txt}}>{t.name}</div>
@@ -208,7 +208,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
         {/* Título personalizado — comprable directo */}
         <div style={{marginBottom:8,padding:"14px 16px",borderRadius:20,
           background:me.titulo_custom?dark?"#2d1a4e":cardBg:cardBg,
-          border:`1.5px solid ${me.titulo_custom?accent:dark?"#2d2a45":"#E8E8E8"}`,
+          border:`1.5px solid ${me.titulo_custom?accent:inputBg}`,
           boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
           <div style={{fontWeight:800,fontSize:15,color:txt,marginBottom:4}}>
             ✏️ Título personalizado
@@ -224,7 +224,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
                 placeholder="Tu título (máx 20 chars)..."
                 style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${accent}44`,
                   borderRadius:10,padding:"9px 12px",fontSize:14,fontWeight:700,outline:"none",
-                  color:txt,background:dark?"#2d2a45":"#f8f8f8",fontFamily:"Nunito,sans-serif",
+                  color:txt,background:inputBg,fontFamily:"Nunito,sans-serif",
                   marginBottom:8}}/>
               <div style={{display:"flex",gap:8}}>
                 <button onClick={guardarTitulo} disabled={savingT}
@@ -234,7 +234,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
                   {savingT?"Guardando...":"Guardar"}
                 </button>
                 <button onClick={()=>setEditTitulo(false)}
-                  style={{background:dark?"#2d2a45":"#f0f0f0",border:"none",borderRadius:50,
+                  style={{background:inputBg,border:"none",borderRadius:50,
                     color:sub,padding:"10px 14px",fontWeight:700,cursor:"pointer",
                     fontFamily:"Nunito,sans-serif"}}>
                   Cancelar
@@ -269,7 +269,7 @@ function APerfil({me,balance,logout,showToast,setMe}){
 
         <div style={{marginTop:16}}>
           <button onClick={logout} style={{width:"100%",background:cardBg,
-            border:`1.5px solid ${dark?"#2d2a45":"#E8E8E8"}`,borderRadius:50,color:dark?"#aaa":"#888",
+            border:`1.5px solid ${inputBg}`,borderRadius:50,color:sub,
             padding:"14px",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif",transition:"all .3s"}}>
             Cerrar sesión
           </button>

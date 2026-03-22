@@ -191,7 +191,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
       {/* Tabs */}
       <div style={{display:"flex",background:cardBg,
-        borderBottom:`1px solid ${dark?"#2d2a45":"#eee"}`,margin:"10px 0 0"}}>
+        borderBottom:`1px solid ${inputBg}`,margin:"10px 0 0"}}>
         {SECS.map(([id,label])=>(
           <button key={id} onClick={()=>setSec(id)}
             style={{flex:1,padding:"10px 2px",background:"none",border:"none",
@@ -384,7 +384,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                             padding:"2px 7px",fontSize:9,color:"white",fontWeight:800}}>🔒</div>
                         )}
                       </div>
-                      <div style={{background:dark?"#2d2a45":"#f8f8f8",padding:"8px 10px"}}>
+                      <div style={{background:inputBg,padding:"8px 10px"}}>
                         <div style={{fontWeight:800,fontSize:12,color:isActive?col1:isPreviewing?col1:txt,
                           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}>
                           {item.nombre}
@@ -413,7 +413,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
               {preview&&(
                 <button onClick={()=>{setPreview(null);if(onClearPreview)onClearPreview();}}
                   style={{width:"100%",marginTop:10,background:"none",
-                    border:`1px solid ${dark?"#3a3758":"#ddd"}`,borderRadius:99,
+                    border:`1px solid ${inputBd}`,borderRadius:99,
                     padding:"8px",fontSize:11,color:sub,fontWeight:700,
                     cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                   ✕ Cancelar preview
@@ -443,7 +443,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
           return(
             <div key={item.id} style={{background:cardBg,borderRadius:18,marginBottom:10,
               overflow:"hidden",boxShadow:isEquipped?`0 2px 12px ${accent}33`:"0 1px 8px rgba(0,0,0,.06)",
-              border:`1.5px solid ${isEquipped?accent:dark?"#2d2a45":"transparent"}`}}>
+              border:`1.5px solid ${isEquipped?accent:inputBg}`}}>
 
               {/* Preview visual según tipo */}
               {item.tipo==="theme"&&(
@@ -454,7 +454,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
               )}
               {item.tipo==="name_color"&&(
                 <div style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",
-                  background:dark?"#2d2a45":"#f8f8f8"}}>
+                  background:inputBg}}>
                   <span style={{fontWeight:900,fontSize:18,
                     color:item.config.rainbow?"transparent":item.config.color,
                     background:item.config.rainbow?"linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6,#00c1fc)":"none",
@@ -466,13 +466,13 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
               )}
               {item.tipo==="emoji_pack"&&(
                 <div style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",
-                  gap:4,background:dark?"#2d2a45":"#f8f8f8",fontSize:20}}>
+                  gap:4,background:inputBg,fontSize:20}}>
                   {(item.config.emojis||[]).slice(0,6).map((e,i)=><span key={i}>{e}</span>)}
                 </div>
               )}
               {["title_effect","name_effect"].includes(item.tipo)&&(
                 <div style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",
-                  background:dark?"#2d2a45":"#f8f8f8"}}>
+                  background:inputBg}}>
                   <span style={{fontWeight:900,fontSize:16,color:accent,
                     textShadow:item.tipo==="title_effect"?item.config.css?.split(":")?.[1]?.trim():"none"}}>
                     {item.config.label||item.nombre}
@@ -521,7 +521,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                   {/* Regalar (si lo tenés) */}
                   {isOwned&&(
                     <button onClick={()=>setGiftOpen(item)}
-                      style={{background:dark?"#2d2a45":"#f0f0f0",color:sub,border:"none",
+                      style={{background:inputBg,color:sub,border:"none",
                         borderRadius:99,padding:"5px 10px",fontSize:10,fontWeight:700,
                         cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                       🎁 Regalar
@@ -616,7 +616,7 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
       {/* Toggle modo oscuro */}
       <div style={{display:"flex",alignItems:"center",
         justifyContent:"space-between",paddingTop:10,
-        borderTop:`1px solid ${dark?"#2d2a45":"#f0f0f0"}`,marginBottom:14}}>
+        borderTop:`1px solid ${inputBg}`,marginBottom:14}}>
         <div>
           <div style={{fontSize:12,fontWeight:700,color:txt}}>🌙 Fondo oscuro</div>
           <div style={{fontSize:10,color:sub}}>Afecta el contraste automático del texto</div>

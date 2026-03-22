@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 import { REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR } from "../../constants";
 
 function AReportes({me,showToast,onBack}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
+  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg,inputBd,navBord} = useTheme();
   const [vista,setVista]       = useState("lista"); // "lista" | "nuevo" | "chat"
   const [reporteSel,setRepSel] = useState(null);
   const [tipo,setTipo]         = useState(null);
@@ -80,7 +80,7 @@ function AReportes({me,showToast,onBack}){
     const estCol   = ESTADO_COLOR[reporteSel.estado]||"#94a3b8";
     const abierto  = reporteSel.estado!=="resuelto"&&reporteSel.estado!=="descartado";
     return(
-      <div style={{background:dark?"#12101e":"#eef2f7",minHeight:"100vh"}}>
+      <div style={{background:pageBg,minHeight:"100vh"}}>
         {/* Header */}
         <div style={{background:accent,position:"sticky",top:0,zIndex:50,
           padding:"16px 16px 20px",color:"white",
@@ -107,8 +107,8 @@ function AReportes({me,showToast,onBack}){
           <div style={{background:cardBg,borderRadius:16,overflow:"hidden",
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.08)"}}>
             {/* Cabecera del correo */}
-            <div style={{background:dark?"#2d2a45":"#f8f9fa",padding:"12px 16px",
-              borderBottom:`1px solid ${dark?"#3d3a55":"#e8e8e8"}`}}>
+            <div style={{background:inputBg,padding:"12px 16px",
+              borderBottom:`1px solid ${navBord}`}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
                 <div style={{width:34,height:34,borderRadius:"50%",background:tipoInfo.col+"22",
                   display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
@@ -148,13 +148,13 @@ function AReportes({me,showToast,onBack}){
             return(
               <div key={m.id||i} style={{background:cardBg,borderRadius:16,overflow:"hidden",
                 boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.08)",
-                borderLeft:esAdmin?`4px solid ${accent}`:`4px solid ${dark?"#3d3a55":"#e0e0e0"}`}}>
+                borderLeft:esAdmin?`4px solid ${accent}`:`4px solid ${navBord}`}}>
                 {/* Cabecera del mensaje */}
-                <div style={{background:dark?"#2d2a45":"#f8f9fa",padding:"10px 16px",
-                  borderBottom:`1px solid ${dark?"#3d3a55":"#e8e8e8"}`,
+                <div style={{background:inputBg,padding:"10px 16px",
+                  borderBottom:`1px solid ${navBord}`,
                   display:"flex",alignItems:"center",gap:10}}>
                   <div style={{width:28,height:28,borderRadius:"50%",flexShrink:0,
-                    background:esAdmin?accent+"22":dark?"#3d3a55":"#e8e8e8",
+                    background:esAdmin?accent+"22":navBord,
                     display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
                     {esAdmin?"👨‍💼":"👤"}
                   </div>
@@ -182,8 +182,8 @@ function AReportes({me,showToast,onBack}){
           {abierto?(
             <div style={{background:cardBg,borderRadius:16,overflow:"hidden",
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.08)"}}>
-              <div style={{background:dark?"#2d2a45":"#f8f9fa",padding:"10px 16px",
-                borderBottom:`1px solid ${dark?"#3d3a55":"#e8e8e8"}`,
+              <div style={{background:inputBg,padding:"10px 16px",
+                borderBottom:`1px solid ${navBord}`,
                 fontSize:11,fontWeight:800,color:sub}}>
                 ↩ RESPONDER
               </div>
@@ -232,8 +232,8 @@ function AReportes({me,showToast,onBack}){
               <div key={t.id} onClick={()=>setTipo(t)}
                 style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:14,
                   cursor:"pointer",transition:"all .2s",
-                  background:tipo?.id===t.id?t.col+"22":dark?"#2d2a45":"#f9f9f9",
-                  border:`1.5px solid ${tipo?.id===t.id?t.col:dark?"#3d3a55":"#e8e8e8"}`}}>
+                  background:tipo?.id===t.id?t.col+"22":inputBg,
+                  border:`1.5px solid ${tipo?.id===t.id?t.col:navBord}`}}>
                 <span style={{fontSize:18}}>{t.icon}</span>
                 <span style={{fontSize:12,fontWeight:800,color:tipo?.id===t.id?t.col:txt}}>{t.label}</span>
               </div>
@@ -249,7 +249,7 @@ function AReportes({me,showToast,onBack}){
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,cursor:"pointer"}}
             onClick={()=>setAnon(a=>!a)}>
             <div style={{width:22,height:22,borderRadius:6,transition:"all .2s",
-              border:`2px solid ${anon?"#3b82f6":dark?"#3d3a55":"#ddd"}`,
+              border:`2px solid ${anon?"#3b82f6":navBord}`,
               background:anon?"#3b82f6":"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
               {anon&&<span style={{color:"white",fontSize:12,fontWeight:900}}>✓</span>}
             </div>

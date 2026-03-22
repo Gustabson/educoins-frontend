@@ -38,7 +38,7 @@ function AMovimientos(){
   });
 
   if(loading) return(
-    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",
+    <div style={{background:pageBg,minHeight:"100vh",
       display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{textAlign:"center",color:sub}}>
         <div style={{fontSize:32,marginBottom:8}}>⏳</div>
@@ -48,11 +48,11 @@ function AMovimientos(){
   );
 
   return(
-    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:pageBg,minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="Movimientos 📊"/>
 
       {/* Buscador sticky */}
-      <div style={{position:"sticky",top:0,zIndex:40,background:dark?"#12101e":"#F0F0F0",
+      <div style={{position:"sticky",top:0,zIndex:40,background:pageBg,
         padding:"10px 14px 6px"}}>
         <div style={{background:cardBg,borderRadius:14,padding:"9px 14px",
           display:"flex",alignItems:"center",gap:8,
@@ -82,12 +82,12 @@ function AMovimientos(){
           <div key={key}>
             {/* Separador de fecha */}
             <div style={{display:"flex",alignItems:"center",gap:10,margin:"14px 0 8px"}}>
-              <div style={{flex:1,height:1,background:dark?"#2d2a45":"#e8e8e8"}}/>
+              <div style={{flex:1,height:1,background:inputBg}}/>
               <span style={{fontSize:11,fontWeight:800,color:sub,textTransform:"capitalize",
                 whiteSpace:"nowrap"}}>
                 {grupo.label}
               </span>
-              <div style={{flex:1,height:1,background:dark?"#2d2a45":"#e8e8e8"}}/>
+              <div style={{flex:1,height:1,background:inputBg}}/>
             </div>
 
             {/* Movimientos del día en una card */}
@@ -99,7 +99,7 @@ function AMovimientos(){
                 return(
                   <div key={t.id||i} style={{
                     display:"flex",alignItems:"center",gap:12,padding:"13px 16px",
-                    borderBottom:i<grupo.items.length-1?`1px solid ${dark?"#2d2a45":"#f0f0f0"}`:"none"}}>
+                    borderBottom:i<grupo.items.length-1?`1px solid ${inputBg}`:"none"}}>
                     {/* Icono */}
                     <div style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
                       background:isPos?dark?"#052e16":"#f0fdf4":dark?"#2d0a0a":"#fef2f2",

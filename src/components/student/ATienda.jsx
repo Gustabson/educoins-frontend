@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function ATienda({me,balance,showToast,refreshBalance}){
-  const {primary:accent,isDark:dark,txt,sub:subTxt,cardBg,pageBg:bg,inputBg,inputBd} = useTheme();
+  const {primary:accent,isDark:dark,txt,sub:subTxt,cardBg,pageBg:bg,inputBg,inputBd,navInact} = useTheme();
   const [items,setItems]=useState([]);
   const [loading,setLoading]=useState(true);
   const [buying,setBuying]=useState(null);
@@ -66,7 +66,7 @@ function ATienda({me,balance,showToast,refreshBalance}){
             <div style={{fontSize:48,marginBottom:12}}>{revealed.icon||"🎁"}</div>
             <div style={{fontWeight:900,fontSize:16,color:txt,marginBottom:4}}>{revealed.nombre}</div>
             <div style={{fontSize:12,color:subTxt,marginBottom:16}}>Tu recompensa secreta:</div>
-            <div style={{background:dark?"#2d2a45":"#faf5ff",border:`1.5px solid ${accent}44`,
+            <div style={{background:inputBg,border:`1.5px solid ${accent}44`,
               borderRadius:14,padding:"14px 16px",fontSize:13,color:txt,fontWeight:700,
               lineHeight:1.6,marginBottom:20,textAlign:"left"}}>
               🔒 {revealed.mensaje_oculto}
@@ -96,7 +96,7 @@ function ATienda({me,balance,showToast,refreshBalance}){
                 <div onClick={()=>setLightbox(item.imagen_url)}
                   style={{cursor:"pointer",position:"relative",
                     paddingBottom:"52%", // aspect ratio 52% ≈ landscape
-                    background:dark?"#2d2a45":"#f5f5f5",overflow:"hidden"}}>
+                    background:inputBg,overflow:"hidden"}}>
                   <img src={item.imagen_url} alt={item.nombre}
                     style={{position:"absolute",inset:0,width:"100%",height:"100%",
                       objectFit:"cover",transition:"transform .2s"}}
@@ -120,7 +120,7 @@ function ATienda({me,balance,showToast,refreshBalance}){
                         padding:"2px 8px",fontSize:10,fontWeight:800}}>🔒 Mensaje secreto incluido</span>
                     </div>
                   )}
-                  {item.stock!==-1&&<div style={{fontSize:10,color:dark?"#555":"#ccc",fontWeight:700,marginTop:4}}>
+                  {item.stock!==-1&&<div style={{fontSize:10,color:navInact,fontWeight:700,marginTop:4}}>
                     Stock: {item.stock}
                   </div>}
                 </div>

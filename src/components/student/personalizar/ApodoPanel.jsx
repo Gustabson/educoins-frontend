@@ -68,7 +68,7 @@ function ApodoPanel({me,owned,items,balance,dark,showToast,onRefresh,onRefreshBa
             :`Comprar por 🪙${nicknameItem.precio}`}
         </button>
       ):(
-        <div style={{background:dark?"#2d2a45":"#f0f0f0",borderRadius:12,padding:"12px 16px",
+        <div style={{background:inputBg,borderRadius:12,padding:"12px 16px",
           fontSize:12,color:sub,textAlign:"center"}}>
           El administrador aun no habilitó este item en la tienda
         </div>
@@ -104,7 +104,7 @@ function ApodoPanel({me,owned,items,balance,dark,showToast,onRefresh,onRefreshBa
         </button>
         {me.apodo&&(
           <button onClick={borrar} disabled={saving}
-            style={{background:dark?"#2d2a45":"#f0f0f0",border:"none",borderRadius:50,
+            style={{background:inputBg,border:"none",borderRadius:50,
               color:sub,padding:"12px 16px",fontWeight:700,fontSize:12,cursor:"pointer",
               fontFamily:"Nunito,sans-serif"}}>
             Quitar

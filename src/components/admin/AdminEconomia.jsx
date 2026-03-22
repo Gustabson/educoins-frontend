@@ -113,16 +113,10 @@ function AdminEconomiaSec({sec, onBack, showToast}){
         await api.checkinConfigUpdate(editVal);
         setConfig(prev=>prev.map(c=>c.id===editing.id?{...c,...editVal}:c));
       } else {
-        await api.customAdminUpdate(editing.id, editVal);
-        // Recargar desde el servidor para mostrar datos reales
-        const tipo = Array.isArray(SEC_TIPO[sec])?SEC_TIPO[sec][0]:SEC_TIPO[sec];
-        const fresh = await api.customAdminItems();
-        const arr = (fresh.data||fresh||[]);
-        if(Array.isArray(SEC_TIPO[sec])){
-          setItems(arr.filter(i=>SEC_TIPO[sec].includes(i.tipo)));
-        } else {
-          setItems(arr.filter(i=>i.tipo===tipo));
-        }
+        // El PATCH devuelve el item actualizado — usarlo directo, sin segunda llamada
+        const res = await api.customAdminUpdate(editing.id, editVal);
+        const updated = res.data || res;
+        setItems(prev=>prev.map(i=>i.id===editing.id ? {...i,...updated} : i));
       }
       showToast("✅ Guardado");
       setEditing(null);

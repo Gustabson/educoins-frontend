@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 
 function AOpciones({me,logout,notifs=[]}){
-  const {primary:accent,isDark,txt,sub,cardBg} = useTheme();
+  const {primary:accent,isDark,txt,sub,cardBg,inputBg,navInact,pageBg} = useTheme();
   const dark = isDark;
   const noLeidas=notifs.filter(n=>!n.leida).length;
 
@@ -26,7 +26,7 @@ function AOpciones({me,logout,notifs=[]}){
   };
 
   return(
-    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:pageBg,minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="☰ Opciones"/>
       <div style={{padding:"0 14px",marginTop:12}}>
 
@@ -34,7 +34,7 @@ function AOpciones({me,logout,notifs=[]}){
         {notifs.length>0&&(
           <div style={{background:cardBg,borderRadius:20,overflow:"hidden",marginBottom:12,
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-            <div style={{padding:"12px 16px",borderBottom:`1px solid ${dark?"#2d2a45":"#f0f0f0"}`,
+            <div style={{padding:"12px 16px",borderBottom:`1px solid ${inputBg}`,
               display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div style={{fontWeight:800,fontSize:13,color:txt}}>🔔 Notificaciones</div>
               {noLeidas>0&&<span style={{background:"#ef4444",color:"white",borderRadius:99,
@@ -42,7 +42,7 @@ function AOpciones({me,logout,notifs=[]}){
             </div>
             {notifs.slice(0,5).map((n,i)=>(
               <div key={n.id||i} style={{padding:"11px 16px",
-                borderBottom:i<Math.min(notifs.length,5)-1?`1px solid ${dark?"#2d2a45":"#f5f5f5"}`:"none",
+                borderBottom:i<Math.min(notifs.length,5)-1?`1px solid ${inputBg}`:"none",
                 display:"flex",alignItems:"center",gap:10}}>
                 <div style={{fontSize:20,flexShrink:0}}>{NOTIF_ICON[n.type]||"🔔"}</div>
                 <div style={{flex:1}}>
@@ -69,12 +69,12 @@ function AOpciones({me,logout,notifs=[]}){
               <div style={{fontWeight:800,fontSize:14,color:txt,transition:"color .3s"}}>{lb}</div>
               <div style={{fontSize:12,color:sub,marginTop:1,transition:"color .3s"}}>{ds}</div>
             </div>
-            <span style={{color:dark?"#555":"#ddd",fontSize:18}}>›</span>
+            <span style={{color:navInact,fontSize:18}}>›</span>
           </div>
         ))}
         <div style={{marginTop:8}}>
           <button onClick={logout} style={{width:"100%",background:cardBg,
-            border:`1.5px solid ${dark?"#2d2a45":"#E8E8E8"}`,borderRadius:50,color:dark?"#aaa":"#888",
+            border:`1.5px solid ${inputBg}`,borderRadius:50,color:sub,
             padding:"14px",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif",transition:"all .3s"}}>
             Cerrar sesion
           </button>

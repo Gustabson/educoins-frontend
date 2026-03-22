@@ -36,7 +36,7 @@ function AMisiones({me,balance,showToast,refreshBalance}){
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando misiones...</div>;
 
   return(
-    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:pageBg,minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="Misiones ⚡"/>
       <div style={{padding:"0 14px",marginTop:12}}>
         {missions.length===0&&(
@@ -59,7 +59,7 @@ function AMisiones({me,balance,showToast,refreshBalance}){
                       col={estado==="aprobada"?"#10b981":estado==="rechazada"?"#ef4444":"#f59e0b"}/>}
                   </div>
                   <div style={{fontWeight:800,fontSize:15,color:txt}}>{m.titulo}</div>
-                  {m.descripcion&&<div style={{fontSize:12,color:dark?"#888":"#888",marginTop:2}}>{m.descripcion}</div>}
+                  {m.descripcion&&<div style={{fontSize:12,color:sub,marginTop:2}}>{m.descripcion}</div>}
                   <div style={{marginTop:8,fontWeight:800,color:dark?"#c084fc":"#00c1fc",fontSize:14}}>🪙 {m.recompensa}</div>
                 </div>
                 {!estado&&(

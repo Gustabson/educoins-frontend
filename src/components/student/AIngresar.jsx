@@ -71,7 +71,7 @@ function AIngresar({me, onBack}){
           </div>
 
           {/* QR Visual */}
-          <div style={{display:"inline-block",background:"white",padding:12,borderRadius:16,
+          <div style={{display:"inline-block",background:cardBg,padding:12,borderRadius:16,
             boxShadow:"0 2px 12px rgba(0,0,0,.12)"}}>
             <div style={{display:"grid",gridTemplateColumns:`repeat(${QR_SIZE},10px)`,gap:0}}>
               {qrMatrix.flat().map((cell,i)=>(

@@ -35,7 +35,7 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
 
   return(
     <div>
-      <div style={{background:dark?"#2d2a45":"#f0f4ff",borderRadius:14,padding:"10px 14px",
+      <div style={{background:inputBg,borderRadius:14,padding:"10px 14px",
         marginBottom:12,fontSize:11,color:sub,lineHeight:1.6}}>
         ✍️ Estos estilos cambian los colores de títulos y texto sobre cualquier modo de pantalla.
         Se suman al fondo que elegiste.
@@ -53,14 +53,14 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
           const cfg     = typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
           const dias    = diasRestantesItem(item.nombre);
           // Preview del estilo con colores reales
-          const previewTxt = cfg.txt&&cfg.txt!=="default"?cfg.txt:(dark?"#e8e8f0":"#1a1a1a");
-          const previewSub = cfg.sub&&cfg.sub!=="default"?cfg.sub:(dark?"#888":"#555");
+          const previewTxt = cfg.txt&&cfg.txt!=="default"?cfg.txt:(txt);
+          const previewSub = cfg.sub&&cfg.sub!=="default"?cfg.sub:(sub);
           return(
             <div key={item.id} style={{background:cardBg,borderRadius:14,overflow:"hidden",
-              border:`2px solid ${isActive?accent:dark?"#2d2a45":"#e8e8e8"}`,
+              border:`2px solid ${isActive?accent:inputBg}`,
               opacity:!isOwned&&precio>0?.8:1}}>
               {/* Preview visual de los colores de texto */}
-              <div style={{padding:"10px 10px 6px",background:dark?"#1a1828":"#f8f8f8"}}>
+              <div style={{padding:"10px 10px 6px",background:pageBg}}>
                 <div style={{fontWeight:800,fontSize:13,color:previewTxt,marginBottom:2,lineHeight:1.2}}>
                   {item.nombre}
                 </div>
@@ -83,7 +83,7 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
                 {isOwned
                   ? <button onClick={()=>equipar("text_style",item.id)}
                       style={{width:"100%",background:isActive?accent:"none",
-                        border:`1px solid ${isActive?accent:dark?"#3a3758":"#e0e0e0"}`,
+                        border:`1px solid ${isActive?accent:inputBd}`,
                         borderRadius:99,padding:"4px 0",fontSize:10,
                         color:isActive?"white":accent,fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                       {isActive?"✅ Activo":"Equipar"}
@@ -106,8 +106,8 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
       {/* Item personalizado — ocupa ancho completo */}
       {customItem&&(
         <div style={{background:cardBg,borderRadius:14,marginTop:10,overflow:"hidden",
-          border:`2px solid ${isCustomActive?accent:dark?"#2d2a45":"#e8e8e8"}`}}>
-          <div style={{padding:"12px 14px",borderBottom:`1px solid ${dark?"#2d2a45":"#f0f0f0"}`}}>
+          border:`2px solid ${isCustomActive?accent:inputBg}`}}>
+          <div style={{padding:"12px 14px",borderBottom:`1px solid ${inputBg}`}}>
             <div style={{fontWeight:800,fontSize:14,color:txt,marginBottom:2}}>🎨 Estilo Personalizado</div>
             <div style={{fontSize:11,color:sub}}>Elegí vos el color de cada elemento de texto</div>
           </div>
@@ -126,13 +126,13 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
                         onChange={e=>setCustomColors(c=>({...c,[key]:e.target.value}))}
                         style={{width:40,height:36,borderRadius:8,border:"none",cursor:"pointer",padding:2}}/>
                       <div style={{flex:1,height:36,borderRadius:8,background:customColors[key],
-                        border:`1px solid ${dark?"#3a3758":"#e0e0e0"}`}}/>
+                        border:`1px solid ${inputBd}`}}/>
                     </div>
                   </div>
                 ))}
               </div>
               {/* Preview */}
-              <div style={{background:dark?"#1a1828":"#f8f8f8",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+              <div style={{background:pageBg,borderRadius:10,padding:"10px 12px",marginBottom:12}}>
                 <div style={{fontWeight:800,fontSize:14,color:customColors.txt}}>Título de ejemplo</div>
                 <div style={{fontSize:12,color:customColors.sub,marginTop:2}}>Subtítulo de ejemplo</div>
               </div>

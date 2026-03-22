@@ -5,7 +5,7 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 import { TAG_COLORS, TAG_LIST } from "../../constants";
 
 function ANoticias({me,onBack}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg} = useTheme();
+  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,navBord} = useTheme();
   const [posts,setPosts]=useState([]);
   const [loading,setLoading]=useState(true);
   const [sel,setSel]=useState(null);
@@ -53,8 +53,8 @@ function ANoticias({me,onBack}){
         {TAG_LIST.map(t=>(
           <button key={t} onClick={()=>setTagFilt(t)} style={{
             background:tagFilt===t?accent:"transparent",
-            border:`1.5px solid ${tagFilt===t?dark?"#52177f":"#00c1fc":dark?"#3d3a55":"#ddd"}`,
-            color:tagFilt===t?"white":dark?"#aaa":"#666",
+            border:`1.5px solid ${tagFilt===t?dark?"#52177f":"#00c1fc":navBord}`,
+            color:tagFilt===t?"white":sub,
             borderRadius:99,padding:"5px 12px",fontSize:11,fontWeight:800,cursor:"pointer",
             whiteSpace:"nowrap",fontFamily:"Nunito,sans-serif",transition:"all .2s"}}>
             {t}
@@ -84,7 +84,7 @@ function ANoticias({me,onBack}){
                 <div style={{fontSize:12,color:sub,marginTop:4,lineHeight:1.4}}>
                   {n.cuerpo.substring(0,80)}{n.cuerpo.length>80?"...":""}
                 </div>
-                <div style={{fontSize:10,color:dark?"#555":"#bbb",marginTop:6}}>
+                <div style={{fontSize:10,color:sub,marginTop:6}}>
                   {n.autor_nombre} · {new Date(n.created_at).toLocaleDateString("es-AR")}
                 </div>
               </div>

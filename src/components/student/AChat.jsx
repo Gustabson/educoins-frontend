@@ -45,7 +45,7 @@ function useChatSocket(token, onMessage, onTyping) {
 }
 
 function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg,inputBd} = useTheme();
+  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg,inputBd,navBord,navInact} = useTheme();
   const [sec, setSec]           = useState(0);
   const [friend, setFriend]     = useState(null);
   const [friends, setFriends]   = useState([]);
@@ -73,7 +73,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   const token                   = localStorage.getItem("ec_token");
 
   const bg       = pageBg;
-  const inputBord= dark?"#3d3a55":"#E8E8E8";
+  const inputBord= navBord;
 
   // Cargar emoji packs del usuario
   useEffect(()=>{
@@ -311,11 +311,11 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
         <div ref={bottomRef}/>
       </div>
       <div style={{flexShrink:0,padding:"6px 14px 20px",
-        background:cardBg,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`,
+        background:cardBg,borderTop:`1px solid ${inputBg}`,
         boxSizing:"border-box"}}>
         {/* Panel de emojis */}
         {emojiOpen&&(
-          <div style={{marginBottom:8,background:dark?"#2d2a45":"#f8f8f8",borderRadius:14,
+          <div style={{marginBottom:8,background:inputBg,borderRadius:14,
             padding:"10px 12px",maxHeight:160,overflowY:"auto"}}>
             {emojiPacks.length===0?(
               <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -353,7 +353,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
           {/* Botón emoji */}
           <button onClick={()=>setEmojiOpen(o=>!o)}
             style={{width:38,height:38,borderRadius:"50%",flexShrink:0,
-              background:emojiOpen?accent:(dark?"#2d2a45":"#f0f0f0"),
+              background:emojiOpen?accent:(inputBg),
               border:"none",fontSize:20,cursor:"pointer",
               display:"flex",alignItems:"center",justifyContent:"center"}}>
             😄
@@ -422,10 +422,10 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
       {/* Input fijo al fondo */}
       <div style={{position:"absolute",bottom:0,left:0,right:0,
         padding:"6px 14px 16px",
-        background:cardBg,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
+        background:cardBg,borderTop:`1px solid ${inputBg}`}}>
         {/* Panel de emojis */}
         {emojiOpen&&(
-          <div style={{marginBottom:8,background:dark?"#2d2a45":"#f8f8f8",borderRadius:14,
+          <div style={{marginBottom:8,background:inputBg,borderRadius:14,
             padding:"10px 12px",maxHeight:140,overflowY:"auto"}}>
             {emojiPacks.length===0?(
               <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -455,7 +455,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <button onClick={()=>setEmojiOpen(o=>!o)}
             style={{width:38,height:38,borderRadius:"50%",flexShrink:0,
-              background:emojiOpen?accent:(dark?"#2d2a45":"#f0f0f0"),
+              background:emojiOpen?accent:(inputBg),
               border:"none",fontSize:20,cursor:"pointer",
               display:"flex",alignItems:"center",justifyContent:"center"}}>
             😄
@@ -481,7 +481,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
 
       {/* Tabs */}
       <div style={{display:"flex",background:cardBg,
-        borderBottom:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
+        borderBottom:`1px solid ${inputBg}`}}>
         {CHAT_SECTIONS.map((s,i)=>(
           <button key={s} onClick={()=>setSec(i)} style={{flex:1,padding:"11px 0",fontWeight:800,
             fontSize:13,background:"none",border:"none",cursor:"pointer",
@@ -554,7 +554,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
                 <div style={{fontWeight:800,fontSize:13,color:txt}}>{f.nombre}</div>
                 <div style={{fontSize:11,color:sub}}>Toca para chatear</div>
               </div>
-              <span style={{color:dark?"#555":"#ddd",fontSize:16}}>›</span>
+              <span style={{color:navInact,fontSize:16}}>›</span>
             </div>
           ))}
         </div>
@@ -571,7 +571,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
             <>
               <div style={{padding:"8px 14px 0",display:"flex",alignItems:"center",gap:8}}>
                 <div style={{fontWeight:800,color:txt,fontSize:13}}>{classInfo.nombre}</div>
-                <span style={{background:dark?"#2d2a45":"#f0f0f0",color:sub,borderRadius:99,
+                <span style={{background:inputBg,color:sub,borderRadius:99,
                   padding:"2px 9px",fontSize:10,fontWeight:700}}>
                   {classInfo.total_miembros} miembros
                 </span>
@@ -599,7 +599,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
           onClick={e=>{if(e.target===e.currentTarget){setAddOpen(false);setSearch("");setResults([]);}}}>
           <div style={{background:cardBg,borderRadius:"24px 24px 0 0",width:"100%",
             padding:"20px 20px 40px",animation:"slideUp .25s ease"}}>
-            <div style={{width:36,height:4,background:dark?"#555":"#ddd",borderRadius:2,margin:"0 auto 14px"}}/>
+            <div style={{width:36,height:4,background:navInact,borderRadius:2,margin:"0 auto 14px"}}/>
             <div style={{fontWeight:900,fontSize:16,color:txt,marginBottom:12}}>Agregar amigo</div>
             <input value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Buscar por nombre..."
@@ -608,7 +608,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
                 fontSize:13,outline:"none",color:txt,fontFamily:"Nunito,sans-serif",marginBottom:10}}/>
             {results.map(u=>(
               <div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",
-                borderBottom:`1px solid ${dark?"#2d2a45":"#f5f5f5"}`}}>
+                borderBottom:`1px solid ${inputBg}`}}>
                 <Av user={u} sz={36}/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:800,fontSize:13,color:txt}}>{u.nombre}</div>

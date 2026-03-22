@@ -254,7 +254,7 @@ function AVotaciones({me,showToast,onBack}){
 
       {/* Tabs Global / Aula */}
       <div style={{display:"flex",background:cardBg,
-        borderBottom:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
+        borderBottom:`1px solid ${inputBg}`}}>
         {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([id,label])=>(
           <button key={id} onClick={()=>setSec(id)}
             style={{flex:1,padding:"11px 4px",background:"none",border:"none",
@@ -288,7 +288,7 @@ function AVotaciones({me,showToast,onBack}){
           return(
             <div key={v.id} style={{background:cardBg,borderRadius:20,padding:"16px",marginBottom:12,
               boxShadow:esAdmin?`0 2px 14px ${accent}33`:esTeacher?"0 2px 14px #8b5cf633":"0 1px 8px rgba(0,0,0,.06)",
-              border:`1.5px solid ${esAdmin||esTeacher?jerarCol+"44":dark?"#2d2a45":"transparent"}`,
+              border:`1.5px solid ${esAdmin||esTeacher?jerarCol+"44":inputBg}`,
               transition:"all .2s"}}>
 
               {/* Badge jerarquía */}
@@ -332,7 +332,7 @@ function AVotaciones({me,showToast,onBack}){
                       {mostrar&&<span style={{fontSize:11,fontWeight:700,color:sub,flexShrink:0}}>{pct}%</span>}
                     </div>
                     {mostrar&&(
-                      <div style={{background:dark?"#2d2a45":"#f0f0f0",borderRadius:99,height:6,overflow:"hidden"}}>
+                      <div style={{background:inputBg,borderRadius:99,height:6,overflow:"hidden"}}>
                         <div style={{width:pct+"%",height:"100%",borderRadius:99,
                           background:esMiVoto?accent:"#3b82f6",transition:"width .6s ease"}}/>
                       </div>
@@ -359,7 +359,7 @@ function AVotaciones({me,showToast,onBack}){
 
               {/* Footer: info + reacciones + comentarios */}
               <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12,
-                paddingTop:10,borderTop:`1px solid ${dark?"#2d2a45":"#f0f0f0"}`}}>
+                paddingTop:10,borderTop:`1px solid ${inputBg}`}}>
                 <span style={{fontSize:10,color:sub,flex:1}}>
                   {v.total_votos} votos
                   {v.fin&&` · Cierra ${new Date(v.fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`}

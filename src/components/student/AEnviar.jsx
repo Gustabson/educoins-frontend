@@ -69,14 +69,14 @@ function AEnviar({me,balance,showToast,refreshBalance}){
   const TABS=[["amigos","👥 Amigos"],["buscar","🔍 Buscar"],["manual","✏️ Manual"]];
 
   return(
-    <div style={{background:dark?"#12101e":"#F0F0F0",minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:pageBg,minHeight:"100vh",transition:"background .3s"}}>
       <OHdrA title="Enviar 💸"
         extra={<div style={{marginTop:6,fontSize:13,opacity:.9,fontWeight:700}}>
           Saldo disponible: 🪙 {balance.toLocaleString("es-AR")}
         </div>}/>
 
       {/* Tabs */}
-      <div style={{display:"flex",background:cardBg,borderBottom:`1px solid ${dark?"#2d2a45":"#eee"}`}}>
+      <div style={{display:"flex",background:cardBg,borderBottom:`1px solid ${inputBg}`}}>
         {TABS.map(([id,label])=>(
           <button key={id} onClick={()=>{setTab(id);setSelected(null);setSearch("");setResults([]);}}
             style={{flex:1,padding:"11px 4px",background:"none",border:"none",
