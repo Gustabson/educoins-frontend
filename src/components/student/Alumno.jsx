@@ -44,11 +44,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const savedModeCfg = (() => { try { const s=localStorage.getItem("ec_mode_cfg"); return s?JSON.parse(s):null; } catch{return null;} })();
   const [dbModeCfg, setDbModeCfg] = useState(savedModeCfg); // config completo de un modo de DB
 
-  const resolveMode = () => {
-    if(dbModeCfg) return dbModeCfg;
-    return BUILTIN_SCREEN_MODES.find(m=>m.id===activeModeId)||BUILTIN_SCREEN_MODES[0];
-  };
-  const sm = resolveMode();
+  const sm = dbModeCfg || BUILTIN_SCREEN_MODES.find(m=>m.id===activeModeId) || BUILTIN_SCREEN_MODES[0];
 
   // Text style overrides
   const ts     = textStyleCfg || {};
@@ -234,14 +230,18 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="opciones"   && <AOpciones   me={me} logout={logout} notifs={notifs}/>}
         {tab==="notificaciones"&&<ANotificaciones me={me} onBack={()=>navTo("home")} notifs={notifs} setNotifs={setNotifs}/>}
         {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}
-          onBack={()=>{clearPreview();navTo("home");}}
+          onBack={()=>{setAccent(activePrimary,false);navTo("home");}}
           onCustomChange={(active, tipo)=>{
             setCustomActive(active);
             applyActive(active, tipo||null);
           }}
           onDarkChange={toggleDark}
-          currentThemeId={activeModeId} isDark={theme.isDark}
-          currentPrimary={activePrimary||theme.primary}/>}
+          onPreviewAccent={(p)=>setAccent(p,true)}
+          onClearPreview={()=>setAccent(activePrimary,false)}
+          onSetMode={(id,cfg)=>setMode(id,cfg)}
+          currentModeId={activeModeId} isDark={theme.isDark}
+          currentPrimary={activePrimary||theme.primary}
+          currentMode={sm}/>}
         {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig} onOpenPerfil={setPerfilUserId}/>}
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
