@@ -1,3 +1,4 @@
+import { io } from 'socket.io-client';
 // api.js — cliente HTTP y socket
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
