@@ -120,6 +120,27 @@ function AdminEconomiaSec({sec, onBack, showToast}){
     finally{setSaving(false);}
   };
 
+  const crearItem=async()=>{
+    if(!newItem.nombre.trim()){showToast("Escribí un nombre","error");return;}
+    setSaving(true);
+    try{
+      const tipo = Array.isArray(SEC_TIPO[sec])?SEC_TIPO[sec][0]:SEC_TIPO[sec];
+      const data = {...newItem, tipo,
+        config: tipo==="screen_mode"
+          ? {bg:"#1a1a2e",pageBg:"#1a1a2e",card:"#16213e",nav:"#16213e",inputBg:"#0f3460",isDark:true}
+          : tipo==="theme"
+          ? {primary:"#00c1fc",accent:"#0369a1",secondary:"#0369a1"}
+          : {}
+      };
+      const d = await api.customAdminCreate(data);
+      setItems(prev=>[...prev, d.data||d]);
+      setCreating(false);
+      setNewItem({nombre:"",precio:0,precio_mensual:0,es_suscripcion:false,periodo_default:"monthly",activo:true,preview:"✨"});
+      showToast("Item creado ✅");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(false);}
+  };
+
   const cerrarPeriodo=async()=>{
     setSaving(true);
     try{
@@ -163,54 +184,91 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           display:"flex",alignItems:"flex-end",justifyContent:"center"}}
           onClick={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
           <div style={{background:"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
-            padding:"20px 20px 44px"}}>
+            padding:"20px 20px 44px",maxHeight:"85vh",overflowY:"auto"}}>
             <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 14px"}}/>
-            <div style={{fontWeight:800,fontSize:15,marginBottom:12}}>
-              Editar: {editing.nombre||editing.descripcion||editing.item_key||""}
+            <div style={{fontWeight:800,fontSize:15,marginBottom:16}}>
+              ✏️ {editing.nombre||editing.descripcion||editing.item_key||"Item"}
             </div>
 
-            {/* Precio */}
-            {(["colores","temas","emojis","efectos"].includes(sec)||sec==="ranking")&&(
+            {/* Precio único (compra) — para todos los tipos de item */}
+            {sec!=="ranking"&&sec!=="checkin"&&sec!=="suscripciones"&&sec!=="historial"&&(
               <div style={{marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:6}}>
-                  {sec==="ranking"?"Premio 🪙":"Precio 🪙"}
+                <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>
+                  💰 Precio de compra (0 = gratis)
                 </div>
                 <input type="number" min="0"
-                  value={editVal.precio??editing.precio??editVal.premio??editing.premio??0}
-                  onChange={e=>setEditVal(v=>({...v,
-                    [sec==="ranking"?"premio":"precio"]:parseInt(e.target.value)||0}))}
+                  value={editVal.precio??editing.precio??0}
+                  onChange={e=>setEditVal(v=>({...v,precio:parseInt(e.target.value)||0}))}
                   style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
-                    borderRadius:12,padding:"11px 14px",fontSize:22,fontWeight:900,outline:"none",
+                    borderRadius:12,padding:"10px 14px",fontSize:20,fontWeight:900,outline:"none",
                     color:"#10b981",textAlign:"center",fontFamily:"Nunito,sans-serif"}}/>
               </div>
             )}
 
-            {/* Duración de suscripción — UN solo período a elegir */}
-            {PERIODO_PER_SEC.includes(sec)&&editing.es_suscripcion&&(
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:6}}>Duración de la suscripción</div>
-                <div style={{display:"flex",gap:6}}>
-                  {[["weekly","📅 Semanal"],["monthly","🗓️ Mensual"],["annual","📆 Anual"]].map(([v,l])=>{
-                    const sel=(editVal.periodo_default??editing.periodo_default??"monthly")===v;
-                    return(
-                      <button key={v} onClick={()=>setEditVal(ev=>({...ev,periodo_default:v}))}
-                        style={{flex:1,background:sel?"#8b5cf6":"#f0f0f0",color:sel?"white":"#555",
-                          border:`2px solid ${sel?"#8b5cf6":"transparent"}`,borderRadius:12,
-                          padding:"10px 4px",fontWeight:800,fontSize:11,cursor:"pointer",
-                          fontFamily:"Nunito,sans-serif",lineHeight:1.4,textAlign:"center"}}>
-                        {l}
+            {/* Suscripción */}
+            {sec!=="ranking"&&sec!=="checkin"&&sec!=="suscripciones"&&sec!=="historial"&&(
+              <>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                  <span style={{fontSize:11,fontWeight:700,color:"#666"}}>🔄 Es suscripción</span>
+                  <div style={{display:"flex",gap:6}}>
+                    {[true,false].map(v=>(
+                      <button key={String(v)} onClick={()=>setEditVal(ev=>({...ev,es_suscripcion:v}))}
+                        style={{background:(editVal.es_suscripcion??editing.es_suscripcion)===v
+                          ?(v?"#8b5cf6":"#e5e7eb"):"#f0f0f0",
+                          color:(editVal.es_suscripcion??editing.es_suscripcion)===v&&v?"white":"#555",
+                          border:"none",borderRadius:99,padding:"5px 14px",fontSize:11,
+                          fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                        {v?"Sí":"No"}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-                <div style={{fontSize:10,color:"#aaa",marginTop:6,textAlign:"center"}}>
-                  El alumno se suscribe a este período y se renueva automáticamente
-                </div>
+
+                {(editVal.es_suscripcion??editing.es_suscripcion)&&(
+                  <div style={{background:"#f8f4ff",borderRadius:14,padding:"12px 14px",marginBottom:12}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:8}}>💸 Precio mensual</div>
+                    <input type="number" min="0"
+                      value={editVal.precio_mensual??editing.precio_mensual??0}
+                      onChange={e=>setEditVal(v=>({...v,precio_mensual:parseInt(e.target.value)||0}))}
+                      style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+                        borderRadius:12,padding:"10px 14px",fontSize:20,fontWeight:900,outline:"none",
+                        color:"#8b5cf6",textAlign:"center",fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
+                    <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>Período de renovación</div>
+                    <div style={{display:"flex",gap:6}}>
+                      {[["weekly","📅 Semanal"],["monthly","🗓️ Mensual"],["annual","📆 Anual"]].map(([v,l])=>{
+                        const sel=(editVal.periodo_default??editing.periodo_default??"monthly")===v;
+                        return(
+                          <button key={v} onClick={()=>setEditVal(ev=>({...ev,periodo_default:v}))}
+                            style={{flex:1,background:sel?"#8b5cf6":"#f0f0f0",color:sel?"white":"#555",
+                              border:`2px solid ${sel?"#8b5cf6":"transparent"}`,borderRadius:10,
+                              padding:"8px 4px",fontWeight:800,fontSize:10,cursor:"pointer",
+                              fontFamily:"Nunito,sans-serif",textAlign:"center"}}>
+                            {l}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Premio ranking */}
+            {sec==="ranking"&&(
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>🏆 Premio 🪙</div>
+                <input type="number" min="0"
+                  value={editVal.premio??editing.premio??0}
+                  onChange={e=>setEditVal(v=>({...v,premio:parseInt(e.target.value)||0}))}
+                  style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+                    borderRadius:12,padding:"10px 14px",fontSize:20,fontWeight:900,outline:"none",
+                    color:"#f59e0b",textAlign:"center",fontFamily:"Nunito,sans-serif"}}/>
               </div>
             )}
 
-            {/* Activo */}
-            <div style={{display:"flex",gap:8,marginBottom:14}}>
+            {/* Activo/Inactivo */}
+            <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>Estado</div>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
               {[true,false].map(v=>(
                 <button key={String(v)} onClick={()=>setEditVal(ev=>({...ev,activo:v}))}
                   style={{flex:1,background:(editVal.activo??editing.activo??true)===v
@@ -218,15 +276,16 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                     color:(editVal.activo??editing.activo??true)===v?"white":"#555",
                     border:"none",borderRadius:12,padding:"10px",fontWeight:800,fontSize:13,
                     cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  {v?"Activo":"Inactivo"}
+                  {v?"✅ Activo":"❌ Inactivo"}
                 </button>
               ))}
             </div>
+
             <button onClick={guardar} disabled={saving}
               style={{width:"100%",background:saving?"#ccc":"#10b981",border:"none",borderRadius:50,
                 color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:"pointer",
                 fontFamily:"Nunito,sans-serif"}}>
-              {saving?"Guardando...":"Guardar"}
+              {saving?"Guardando...":"💾 Guardar cambios"}
             </button>
           </div>
         </div>
@@ -276,6 +335,92 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             </div>
           </div>
         ))}
+
+        {/* Botón crear nuevo item (para modos, temas, estilos, colores, emojis) */}
+        {["modos","temas","estilos","colores","emojis"].includes(sec)&&!loading&&(
+          <button onClick={()=>setCreating(true)}
+            style={{width:"100%",background:"#10b981",border:"none",borderRadius:14,
+              color:"white",padding:"13px",fontWeight:800,fontSize:13,cursor:"pointer",
+              fontFamily:"Nunito,sans-serif",marginTop:8}}>
+            + Crear nuevo {sec==="modos"?"modo":sec==="temas"?"tema":sec==="estilos"?"estilo":sec==="colores"?"color":"pack"}
+          </button>
+        )}
+
+        {/* Modal crear nuevo item */}
+        {creating&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
+            display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+            onClick={e=>{if(e.target===e.currentTarget)setCreating(false);}}>
+            <div style={{background:"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,
+              padding:"20px 20px 44px",maxHeight:"80vh",overflowY:"auto"}}>
+              <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 14px"}}/>
+              <div style={{fontWeight:800,fontSize:15,marginBottom:16}}>➕ Nuevo item</div>
+
+              {[["nombre","Nombre","text"],["preview","Emoji preview","text"]].map(([k,label,type])=>(
+                <div key={k} style={{marginBottom:12}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>{label}</div>
+                  <input type={type} value={newItem[k]}
+                    onChange={e=>setNewItem(v=>({...v,[k]:e.target.value}))}
+                    style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+                      borderRadius:12,padding:"10px 14px",fontSize:14,outline:"none",
+                      fontFamily:"Nunito,sans-serif"}}/>
+                </div>
+              ))}
+
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>💰 Precio de compra</div>
+                <input type="number" min="0" value={newItem.precio}
+                  onChange={e=>setNewItem(v=>({...v,precio:parseInt(e.target.value)||0}))}
+                  style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+                    borderRadius:12,padding:"10px 14px",fontSize:20,fontWeight:900,outline:"none",
+                    color:"#10b981",textAlign:"center",fontFamily:"Nunito,sans-serif"}}/>
+              </div>
+
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <span style={{fontSize:11,fontWeight:700,color:"#666"}}>🔄 Es suscripción</span>
+                <div style={{display:"flex",gap:6}}>
+                  {[true,false].map(v=>(
+                    <button key={String(v)} onClick={()=>setNewItem(ev=>({...ev,es_suscripcion:v}))}
+                      style={{background:newItem.es_suscripcion===v?(v?"#8b5cf6":"#e5e7eb"):"#f0f0f0",
+                        color:newItem.es_suscripcion===v&&v?"white":"#555",border:"none",borderRadius:99,
+                        padding:"5px 14px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {v?"Sí":"No"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {newItem.es_suscripcion&&(
+                <div style={{background:"#f8f4ff",borderRadius:14,padding:"12px 14px",marginBottom:12}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>💸 Precio mensual</div>
+                  <input type="number" min="0" value={newItem.precio_mensual}
+                    onChange={e=>setNewItem(v=>({...v,precio_mensual:parseInt(e.target.value)||0}))}
+                    style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
+                      borderRadius:12,padding:"10px 14px",fontSize:20,fontWeight:900,outline:"none",
+                      color:"#8b5cf6",textAlign:"center",fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
+                  <div style={{display:"flex",gap:6}}>
+                    {[["weekly","📅 Semanal"],["monthly","🗓️ Mensual"],["annual","📆 Anual"]].map(([v,l])=>(
+                      <button key={v} onClick={()=>setNewItem(ev=>({...ev,periodo_default:v}))}
+                        style={{flex:1,background:newItem.periodo_default===v?"#8b5cf6":"#f0f0f0",
+                          color:newItem.periodo_default===v?"white":"#555",border:"none",borderRadius:10,
+                          padding:"8px 4px",fontWeight:800,fontSize:10,cursor:"pointer",
+                          fontFamily:"Nunito,sans-serif",textAlign:"center"}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button onClick={crearItem} disabled={saving}
+                style={{width:"100%",background:saving?"#ccc":"#10b981",border:"none",borderRadius:50,
+                  color:"white",padding:"13px",fontWeight:800,fontSize:14,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                {saving?"Creando...":"✅ Crear item"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Ranking config */}
         {sec==="ranking"&&!loading&&(
