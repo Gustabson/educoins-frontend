@@ -17,12 +17,23 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   const unlockedTitles  = me.unlocked_titles  || ["tl1"];
 
   // Estado local
-  const [buying,    setBuying]    = useState(null); // id del item comprándose
-  const [editTitulo,setEditTitulo]= useState(false);
-  const [tituloVal, setTituloVal] = useState(me.titulo_custom||"");
-  const [editEstado,setEditEstado]= useState(false);
-  const [estadoVal, setEstadoVal] = useState(me.estado||"");
-  const [saving,    setSaving]    = useState(null);
+  const [buying,      setBuying]      = useState(null);
+  const [editEstado,  setEditEstado]  = useState(false);
+  const [estadoVal,   setEstadoVal]   = useState(me.estado||"");
+  const [saving,      setSaving]      = useState(null);
+  // Active titles — nuevo sistema multi-título
+  const initTitles = Array.isArray(me.active_titles)&&me.active_titles.length>0
+    ? me.active_titles
+    : me.titulo_custom ? ["custom:"+me.titulo_custom]
+    : me.title&&me.title!=="tl1" ? [me.title]
+    : [];
+  const [activeTitles, setActiveTitles] = useState(initTitles);
+  const [editingTitleSlot, setEditingTitleSlot] = useState(null); // 0,1,2 = slot being edited
+  const [customTitleVal,   setCustomTitleVal]   = useState("");
+  // Apodo
+  const [apodoVal,  setApodoVal]  = useState(me.apodo||"");
+  const [apodoPerm, setApodoPerm] = useState(false); // tiene permiso comprado
+  const [savingApodo, setSavingApodo] = useState(false);
 
   // Estado del alumno — campo en DB (necesitamos la migración)
   const [estadoShop,setEstadoShop]= useState(null);
@@ -32,14 +43,17 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
       const arr=Array.isArray(d)?d:(d.data||d||[]);
       setEstadoShop(arr.find(i=>i.tipo==="estado")||null);
     }).catch(()=>{});
-    // Cargar emojis desbloqueados del usuario
+    // Cargar emojis y permisos
     api.customMe().then(d=>{
+      const owned = (d?.data||d)?.owned||[];
       const active = (d?.data||d)?.active;
       if(active?.emoji_pack_config){
         const cfg = typeof active.emoji_pack_config==="string"
           ? JSON.parse(active.emoji_pack_config) : active.emoji_pack_config;
         setEmojiPacks(cfg?.emojis||[]);
       }
+      // Verificar permiso de apodo
+      setApodoPerm(owned.some(o=>o.tipo==="nickname"));
     }).catch(()=>{});
   },[]);
 
@@ -69,23 +83,6 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   };
 
   // Cambiar título personalizado (cobra cada vez)
-  const guardarTitulo=async()=>{
-    if(!tituloVal.trim()){showToast("Escribí un título","error");return;}
-    if(balance<PRECIO_CAMBIO_TITULO){
-      showToast(`Necesitás 🪙${PRECIO_CAMBIO_TITULO} para cambiar el título`,"error");return;
-    }
-    setSaving("titulo");
-    try{
-      const r = await api.buyTituloChange(tituloVal.trim(), PRECIO_CAMBIO_TITULO);
-      const newTitulo = (r?.data||r)?.titulo_custom ?? tituloVal.trim();
-      setMe(prev=>({...prev, titulo_custom: newTitulo}));
-      showToast(`Título guardado 👑 (-🪙${PRECIO_CAMBIO_TITULO})`);
-      if(refreshBalance) refreshBalance();
-      setEditTitulo(false);
-    }catch(e){showToast(e.message||"Error","error");}
-    finally{setSaving(null);}
-  };
-
   // Guardar estado (si tiene el item)
   const guardarEstado=async()=>{
     setSaving("estado");
@@ -98,6 +95,64 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
       setEditEstado(false);
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSaving(null);}
+  };
+
+  // Guardar active_titles
+  const saveActiveTitles=async(newTitles)=>{
+    setSaving("titles");
+    try{
+      await api.setActiveTitles(newTitles);
+      setActiveTitles(newTitles);
+      setMe(prev=>({...prev, active_titles:newTitles}));
+      showToast("Títulos actualizados ✅");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(null);}
+  };
+
+  // Guardar título custom en un slot (cobra monedas)
+  const saveCustomTitleSlot=async(slot, text)=>{
+    if(!text.trim()){showToast("Escribí algo","error");return;}
+    if(balance<PRECIO_CAMBIO_TITULO){
+      showToast(`Necesitás 🪙${PRECIO_CAMBIO_TITULO}`,"error");return;
+    }
+    setSaving("custom_title_"+slot);
+    try{
+      // Cobrar
+      await api.buyTituloChange(text.trim(), PRECIO_CAMBIO_TITULO);
+      if(refreshBalance) refreshBalance();
+      const newTitles = [...activeTitles];
+      newTitles[slot] = "custom:"+text.trim();
+      await api.setActiveTitles(newTitles);
+      setActiveTitles(newTitles);
+      setMe(prev=>({...prev, active_titles:newTitles}));
+      showToast(`Guardado (-🪙${PRECIO_CAMBIO_TITULO})`);
+      setEditingTitleSlot(null);
+      setCustomTitleVal("");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSaving(null);}
+  };
+
+  // Guardar apodo
+  const guardarApodo=async()=>{
+    if(!apodoVal.trim()){showToast("Escribí un apodo","error");return;}
+    setSavingApodo(true);
+    try{
+      await api.setApodo(apodoVal.trim());
+      setMe(prev=>({...prev, apodo:apodoVal.trim()}));
+      showToast("Apodo guardado 🏷️");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSavingApodo(false);}
+  };
+
+  const quitarApodo=async()=>{
+    setSavingApodo(true);
+    try{
+      await api.setApodo(null);
+      setApodoVal("");
+      setMe(prev=>({...prev, apodo:null}));
+      showToast("Apodo eliminado");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSavingApodo(false);}
   };
 
   // Subir foto
@@ -228,110 +283,189 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
           })}
         </div>
 
-        {/* ── Títulos ───────────────────────────────────────── */}
-        <div style={{fontWeight:800,color:txt,marginBottom:4,fontSize:13}}>📛 Títulos del sistema</div>
-        {me.titulo_custom&&(
-          <div style={{fontSize:11,color:sub,marginBottom:8,padding:"6px 10px",
-            background:inputBg,borderRadius:8}}>
-            ℹ️ Tu título personalizado "{me.titulo_custom}" está activo y reemplaza estos.
-          </div>
-        )}
-        <div style={{marginBottom:8}}>
-          {TITLES.map(t=>{
-            const owned   = unlockedTitles.includes(t.id);
-            const equipped = me.title===t.id;
-            const canBuy  = !owned && balance>=t.price;
-            return(
-              <div key={t.id}
-                onClick={()=>{
-                  if(equipped) return;
-                  if(owned) equip("title",t.id);
-                  else if(canBuy||t.price===0) buyItem("title",t);
-                  else showToast(`Necesitás 🪙${t.price}`,"error");
-                }}
-                style={{...card,padding:"12px 16px",
-                  border:`1.5px solid ${equipped?accent:inputBg}`,
-                  cursor:equipped?"default":"pointer",
-                  opacity:!owned&&t.price>balance?.5:1,
-                  display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{fontWeight:800,fontSize:14,color:txt}}>{t.name}</div>
-                  {!owned&&t.price>0&&(
-                    <div style={{fontSize:12,color:canBuy?accent:"#aaa",fontWeight:800}}>
-                      🪙{t.price} para desbloquear
-                    </div>
-                  )}
-                  {owned&&(
-                    <div style={{fontSize:12,color:equipped?accent:"#10b981",fontWeight:700}}>
-                      {equipped?"✅ Activo":"Tocar para activar"}
-                    </div>
-                  )}
-                </div>
-                {buying===t.id&&<span style={{fontSize:12,color:sub}}>...</span>}
-                {equipped&&<span style={{fontSize:20}}>✅</span>}
-              </div>
-            );
-          })}
+        {/* ── Títulos activos (hasta 3) ──────────────────────── */}
+        <div style={{fontWeight:800,color:txt,marginBottom:6,fontSize:13}}>📛 Mis títulos</div>
+        <div style={{fontSize:11,color:sub,marginBottom:10}}>
+          Podés tener hasta 3 activos. Los títulos del sistema no cuestan cambiarlos. Los personalizados cuestan 🪙{PRECIO_CAMBIO_TITULO} cada cambio.
         </div>
 
-        {/* ── Título personalizado ──────────────────────────── */}
-        <div style={{...card,padding:"14px 16px",marginBottom:8,
-          border:`1.5px solid ${me.titulo_custom?accent:inputBg}`}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:me.titulo_custom&&!editTitulo?6:0}}>
-            <div style={{fontWeight:800,fontSize:13,color:txt}}>✏️ Título personalizado</div>
-            <div style={{fontSize:10,color:sub}}>🪙{PRECIO_CAMBIO_TITULO} por cambio</div>
-          </div>
+        {/* 3 slots de título */}
+        {[0,1,2].map(slot=>{
+          const currentVal = activeTitles[slot]||null;
+          const isCustom   = currentVal?.startsWith("custom:");
+          const displayVal = isCustom ? currentVal.slice(7)
+            : currentVal ? (TITLES.find(t=>t.id===currentVal)?.name||currentVal) : null;
+          const isEditing  = editingTitleSlot===slot;
 
-          {me.titulo_custom&&!editTitulo&&(
-            <div style={{fontSize:13,color:accent,fontWeight:700,marginBottom:8}}>
-              "{me.titulo_custom}"
-            </div>
-          )}
+          return(
+            <div key={slot} style={{...card,padding:"12px 16px",marginBottom:8,
+              border:`1.5px solid ${displayVal?accent:inputBg}`}}>
 
-          {editTitulo?(
-            <>
-              <input value={tituloVal}
-                onChange={e=>setTituloVal(e.target.value.slice(0,30))}
-                placeholder="Tu título personalizado..."
-                style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${accent}44`,
-                  borderRadius:10,padding:"9px 12px",fontSize:14,fontWeight:700,outline:"none",
-                  color:txt,background:inputBg,fontFamily:"Nunito,sans-serif",marginBottom:6}}/>
-              {/* Selector de emojis comprados */}
-              {emojiPacks.length>0&&(
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8,
-                  padding:"6px 8px",background:inputBg,borderRadius:10}}>
-                  <span style={{fontSize:10,color:sub,alignSelf:"center",marginRight:2}}>Emojis:</span>
-                  {emojiPacks.slice(0,20).map((em,i)=>(
-                    <span key={i} onClick={()=>setTituloVal(v=>v+em)}
-                      style={{fontSize:18,cursor:"pointer",padding:"2px",borderRadius:6,
-                        transition:"transform .1s"}}
-                      title="Tocar para agregar">
-                      {em}
-                    </span>
-                  ))}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:isEditing?10:0}}>
+                <div style={{flex:1}}>
+                  {displayVal
+                    ? <span style={{fontWeight:800,fontSize:13,color:accent}}>
+                        {isCustom?"✏️ ":""}{displayVal}
+                      </span>
+                    : <span style={{fontSize:12,color:sub}}>Slot {slot+1} — vacío</span>
+                  }
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  {!isEditing&&(
+                    <button onClick={()=>{setEditingTitleSlot(slot);setCustomTitleVal(isCustom?displayVal:"");}}
+                      style={{background:accent+"22",border:"none",borderRadius:99,
+                        color:accent,padding:"4px 10px",fontSize:11,fontWeight:800,
+                        cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {displayVal?"✏️":"+ Agregar"}
+                    </button>
+                  )}
+                  {displayVal&&!isEditing&&(
+                    <button onClick={()=>{
+                      const newT=[...activeTitles];
+                      newT.splice(slot,1);
+                      saveActiveTitles(newT);
+                    }}
+                      style={{background:inputBg,border:"none",borderRadius:99,
+                        color:sub,padding:"4px 10px",fontSize:11,fontWeight:700,
+                        cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Editor del slot */}
+              {isEditing&&(
+                <div>
+                  {/* Opciones: sistema o personalizado */}
+                  <div style={{fontSize:11,fontWeight:700,color:sub,marginBottom:8}}>
+                    Elegí un título del sistema o escribí uno personalizado:
+                  </div>
+
+                  {/* Títulos del sistema */}
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+                    {TITLES.filter(t=>t.id!=="tl1").map(t=>{
+                      const owned = unlockedTitles.includes(t.id);
+                      const canBuy = !owned&&balance>=t.price;
+                      return(
+                        <div key={t.id}
+                          onClick={()=>{
+                            if(!owned){
+                              if(canBuy||t.price===0) buyItem("title",t).then(()=>{
+                                const newT=[...activeTitles];
+                                newT[slot]=t.id;
+                                saveActiveTitles(newT);
+                                setEditingTitleSlot(null);
+                              });
+                              else showToast(`Necesitás 🪙${t.price}`,"error");
+                              return;
+                            }
+                            const newT=[...activeTitles];
+                            newT[slot]=t.id;
+                            saveActiveTitles(newT);
+                            setEditingTitleSlot(null);
+                          }}
+                          style={{background:inputBg,borderRadius:99,padding:"5px 12px",
+                            cursor:"pointer",border:`1.5px solid ${owned?accent+"44":inputBg}`,
+                            opacity:!owned&&t.price>balance?.5:1}}>
+                          <span style={{fontSize:12,fontWeight:700,color:owned?accent:sub}}>
+                            {t.name}
+                            {!owned&&<span style={{fontSize:10,color:"#aaa",marginLeft:4}}>
+                              🪙{t.price}
+                            </span>}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Personalizado */}
+                  <div style={{fontSize:11,fontWeight:700,color:sub,marginBottom:6}}>
+                    ✏️ Personalizado (🪙{PRECIO_CAMBIO_TITULO} por cambio):
+                  </div>
+                  <input value={customTitleVal}
+                    onChange={e=>setCustomTitleVal(e.target.value.slice(0,30))}
+                    placeholder="Escribí tu título..."
+                    style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${accent}44`,
+                      borderRadius:10,padding:"8px 12px",fontSize:13,fontWeight:700,
+                      outline:"none",color:txt,background:inputBg,
+                      fontFamily:"Nunito,sans-serif",marginBottom:6}}/>
+                  {emojiPacks.length>0&&(
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8,
+                      padding:"5px 8px",background:inputBg,borderRadius:8}}>
+                      {emojiPacks.slice(0,15).map((em,i)=>(
+                        <span key={i} onClick={()=>setCustomTitleVal(v=>v+em)}
+                          style={{fontSize:16,cursor:"pointer"}}>{em}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{display:"flex",gap:8}}>
+                    <button
+                      onClick={()=>saveCustomTitleSlot(slot,customTitleVal)}
+                      disabled={!customTitleVal.trim()||saving===("custom_title_"+slot)||balance<PRECIO_CAMBIO_TITULO}
+                      style={{flex:1,background:!customTitleVal.trim()||balance<PRECIO_CAMBIO_TITULO?"#ccc":accent,
+                        border:"none",borderRadius:50,color:"white",padding:"9px",
+                        fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {saving===("custom_title_"+slot)?"Guardando...":`Guardar 🪙${PRECIO_CAMBIO_TITULO}`}
+                    </button>
+                    <button onClick={()=>{setEditingTitleSlot(null);setCustomTitleVal("");}}
+                      style={{background:inputBg,border:"none",borderRadius:50,color:sub,
+                        padding:"9px 14px",fontWeight:700,fontSize:12,cursor:"pointer",
+                        fontFamily:"Nunito,sans-serif"}}>
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               )}
+            </div>
+          );
+        })}
+
+        {/* ── Apodo ────────────────────────────────────────── */}
+        <div style={{fontWeight:800,color:txt,marginBottom:6,fontSize:13,marginTop:8}}>🏷️ Apodo</div>
+        <div style={{...card,padding:"14px 16px",marginBottom:8}}>
+          {!apodoPerm?(
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:11,color:sub,marginBottom:10,lineHeight:1.5}}>
+                Con un apodo todos te ven diferente en el chat, ranking y perfil. Tu nombre real no cambia.
+              </div>
+              <button onClick={()=>showToast("Comprá el permiso de apodo en Personalizar → Apodo","error")}
+                style={{background:accent,border:"none",borderRadius:99,color:"white",
+                  padding:"8px 18px",fontSize:12,fontWeight:800,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                🏷️ Ver en Personalizar
+              </button>
+            </div>
+          ):(
+            <>
+              {me.apodo&&(
+                <div style={{fontSize:13,color:accent,fontWeight:700,marginBottom:8}}>
+                  Apodo actual: <strong>{me.apodo}</strong>
+                </div>
+              )}
+              <input value={apodoVal} onChange={e=>setApodoVal(e.target.value)} maxLength={30}
+                placeholder="Escribí tu apodo..."
+                style={{width:"100%",boxSizing:"border-box",background:inputBg,
+                  border:`1.5px solid ${inputBg}`,borderRadius:10,padding:"9px 12px",
+                  fontSize:14,fontWeight:700,outline:"none",color:txt,
+                  fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={guardarTitulo} disabled={saving==="titulo"||balance<PRECIO_CAMBIO_TITULO}
-                  style={{flex:1,background:saving==="titulo"||balance<PRECIO_CAMBIO_TITULO?"#ccc":accent,
+                <button onClick={guardarApodo} disabled={savingApodo||!apodoVal.trim()}
+                  style={{flex:1,background:savingApodo||!apodoVal.trim()?"#ccc":accent,
                     border:"none",borderRadius:50,color:"white",padding:"10px",fontWeight:800,
                     fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  {saving==="titulo"?"Guardando...":balance<PRECIO_CAMBIO_TITULO?`Sin saldo`:`Guardar 🪙${PRECIO_CAMBIO_TITULO}`}
+                  {savingApodo?"Guardando...":"Guardar apodo"}
                 </button>
-                <button onClick={()=>{setEditTitulo(false);setTituloVal(me.titulo_custom||"");}}
-                  style={{background:inputBg,border:"none",borderRadius:50,color:sub,
-                    padding:"10px 14px",fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  Cancelar
-                </button>
+                {me.apodo&&(
+                  <button onClick={quitarApodo} disabled={savingApodo}
+                    style={{background:inputBg,border:"none",borderRadius:50,color:sub,
+                      padding:"10px 14px",fontWeight:700,fontSize:12,cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif"}}>
+                    Quitar
+                  </button>
+                )}
               </div>
             </>
-          ):(
-            <button onClick={()=>{setTituloVal(me.titulo_custom||"");setEditTitulo(true);}}
-              style={{background:accent+"22",color:accent,border:"none",borderRadius:99,
-                padding:"6px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
-                fontFamily:"Nunito,sans-serif"}}>
-              {me.titulo_custom?"✏️ Cambiar":"+ Agregar título"}
-            </button>
           )}
         </div>
 

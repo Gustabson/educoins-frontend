@@ -126,24 +126,30 @@ function PerfilModal({userId, onClose}){
                   {perfil.nombre}
                 </div>
               )}
-              {/* Badges de títulos — igual estilo, no muestra "Alumno" */}
+              {/* Badges de títulos */}
               <div style={{marginTop:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 {(()=>{
-                  const badges = [];
-                  // Título del sistema (si no es tl1 "Estudiante" que es el default)
-                  if(perfil.title && perfil.title!=="tl1"){
-                    const t = TITLES.find(t=>t.id===perfil.title);
-                    if(t) badges.push(t.name);
-                  }
-                  // Título personalizado
-                  if(perfil.titulo_custom) badges.push(perfil.titulo_custom);
-                  // Solo rol para teacher/admin
+                  // active_titles es el nuevo sistema: array de ids o "custom:texto"
+                  const activeTitles = Array.isArray(perfil.active_titles) && perfil.active_titles.length>0
+                    ? perfil.active_titles
+                    : perfil.title && perfil.title!=="tl1" ? [perfil.title]  // fallback legacy
+                    : perfil.titulo_custom ? ["custom:"+perfil.titulo_custom]
+                    : [];
+
+                  const badges = activeTitles.slice(0,3).map(t=>{
+                    if(t.startsWith("custom:")) return t.slice(7);
+                    const found = TITLES.find(ti=>ti.id===t);
+                    return found ? found.name : null;
+                  }).filter(Boolean);
+
+                  // Teacher/admin siempre muestran su rol
                   if(perfil.rol==="teacher"||perfil.rol==="admin"){
-                    badges.push(ROL_ICON[perfil.rol]+" "+ROL_LABEL[perfil.rol]);
+                    badges.unshift(ROL_ICON[perfil.rol]+" "+ROL_LABEL[perfil.rol]);
                   }
-                  // Máximo 3
+
+                  if(!badges.length) return null;
                   return badges.slice(0,3).map((b,i)=>(
-                    <div key={i} style={{display:"inline-flex",alignItems:"center",gap:4,
+                    <div key={i} style={{display:"inline-flex",alignItems:"center",
                       background:"rgba(0,0,0,.2)",borderRadius:99,padding:"3px 12px"}}>
                       <span style={{fontSize:11,fontWeight:700,color:"white"}}>{b}</span>
                     </div>

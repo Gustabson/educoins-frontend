@@ -72,6 +72,7 @@ const api = {
   buyItem:        (type, item_id)         => apiFetch("/profile/buy-item",    { method:"POST", body:{type,item_id} }),
   buyTituloChange:(titulo, precio)        => apiFetch("/profile/buy-titulo-change", { method:"POST", body:{titulo,precio} }),
   setEstado:      (estado)                => apiFetch("/profile/estado",           { method:"PATCH", body:{estado} }),
+  setActiveTitles:(titles)                => apiFetch("/profile/active-titles",     { method:"PATCH", body:{titles} }),
   adminUsers:     ()                      => apiFetch("/admin/users"),
   createUser:     (data)                  => apiFetch("/admin/users",         { method:"POST", body:data }),
   treasury:       ()                      => apiFetch("/admin/treasury"),
