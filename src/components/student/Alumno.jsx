@@ -30,9 +30,10 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   // ── Tema dual ────────────────────────────────────────────────
   const savedThemeId = localStorage.getItem("ec_theme")||"oceano";
   const savedDark    = localStorage.getItem("ec_dark")==="true";
+  const savedPrimary = localStorage.getItem("ec_primary")||null; // guardado para evitar flash
   const [themeId,setThemeId]         = useState(savedThemeId);
   const [isDark,setIsDark]           = useState(savedDark);
-  const [dbThemePrimary,setDbThemePrimary] = useState(null); // color real equipado
+  const [dbThemePrimary,setDbThemePrimary] = useState(savedPrimary); // color real equipado
   const [screenModeCfg,setScreenModeCfg]=useState(null); // config del modo de pantalla activo
   const [previewPrimary,setPreviewPrimary] = useState(null); // preview temporal (no se guarda)
   const [customActive,setCustomActive]=useState(null);
@@ -102,6 +103,9 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       if(id) setThemeId(id);
       setDbThemePrimary(directPrimary||null);
       if(id) localStorage.setItem("ec_theme", id);
+      // Guardar primary para evitar flash en recarga
+      if(directPrimary) localStorage.setItem("ec_primary", directPrimary);
+      else localStorage.removeItem("ec_primary");
     }
   };
   // Llamado al salir de personalización — restaura el color real y borra preview

@@ -47,7 +47,8 @@
       "Bash(rm -rf src)",
       "Bash(unzip -q \"/c/Users/GustavoS/Downloads/educoins-src.zip\" -d .)",
       "Bash(ls -la /c/Users/GustavoS/Downloads/educoins-src*.zip)",
-      "Bash(sort -k6,7)"
+      "Bash(sort -k6,7)",
+      "Bash(ls:*)"
     ]
   }
 }
