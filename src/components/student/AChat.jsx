@@ -263,9 +263,10 @@ function AChat({me, showToast, onBack, nameColorConfig}){
 
   // ── Render chat individual ────────────────────────────────────
   if (friend) return(
-    <div style={{background:bg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+    <div style={{background:bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <div style={{background:accent,padding:"22px 16px 16px",color:"white",
-        display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+        display:"flex",alignItems:"center",gap:12,flexShrink:0,
+        position:"sticky",top:0,zIndex:10}}>
         <button onClick={()=>{setFriend(null);setPerson([]);setConvId(null);personalConvIdRef.current=null;}}
           style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
             color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
@@ -276,7 +277,7 @@ function AChat({me, showToast, onBack, nameColorConfig}){
           {typing&&<div style={{fontSize:11,opacity:.8}}>escribiendo...</div>}
         </div>
       </div>
-      <div style={{flex:1,padding:"12px 14px 80px",overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
+      <div style={{flex:1,padding:"12px 14px 12px",overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
         {personMsgs.length===0&&(
           <div style={{textAlign:"center",color:sub,fontSize:13,marginTop:40}}>
             Empeza la conversacion 💬
@@ -310,10 +311,9 @@ function AChat({me, showToast, onBack, nameColorConfig}){
         })}
         <div ref={bottomRef}/>
       </div>
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
-        width:"100%",maxWidth:480,padding:"6px 14px 20px",
+      <div style={{flexShrink:0,padding:"6px 14px 20px",
         background:cardBg,borderTop:`1px solid ${dark?"#2d2a45":"#eee"}`,
-        boxSizing:"border-box",zIndex:50}}>
+        boxSizing:"border-box"}}>
         {/* Panel de emojis */}
         {emojiOpen&&(
           <div style={{marginBottom:8,background:dark?"#2d2a45":"#f8f8f8",borderRadius:14,

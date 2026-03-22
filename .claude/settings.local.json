@@ -43,7 +43,9 @@
       "Bash(grep -iE \"^App\\\\.js$|^profile\\\\.js$\")",
       "Bash(unzip -o educoins-src.zip -d /c/Users/GustavoS/Downloads/educoins-src-extracted)",
       "Bash(rm:*)",
-      "Bash(unzip -o \"/c/Users/GustavoS/Downloads/educoins-src.zip\" -d /c/Users/GustavoS/Downloads/educoins-src-extracted)"
+      "Bash(unzip -o \"/c/Users/GustavoS/Downloads/educoins-src.zip\" -d /c/Users/GustavoS/Downloads/educoins-src-extracted)",
+      "Bash(rm -rf src)",
+      "Bash(unzip -q \"/c/Users/GustavoS/Downloads/educoins-src.zip\" -d .)"
     ]
   }
 }

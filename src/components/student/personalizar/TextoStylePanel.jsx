@@ -21,7 +21,7 @@ function TextoStylePanel({items,owned,ownedIds,active,subs,balance,buying,dark,c
     setSavingCustom(true);
     try{
       const resp = await api.customEquipText(customItem.id, customColors.txt, customColors.sub);
-      if(onCustomChange) onCustomChange(resp.data||resp);
+      if(onCustomChange) onCustomChange(resp.data||resp, "text_style");
       showToast("Colores guardados ✅");
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSavingCustom(false);}

@@ -14,8 +14,12 @@ function PerfilModal({userId, onClose, showToast}){
     if(!userId){ setLoading(false); return; }
     setLoading(true);
     api.publicProfile(userId)
-      .then(d=>{ const data=d.data||d; setPerfil(data?.id?data:null); })
-      .catch(()=>setPerfil(null))
+      .then(d=>{
+        // apiFetch ya devuelve data.data, así que d es el usuario directo
+        const data = d?.id ? d : (d?.data || d);
+        setPerfil(data?.id ? data : null);
+      })
+      .catch((e)=>{ console.warn('publicProfile error:', e); setPerfil(null); })
       .finally(()=>setLoading(false));
   },[userId]);
 
