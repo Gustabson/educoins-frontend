@@ -263,7 +263,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="movimientos"&& <AMovimientos/>}
         {tab==="ingresar"   && <AIngresar   me={me} onBack={()=>setTab("home")}/>}
-        {tab==="perfil"     && <APerfil     me={me} balance={balance} logout={logout} showToast={showToast} setMe={setMe}/>}
+        {tab==="perfil"     && <APerfil     me={me} balance={balance} logout={logout} showToast={showToast} setMe={setMe} refreshBalance={refreshBalance}/>}
         {tab==="ranking"    && <ARanking    nameColorConfig={nameColorConfig}/>}
         {tab==="opciones"   && <AOpciones   me={me} logout={logout} notifs={notifs}/>}
         {tab==="notificaciones"&&<ANotificaciones me={me} onBack={()=>navTo("home")} notifs={notifs} setNotifs={setNotifs}/>}

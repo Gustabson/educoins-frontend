@@ -10,20 +10,44 @@ const ROL_ICON  = { student:"🎓",     teacher:"📚",    admin:"⚙️"  };
 
 function PerfilModal({userId, onClose}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg} = useTheme();
-  const [perfil,  setPerfil]  = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [tab,     setTab]     = useState("info");
+  const [perfil,     setPerfil]     = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [tab,        setTab]        = useState("info");
+  const [friendship, setFriendship] = useState(null); // null|'friend'|'pending'|'none'
+  const [addingFriend,setAddingFriend] = useState(false);
 
   useEffect(()=>{
     if(!userId){ setLoading(false); return; }
     setLoading(true);
     setPerfil(null);
+    setFriendship(null);
     setTab("info");
-    api.publicProfile(userId)
-      .then(d=>{ const data=d?.id?d:(d?.data||d); setPerfil(data?.id?data:null); })
-      .catch(()=>setPerfil(null))
-      .finally(()=>setLoading(false));
+    Promise.all([
+      api.publicProfile(userId),
+      api.chatFriends().catch(()=>({data:[]})),
+    ]).then(([pRes, fRes])=>{
+      const data = pRes?.id?pRes:(pRes?.data||pRes);
+      setPerfil(data?.id?data:null);
+      // Determinar estado de amistad
+      const friends = Array.isArray(fRes)?fRes:(fRes?.data||[]);
+      const rel = friends.find(f=>f.user_id===userId||f.friend_id===userId);
+      if(!rel) setFriendship('none');
+      else if(rel.estado==='accepted') setFriendship('friend');
+      else if(rel.estado==='pending') setFriendship('pending');
+      else setFriendship('none');
+    })
+    .catch(()=>{ setPerfil(null); setFriendship('none'); })
+    .finally(()=>setLoading(false));
   },[userId]);
+
+  const sendFriendRequest=async()=>{
+    setAddingFriend(true);
+    try{
+      await api.chatFriendReq(userId);
+      setFriendship('pending');
+    }catch(e){}
+    finally{setAddingFriend(false);}
+  };
 
   if(!userId) return null;
 
@@ -105,8 +129,43 @@ function PerfilModal({userId, onClose}){
                   {perfil.titulo_custom}
                 </div>
               )}
+              {perfil.estado&&(
+                <div style={{fontSize:11,color:"rgba(255,255,255,.65)",marginTop:3,fontStyle:"italic"}}>
+                  "{perfil.estado}"
+                </div>
+              )}
             </div>
+
+            {/* Botón de amistad */}
+            {friendship!==null&&(
+              <div style={{marginTop:12,paddingBottom:4}}>
+                {friendship==='friend'&&(
+                  <div style={{background:"rgba(255,255,255,.2)",borderRadius:99,
+                    padding:"7px 20px",fontSize:12,fontWeight:800,color:"white",
+                    display:"inline-flex",alignItems:"center",gap:6}}>
+                    👥 Amigos
+                  </div>
+                )}
+                {friendship==='pending'&&(
+                  <div style={{background:"rgba(255,255,255,.15)",borderRadius:99,
+                    padding:"7px 20px",fontSize:12,fontWeight:800,color:"rgba(255,255,255,.8)",
+                    display:"inline-flex",alignItems:"center",gap:6}}>
+                    ⏳ Solicitud enviada
+                  </div>
+                )}
+                {friendship==='none'&&isStudent&&(
+                  <button onClick={sendFriendRequest} disabled={addingFriend}
+                    style={{background:"white",border:"none",borderRadius:99,
+                      padding:"7px 20px",fontSize:12,fontWeight:800,
+                      color:accent,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                      opacity:addingFriend?.7:1}}>
+                    {addingFriend?"Enviando...":"+ Agregar amigo"}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+        </div>
 
           {/* Solo para alumnos: nivel y stats */}
           {isStudent&&(
