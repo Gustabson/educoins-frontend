@@ -9,7 +9,7 @@ function AdminEconomia({showToast, onBack}){
   const SECCIONES = [
     {id:"colores",    icon:"🖊️", title:"Colores de Nombre",  sub:"Precios y suscripciones", col:"#8b5cf6"},
     {id:"temas",      icon:"🎨", title:"Temas de App",        sub:"Paletas y suscripciones", col:"#ec4899"},
-    {id:"modos",      icon:"🖥️", title:"Modos de Pantalla",  sub:"AMOLED, Sepia, Custom...", col:"#6366f1"},
+    {id:"fondos",      icon:"🖼️", title:"Fondos de Pantalla",  sub:"Claro, Oscuro, Sepia y más", col:"#6366f1"},
     {id:"estilos",    icon:"✍️", title:"Estilos de Texto",    sub:"Precios y colores",       col:"#06b6d4"},
     {id:"emojis",     icon:"😄", title:"Packs de Emojis",     sub:"Precios de packs",        col:"#f59e0b"},
     {id:"efectos",    icon:"✨", title:"Efectos y Animaciones",sub:"Títulos y nombre",        col:"#3b82f6"},
@@ -67,14 +67,14 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   const [scopeClose,setSClose]=useState("global");
 
   const SEC_TIPO = {
-    colores: "name_color", temas: "theme", modos: "screen_mode", emojis: "emoji_pack",
+    colores: "name_color", temas: "theme", fondos: "screen_mode", emojis: "emoji_pack",
     estilos: "text_style",
     efectos: ["title_effect","name_effect","avatar_frame"],
   };
-  const PERIODO_PER_SEC = ["colores","temas","estilos","modos"];
+  const PERIODO_PER_SEC = ["colores","temas","estilos","fondos"];
 
   useEffect(()=>{
-    if(["colores","temas","modos","emojis","estilos","efectos"].includes(sec)){
+    if(["colores","temas","fondos","emojis","estilos","efectos"].includes(sec)){
       const tipo = SEC_TIPO[sec];
       const tipoParam = Array.isArray(tipo)?tipo[0]:tipo;
       api.customAdminItems()
@@ -163,7 +163,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   };
 
   const SEC_TITLE = {
-    colores:"🖊️ Colores de Nombre", temas:"🎨 Temas", modos:"🖥️ Modos de Pantalla",
+    colores:"🖊️ Colores de Nombre", temas:"🎨 Temas", fondos:"🖼️ Fondos de Pantalla",
     emojis:"😄 Packs Emoji", efectos:"✨ Efectos", ranking:"🏆 Premios Ranking",
     checkin:"🔥 Check-in", suscripciones:"🔄 Suscripciones", historial:"📋 Historial",
   };
@@ -196,7 +196,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             {sec!=="ranking"&&sec!=="checkin"&&sec!=="suscripciones"&&sec!=="historial"&&(
               <div style={{marginBottom:12}}>
                 <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>
-                  💰 Precio de compra (0 = gratis)
+                  💰 Precio de compra único (0 = solo suscripción)
                 </div>
                 <input type="number" min="0"
                   value={editVal.precio??editing.precio??0}
@@ -296,8 +296,37 @@ function AdminEconomiaSec({sec, onBack, showToast}){
       <div style={{padding:"12px 14px"}}>
         {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
 
+        {/* Built-ins para fondos — siempre gratis, no editables */}
+        {sec==="fondos"&&!loading&&(
+          <>
+            {[
+              {id:"claro",    nombre:"Claro",         icon:"☀️", note:"Gratis · Predeterminado"},
+              {id:"oscuro",   nombre:"Oscuro",         icon:"🌑", note:"Gratis · Built-in"},
+              {id:"personalizado",nombre:"Personalizado",icon:"🎨",note:"Gratis · Configurable por alumno"},
+            ].map(b=>(
+              <div key={b.id} style={{background:"white",borderRadius:14,marginBottom:8,
+                overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",opacity:.7}}>
+                <div style={{height:4,background:"linear-gradient(90deg,#6366f1,#8b5cf6)"}}/>
+                <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20}}>{b.icon}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{b.nombre}</div>
+                    <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{b.note}</div>
+                  </div>
+                  <span style={{fontSize:10,color:"#10b981",fontWeight:700,background:"#10b98122",
+                    borderRadius:99,padding:"3px 8px"}}>Built-in</span>
+                </div>
+              </div>
+            ))}
+            <div style={{borderBottom:"1px dashed #eee",margin:"8px 0 12px",
+              fontSize:11,color:"#aaa",textAlign:"center",paddingBottom:8}}>
+              ▼ Fondos de la tienda
+            </div>
+          </>
+        )}
+
         {/* Items de personalización */}
-        {["colores","temas","modos","emojis","estilos","efectos"].includes(sec)&&!loading&&items.map(item=>(
+        {["colores","temas","fondos","emojis","estilos","efectos"].includes(sec)&&!loading&&items.map(item=>(
           <div key={item.id} style={{background:"white",borderRadius:14,marginBottom:8,
             overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",opacity:item.activo?1:.5}}>
             {item.tipo==="theme"&&(
@@ -329,7 +358,13 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                   {!item.activo&&<span style={{fontSize:9,color:"#aaa",fontWeight:700}}>Inactivo</span>}
                 </div>
               </div>
-              <button onClick={()=>{setEditing(item);setEditVal({});}}
+              <button onClick={()=>{setEditing(item);setEditVal({
+                precio: item.precio??0,
+                precio_mensual: item.precio_mensual??0,
+                es_suscripcion: item.es_suscripcion??false,
+                periodo_default: item.periodo_default??"monthly",
+                activo: item.activo??true,
+              });}}
                 style={{background:"#f0f0f0",border:"none",borderRadius:10,padding:"6px 12px",
                   fontSize:11,fontWeight:800,cursor:"pointer",color:"#555",fontFamily:"Nunito,sans-serif"}}>
                 Editar
@@ -339,12 +374,12 @@ function AdminEconomiaSec({sec, onBack, showToast}){
         ))}
 
         {/* Botón crear nuevo item (para modos, temas, estilos, colores, emojis) */}
-        {["modos","temas","estilos","colores","emojis"].includes(sec)&&!loading&&(
+        {["fondos","temas","estilos","colores","emojis"].includes(sec)&&!loading&&(
           <button onClick={()=>setCreating(true)}
             style={{width:"100%",background:"#10b981",border:"none",borderRadius:14,
               color:"white",padding:"13px",fontWeight:800,fontSize:13,cursor:"pointer",
               fontFamily:"Nunito,sans-serif",marginTop:8}}>
-            + Crear nuevo {sec==="modos"?"modo":sec==="temas"?"tema":sec==="estilos"?"estilo":sec==="colores"?"color":"pack"}
+            + Crear nuevo {sec==="fondos"?"fondo":sec==="temas"?"tema":sec==="estilos"?"estilo":sec==="colores"?"color":"pack"}
           </button>
         )}
 
