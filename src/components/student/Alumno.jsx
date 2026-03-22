@@ -41,8 +41,10 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [customActive,  setCustomActive]  = useState(null);
 
   // Resolver el modo activo: buscar en built-ins primero, luego puede venir de DB
-  const savedModeCfg = (() => { try { const s=localStorage.getItem("ec_mode_cfg"); return s?normalizeMode(JSON.parse(s)):null; } catch{return null;} })();
-  const [dbModeCfg, setDbModeCfg] = useState(savedModeCfg); // config completo de un modo de DB
+  const [dbModeCfg, setDbModeCfg] = useState(()=>{
+    // Lazy initializer — solo corre una vez al montar
+    try { const s=localStorage.getItem("ec_mode_cfg"); return s?normalizeMode(JSON.parse(s)):null; } catch{return null;}
+  });
 
   const sm = dbModeCfg || BUILTIN_SCREEN_MODES.find(m=>m.id===activeModeId) || BUILTIN_SCREEN_MODES[0];
 
@@ -164,11 +166,17 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         const cm = typeof active.custom_mode_config==="string"?JSON.parse(active.custom_mode_config):active.custom_mode_config;
         setMode("personalizado", cm); // setMode ya normaliza
       } else {
-        // Sin screen_mode — restaurar al modo guardado (claro/oscuro)
-        const savedId = localStorage.getItem("ec_mode_id")||"claro";
-        const isBuiltin = ["claro","oscuro"].includes(savedId);
-        if(isBuiltin) setMode(savedId, null);
-        else setMode("claro", null);
+        // Sin screen_mode en servidor — respetar lo que hay en localStorage
+        // (puede ser claro, oscuro, o personalizado)
+        const savedId  = localStorage.getItem("ec_mode_id")||"claro";
+        const savedCfg = (() => { try { const s=localStorage.getItem("ec_mode_cfg"); return s?JSON.parse(s):null; } catch{return null;} })();
+        if(savedCfg && savedId==="personalizado"){
+          // Restaurar modo personalizado desde localStorage
+          setMode("personalizado", savedCfg);
+        } else if(["claro","oscuro"].includes(savedId)){
+          setMode(savedId, null);
+        }
+        // Si no coincide con nada conocido, no tocar — dejar el estado actual
       }
     }
 
