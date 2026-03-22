@@ -11,7 +11,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
   const prog=next?Math.min(100,((me.total_earned||0)-lv.min)/(next.min-lv.min)*100):100;
   const [checkin,setCheckin]=useState(null);
   const [doingCheckin,setDoingCheckin]=useState(false);
-  const arrow = dark?"#555":"#ddd";
+  const arrow = sub;
 
   useEffect(()=>{ api.checkinMe().then(d=>setCheckin(d.data||d)).catch(()=>{}); },[]);
 
@@ -135,7 +135,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
         ].map(([ic,lb,sb,col,dest,badge])=>(
           <div key={lb} onClick={()=>onNav(dest)}
             style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",
-              marginBottom:8,background:dark?`${accent}22`:`${accent}18`,borderRadius:20,
+              marginBottom:8,background:cardBg,borderRadius:20,
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
               transition:"background .3s",position:"relative"}}>
             <div style={{position:"relative",flexShrink:0}}>
