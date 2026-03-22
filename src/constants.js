@@ -28,10 +28,10 @@ const BUILTIN_SCREEN_MODES = [
     txt:"#1a1a1a", sub:"#555555", inputBg:"#F7F7F7", inputBd:"#E8E8E8",
   },
   {
-    id:"oscuro", nombre:"Oscuro", icon:"🌙", isDark:true,
-    bg:"#0d0d1a", pageBg:"#0d0d1a", card:"#1a1828", nav:"#1a1828",
-    navBord:"#2a2740", navPill:"#2a2740", navInact:"#666666",
-    txt:"#e8e8f0", sub:"#888888", inputBg:"#2a2740", inputBd:"#3a3758",
+    id:"oscuro", nombre:"Oscuro", icon:"🌑", isDark:true,
+    bg:"#000000", pageBg:"#000000", card:"#111111", nav:"#0a0a0a",
+    navBord:"#222222", navPill:"#1a1a1a", navInact:"#666666",
+    txt:"#f5f5f5", sub:"#999999", inputBg:"#141414", inputBd:"#2a2a2a",
   },
 ];
 
