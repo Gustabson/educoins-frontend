@@ -28,7 +28,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
   return(
     <div style={{minHeight:"100vh",background:pageBg,transition:"background .3s"}}>
       <div style={{background:accent,position:"sticky",top:0,zIndex:50,overflow:"hidden",
-        color:"white",transition:"background .3s"}}>
+        paddingBottom:12,color:"white",transition:"background .3s"}}>
         <div style={{position:"absolute",width:260,height:260,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-80,right:-70,pointerEvents:"none"}}/>
         <div style={{padding:"22px 20px 0",position:"relative"}}>

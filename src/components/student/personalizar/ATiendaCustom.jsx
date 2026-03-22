@@ -247,35 +247,6 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                   );
                 })}
 
-                {/* Modo personalizado — mismo nivel que Claro/Oscuro */}
-                {(()=>{
-                  const m = {id:"personalizado",nombre:"Personalizado",icon:"🎨"};
-                  const isActive = isCustomModeActive;
-                  const bg = isActive?"#374151":"#4b5563";
-                  return(
-                    <div key="personalizado"
-                      onClick={()=>{
-                        const cfg={...customMode, id:"personalizado", nombre:"Personalizado"};
-                        if(onSetMode) onSetMode("personalizado", cfg);
-                        localStorage.setItem("ec_mode_id","personalizado");
-                        localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
-                      }}
-                      style={{borderRadius:16,overflow:"hidden",cursor:"pointer",
-                        background:isActive?"#1f2937":bg,
-                        border:`2px solid ${isActive?accent:bg}`,
-                        boxShadow:isActive?`0 4px 16px ${accent}55`:"0 2px 8px rgba(0,0,0,.12)",
-                        transition:"all .2s",padding:"22px 10px 14px",
-                        display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:32}}>🎨</span>
-                      <span style={{fontWeight:800,fontSize:13,color:"rgba(255,255,255,.9)",textAlign:"center"}}>
-                        Personalizado
-                      </span>
-                      {isActive&&<span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.7)"}}>✓ Activo</span>}
-                      {!isActive&&<span style={{fontSize:10,fontWeight:600,color:"rgba(255,255,255,.4)"}}>Gratis</span>}
-                    </div>
-                  );
-                })()}
-
                 {/* Modos de la DB */}
                 {items.filter(i=>i.tipo==="screen_mode").map(item=>{
                   const isOwned=ownedIds.has(item.id)||item.precio===0;
@@ -320,6 +291,33 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                     </div>
                   );
                 })}
+                {/* Modo personalizado — al final */}
+                {(()=>{
+                  const isActive = isCustomModeActive;
+                  const bg = isActive?"#374151":"#4b5563";
+                  return(
+                    <div key="personalizado"
+                      onClick={()=>{
+                        const cfg={...customMode, id:"personalizado", nombre:"Personalizado"};
+                        if(onSetMode) onSetMode("personalizado", cfg);
+                        localStorage.setItem("ec_mode_id","personalizado");
+                        localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
+                      }}
+                      style={{borderRadius:16,overflow:"hidden",cursor:"pointer",
+                        background:isActive?"#1f2937":bg,
+                        border:`2px solid ${isActive?accent:bg}`,
+                        boxShadow:isActive?`0 4px 16px ${accent}55`:"0 2px 8px rgba(0,0,0,.12)",
+                        transition:"all .2s",padding:"22px 10px 14px",
+                        display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:32}}>🎨</span>
+                      <span style={{fontWeight:800,fontSize:13,color:"rgba(255,255,255,.9)",textAlign:"center"}}>
+                        Personalizado
+                      </span>
+                      {isActive&&<span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.7)"}}>✓ Activo</span>}
+                      {!isActive&&<span style={{fontSize:10,fontWeight:600,color:"rgba(255,255,255,.4)"}}>Gratis</span>}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
