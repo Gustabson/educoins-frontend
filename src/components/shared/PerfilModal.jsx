@@ -4,17 +4,16 @@ import { useTheme } from "../../ThemeContext";
 import { getLv, LEVELS } from "../../constants";
 import { Av, displayName } from "./index";
 
-// ROL → etiqueta visible
 const ROL_LABEL = { student:"Alumno", teacher:"Profe", admin:"Admin" };
-const ROL_ICON  = { student:"🎓",     teacher:"📚",    admin:"⚙️"  };
+const ROL_ICON  = { student:"🎓", teacher:"📚", admin:"⚙️" };
 
 function PerfilModal({userId, onClose}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg:bg,inputBg} = useTheme();
-  const [perfil,     setPerfil]     = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [tab,        setTab]        = useState("info");
-  const [friendship, setFriendship] = useState(null); // null|'friend'|'pending'|'none'
-  const [addingFriend,setAddingFriend] = useState(false);
+  const [perfil,      setPerfil]      = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [tab,         setTab]         = useState("info");
+  const [friendship,  setFriendship]  = useState(null);
+  const [addingFriend,setAddingFriend]= useState(false);
 
   useEffect(()=>{
     if(!userId){ setLoading(false); return; }
@@ -24,17 +23,15 @@ function PerfilModal({userId, onClose}){
     setTab("info");
     Promise.all([
       api.publicProfile(userId),
-      api.chatFriends().catch(()=>({data:[]})),
+      api.chatFriends().catch(()=>[]),
     ]).then(([pRes, fRes])=>{
-      const data = pRes?.id?pRes:(pRes?.data||pRes);
-      setPerfil(data?.id?data:null);
-      // Determinar estado de amistad
-      const friends = Array.isArray(fRes)?fRes:(fRes?.data||[]);
+      const data = pRes?.id ? pRes : (pRes?.data||pRes);
+      setPerfil(data?.id ? data : null);
+      const friends = Array.isArray(fRes) ? fRes : (fRes?.data||[]);
       const rel = friends.find(f=>f.user_id===userId||f.friend_id===userId);
       if(!rel) setFriendship('none');
       else if(rel.estado==='accepted') setFriendship('friend');
-      else if(rel.estado==='pending') setFriendship('pending');
-      else setFriendship('none');
+      else setFriendship('pending');
     })
     .catch(()=>{ setPerfil(null); setFriendship('none'); })
     .finally(()=>setLoading(false));
@@ -42,16 +39,14 @@ function PerfilModal({userId, onClose}){
 
   const sendFriendRequest=async()=>{
     setAddingFriend(true);
-    try{
-      await api.chatFriendReq(userId);
-      setFriendship('pending');
-    }catch(e){}
-    finally{setAddingFriend(false);}
+    try{ await api.chatFriendReq(userId); setFriendship('pending'); }
+    catch(e){}
+    finally{ setAddingFriend(false); }
   };
 
   if(!userId) return null;
 
-  const isStudent = perfil?.rol==="student" || !perfil?.rol;
+  const isStudent = !perfil?.rol || perfil?.rol==="student";
   const lv   = isStudent&&perfil ? getLv(perfil.total_earned||0) : null;
   const next  = lv ? LEVELS.find(l=>l.min>(perfil.total_earned||0)) : null;
   const prog  = (lv&&next)
@@ -59,12 +54,12 @@ function PerfilModal({userId, onClose}){
     : 100;
 
   const LOGROS = [
-    {icon:"⚡",label:"Misionero",   desc:"Completó 10 misiones",    done:(perfil?.misiones||0)>=10},
-    {icon:"🔥",label:"En racha",    desc:"7 días seguidos",          done:(perfil?.racha||0)>=7},
-    {icon:"💰",label:"Ahorrista",   desc:"Acumuló 500 monedas",      done:(perfil?.total_earned||0)>=500},
-    {icon:"🎓",label:"Veterano",    desc:"Completó 50 misiones",     done:(perfil?.misiones||0)>=50},
-    {icon:"👑",label:"Leyenda",     desc:"2000 monedas ganadas",     done:(perfil?.total_earned||0)>=2000},
-    {icon:"📅",label:"Constante",   desc:"30 check-ins totales",     done:(perfil?.checkins||0)>=30},
+    {icon:"⚡",label:"Misionero",  desc:"Completó 10 misiones",   done:(perfil?.misiones||0)>=10},
+    {icon:"🔥",label:"En racha",   desc:"7 días seguidos",         done:(perfil?.racha||0)>=7},
+    {icon:"💰",label:"Ahorrista",  desc:"Acumuló 500 monedas",     done:(perfil?.total_earned||0)>=500},
+    {icon:"🎓",label:"Veterano",   desc:"Completó 50 misiones",    done:(perfil?.misiones||0)>=50},
+    {icon:"👑",label:"Leyenda",    desc:"2000 monedas ganadas",    done:(perfil?.total_earned||0)>=2000},
+    {icon:"📅",label:"Constante",  desc:"30 check-ins totales",    done:(perfil?.checkins||0)>=30},
   ];
 
   return(
@@ -103,8 +98,8 @@ function PerfilModal({userId, onClose}){
       {!loading&&perfil&&(
         <div style={{flex:1,overflowY:"auto"}}>
 
-          {/* Banner con avatar */}
-          <div style={{background:accent,padding:"8px 0 28px",
+          {/* Banner */}
+          <div style={{background:accent,padding:"8px 0 24px",
             display:"flex",flexDirection:"column",alignItems:"center"}}>
             <Av user={perfil} sz={84}/>
             <div style={{marginTop:10,textAlign:"center",padding:"0 20px"}}>
@@ -116,7 +111,6 @@ function PerfilModal({userId, onClose}){
                   {perfil.nombre}
                 </div>
               )}
-              {/* Rol badge */}
               <div style={{marginTop:6,display:"inline-flex",alignItems:"center",gap:4,
                 background:"rgba(0,0,0,.2)",borderRadius:99,padding:"3px 10px"}}>
                 <span>{ROL_ICON[perfil.rol]||"🎓"}</span>
@@ -136,9 +130,9 @@ function PerfilModal({userId, onClose}){
               )}
             </div>
 
-            {/* Botón de amistad */}
+            {/* Botón amistad */}
             {friendship!==null&&(
-              <div style={{marginTop:12,paddingBottom:4}}>
+              <div style={{marginTop:12}}>
                 {friendship==='friend'&&(
                   <div style={{background:"rgba(255,255,255,.2)",borderRadius:99,
                     padding:"7px 20px",fontSize:12,fontWeight:800,color:"white",
@@ -148,16 +142,16 @@ function PerfilModal({userId, onClose}){
                 )}
                 {friendship==='pending'&&(
                   <div style={{background:"rgba(255,255,255,.15)",borderRadius:99,
-                    padding:"7px 20px",fontSize:12,fontWeight:800,color:"rgba(255,255,255,.8)",
-                    display:"inline-flex",alignItems:"center",gap:6}}>
+                    padding:"7px 20px",fontSize:12,fontWeight:800,
+                    color:"rgba(255,255,255,.8)",display:"inline-flex",alignItems:"center",gap:6}}>
                     ⏳ Solicitud enviada
                   </div>
                 )}
                 {friendship==='none'&&isStudent&&(
                   <button onClick={sendFriendRequest} disabled={addingFriend}
                     style={{background:"white",border:"none",borderRadius:99,
-                      padding:"7px 20px",fontSize:12,fontWeight:800,
-                      color:accent,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                      padding:"7px 20px",fontSize:12,fontWeight:800,color:accent,
+                      cursor:"pointer",fontFamily:"Nunito,sans-serif",
                       opacity:addingFriend?.7:1}}>
                     {addingFriend?"Enviando...":"+ Agregar amigo"}
                   </button>
@@ -165,9 +159,8 @@ function PerfilModal({userId, onClose}){
               </div>
             )}
           </div>
-        </div>
 
-          {/* Solo para alumnos: nivel y stats */}
+          {/* Contenido para alumnos */}
           {isStudent&&(
             <>
               {/* Barra de nivel */}
@@ -179,19 +172,14 @@ function PerfilModal({userId, onClose}){
                     {lv?.icon||"🌱"}
                   </div>
                   <div style={{flex:1}}>
-                    <div style={{fontWeight:800,fontSize:14,color:txt}}>
-                      {lv?.name||"Novato"}
-                    </div>
-                    <div style={{fontSize:11,color:sub}}>
-                      {perfil.total_earned||0} 🪙 ganadas en total
-                    </div>
+                    <div style={{fontWeight:800,fontSize:14,color:txt}}>{lv?.name||"Novato"}</div>
+                    <div style={{fontSize:11,color:sub}}>{perfil.total_earned||0} 🪙 ganadas en total</div>
                   </div>
                 </div>
                 {next&&(
                   <>
                     <div style={{background:inputBg,borderRadius:99,height:7,overflow:"hidden"}}>
-                      <div style={{width:prog+"%",height:"100%",background:accent,borderRadius:99,
-                        transition:"width .6s ease"}}/>
+                      <div style={{width:prog+"%",height:"100%",background:accent,borderRadius:99}}/>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
                       <span style={{fontSize:10,color:sub}}>{lv?.min||0} 🪙</span>
@@ -223,9 +211,9 @@ function PerfilModal({userId, onClose}){
                 <div style={{padding:"12px 14px 24px",
                   display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                   {[
-                    {icon:"⚡",label:"Misiones",  val:perfil.misiones||0},
-                    {icon:"📅",label:"Check-ins", val:perfil.checkins||0},
-                    {icon:"🔥",label:"Racha máx.",val:perfil.racha||0},
+                    {icon:"⚡",label:"Misiones",   val:perfil.misiones||0},
+                    {icon:"📅",label:"Check-ins",  val:perfil.checkins||0},
+                    {icon:"🔥",label:"Racha máx.", val:perfil.racha||0},
                     {icon:"🪙",label:"Total ganado",val:perfil.total_earned||0},
                   ].map(s=>(
                     <div key={s.label} style={{background:cardBg,borderRadius:16,
@@ -253,9 +241,7 @@ function PerfilModal({userId, onClose}){
                         {l.icon}
                       </div>
                       <div style={{flex:1}}>
-                        <div style={{fontWeight:800,fontSize:13,color:l.done?txt:sub}}>
-                          {l.label}
-                        </div>
+                        <div style={{fontWeight:800,fontSize:13,color:l.done?txt:sub}}>{l.label}</div>
                         <div style={{fontSize:11,color:sub}}>{l.desc}</div>
                       </div>
                       {l.done&&<span style={{color:accent,fontWeight:900,fontSize:16}}>✓</span>}
@@ -266,12 +252,10 @@ function PerfilModal({userId, onClose}){
             </>
           )}
 
-          {/* Para teacher/admin: info simple */}
+          {/* Para teacher/admin */}
           {!isStudent&&(
-            <div style={{padding:"20px 14px",textAlign:"center",color:sub,fontSize:13}}>
-              {perfil.rol==="teacher"
-                ? "Docente de la institución"
-                : "Administrador del sistema"}
+            <div style={{padding:"24px 14px",textAlign:"center",color:sub,fontSize:13}}>
+              {perfil.rol==="teacher" ? "Docente de la institución" : "Administrador del sistema"}
             </div>
           )}
 
