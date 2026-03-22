@@ -326,7 +326,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                 customMode={customMode}
                 setCustomMode={setCustomMode}
                 onSetMode={onSetMode}
-                accent={accent} dark={dark} txt={txt} sub={sub} cardBg={cardBg}
+                accent={accent} dark={dark} txt={txt} sub={sub} cardBg={cardBg} inputBg={inputBg}
               />
             )}
 
@@ -539,7 +539,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
 // ── NOTIFICACIONES ────────────────────────────────────────────
 
-function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, txt, sub, cardBg}){
+function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, txt, sub, cardBg, inputBg}){
   const [saving,setSaving] = useState(false);
   const [saved,setSaved]   = useState(false);
 
