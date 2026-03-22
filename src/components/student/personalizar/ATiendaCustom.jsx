@@ -82,7 +82,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
       const d=await api.customEquip("theme",item.id);
       const newActive=d.data||d;
       setActive(newActive);
-      if(onCustomChange) onCustomChange(newActive);
+      if(onCustomChange) onCustomChange(newActive, "theme");
       // Aplicar color directo
       if(onThemeChange){
         const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
@@ -99,7 +99,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
       const newActive=d.data||d;
       setActive(newActive);
       setPreview(null);
-      if(onCustomChange) onCustomChange(newActive);
+      if(onCustomChange) onCustomChange(newActive, tipo);
       if(tipo==="theme"){
         if(!isActive&&onThemeChange){
           // Intentar leer primary del response del servidor (más confiable)

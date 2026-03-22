@@ -113,21 +113,29 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
 
   // ── Personalización del server ───────────────────────────────
 
-  const applyActive=(active)=>{
+  const applyActive=(active, changedTipo=null)=>{
     if(!active) return;
-    if(active.theme_config){
-      const tc=typeof active.theme_config==="string"?JSON.parse(active.theme_config):active.theme_config;
-      if(tc?.primary){ const match=DUAL_THEMES.find(t=>t.primary===tc.primary); setTheme(match?.id||null,tc.primary,false); }
+    // Solo tocar el tema si es carga inicial o se equipó un theme
+    if(changedTipo===null||changedTipo==="theme"){
+      if(active.theme_config){
+        const tc=typeof active.theme_config==="string"?JSON.parse(active.theme_config):active.theme_config;
+        if(tc?.primary){ const match=DUAL_THEMES.find(t=>t.primary===tc.primary); setTheme(match?.id||null,tc.primary,false); }
+      }
     }
-    if(active.screen_mode_config){
-      const sc=typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
-      setScreenModeCfg(sc||null);
-      // El isDark lo controla el screen_mode, no el toggle usuario
-    } else { setScreenModeCfg(null); }
-    if(active.text_style_config){
-      const ts=typeof active.text_style_config==="string"?JSON.parse(active.text_style_config):active.text_style_config;
-      setTextStyleCfg({...ts,custom_txt:active.custom_txt_color,custom_sub:active.custom_sub_color,custom_card:active.custom_card_color});
-    } else { setTextStyleCfg(null); }
+    // Solo tocar screen_mode si es carga inicial o se equipó un screen_mode
+    if(changedTipo===null||changedTipo==="screen_mode"){
+      if(active.screen_mode_config){
+        const sc=typeof active.screen_mode_config==="string"?JSON.parse(active.screen_mode_config):active.screen_mode_config;
+        setScreenModeCfg(sc||null);
+      } else if(changedTipo===null){ setScreenModeCfg(null); }
+    }
+    // Solo tocar text_style si es carga inicial o se equipó un text_style
+    if(changedTipo===null||changedTipo==="text_style"){
+      if(active.text_style_config){
+        const ts=typeof active.text_style_config==="string"?JSON.parse(active.text_style_config):active.text_style_config;
+        setTextStyleCfg({...ts,custom_txt:active.custom_txt_color,custom_sub:active.custom_sub_color,custom_card:active.custom_card_color});
+      } else if(changedTipo===null){ setTextStyleCfg(null); }
+    }
   };
 
   useEffect(()=>{
@@ -208,9 +216,9 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="notificaciones"&&<ANotificaciones me={me} onBack={()=>navTo("home")} notifs={notifs} setNotifs={setNotifs}/>}
         {tab==="personalizar"&&<ATiendaCustom me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}
           onBack={()=>{clearPreview();navTo("home");}}
-          onCustomChange={(active)=>{
+          onCustomChange={(active, tipo)=>{
             setCustomActive(active);
-            applyActive(active);
+            applyActive(active, tipo||null);
           }}
           onThemeChange={(id,directPrimary,isPreview)=>setTheme(id,directPrimary,isPreview)}
           onDarkChange={toggleDark}
