@@ -56,7 +56,9 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   const [config,setConfig] = useState([]);
   const [payouts,setPayouts]= useState([]);
   const [loading,setLoading]= useState(true);
-  const [editing,setEditing]= useState(null);
+  const [editing,setEditing]  = useState(null);
+  const [creating,setCreating] = useState(false);
+  const [newItem,setNewItem]   = useState({nombre:"",precio:0,precio_mensual:0,es_suscripcion:false,periodo_default:"monthly",activo:true,preview:"✨"});
   const [editVal,setEditVal]= useState({});
   const [saving,setSaving]  = useState(false);
   const [closingSec,setClosing]= useState(null);
