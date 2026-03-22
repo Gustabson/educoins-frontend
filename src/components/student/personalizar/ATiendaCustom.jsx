@@ -224,13 +224,12 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
                 {/* Claro y Oscuro — botones grandes con fondo del color del modo */}
                 {[
-                  {d:false,icon:"☀️",lbl:"Claro",  bg:"#4fc3f7",bgSel:"#0288d1"},
-                  {d:true, icon:"🌙",lbl:"Oscuro", bg:"#5e35b1",bgSel:"#311b92"},
+                  {d:false,icon:"☀️",lbl:"Claro", bg:"#4fc3f7",bgSel:"#0288d1"},
                 ].map(m=>{
-                  const isActive=!active?.screen_mode_id&&isDark===m.d;
+                  const isActive=!active?.screen_mode_id&&!isDark;
                   return(
                     <div key={m.lbl} onClick={()=>{
-                      onDarkChange&&onDarkChange(m.d);
+                      onDarkChange&&onDarkChange(false);
                       if(active?.screen_mode_id) equipar("screen_mode",active.screen_mode_id);
                     }}
                       style={{borderRadius:16,overflow:"hidden",cursor:"pointer",

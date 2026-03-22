@@ -56,7 +56,8 @@
       "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -c \"DELETE FROM subscriptions WHERE user_id = \\(SELECT id FROM users WHERE email = 'maria@escuela.com'\\);\")",
       "Bash(unzip -l \"/c/Users/GustavoS/Downloads/educoins-backend.zip\")",
       "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/fix_modes.sql\")",
-      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/cleanup_modes.sql\")"
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/cleanup_modes.sql\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/builtin_as_items.sql\")"
     ]
   }
 }

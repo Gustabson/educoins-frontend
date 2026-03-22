@@ -114,9 +114,17 @@ function AdminEconomiaSec({sec, onBack, showToast}){
         setConfig(prev=>prev.map(c=>c.id===editing.id?{...c,...editVal}:c));
       } else {
         await api.customAdminUpdate(editing.id, editVal);
-        setItems(prev=>prev.map(i=>i.id===editing.id?{...i,...editVal}:i));
+        // Recargar desde el servidor para mostrar datos reales
+        const tipo = Array.isArray(SEC_TIPO[sec])?SEC_TIPO[sec][0]:SEC_TIPO[sec];
+        const fresh = await api.customAdminItems();
+        const arr = (fresh.data||fresh||[]);
+        if(Array.isArray(SEC_TIPO[sec])){
+          setItems(arr.filter(i=>SEC_TIPO[sec].includes(i.tipo)));
+        } else {
+          setItems(arr.filter(i=>i.tipo===tipo));
+        }
       }
-      showToast("Guardado");
+      showToast("✅ Guardado");
       setEditing(null);
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSaving(false);}
@@ -296,13 +304,11 @@ function AdminEconomiaSec({sec, onBack, showToast}){
       <div style={{padding:"12px 14px"}}>
         {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
 
-        {/* Built-ins para fondos — siempre gratis, no editables */}
+        {/* Built-ins para fondos — solo Claro es gratis */}
         {sec==="fondos"&&!loading&&(
           <>
             {[
-              {id:"claro",    nombre:"Claro",         icon:"☀️", note:"Gratis · Predeterminado"},
-              {id:"oscuro",   nombre:"Oscuro",         icon:"🌑", note:"Gratis · Built-in"},
-              {id:"personalizado",nombre:"Personalizado",icon:"🎨",note:"Gratis · Configurable por alumno"},
+              {id:"claro", nombre:"Claro", icon:"☀️", note:"Gratis · Predeterminado para todos"},
             ].map(b=>(
               <div key={b.id} style={{background:"white",borderRadius:14,marginBottom:8,
                 overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)",opacity:.7}}>
@@ -342,18 +348,14 @@ function AdminEconomiaSec({sec, onBack, showToast}){
               <div style={{flex:1}}>
                 <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{item.nombre}</div>
                 <div style={{display:"flex",gap:6,marginTop:2,flexWrap:"wrap",alignItems:"center"}}>
-                  <span style={{fontSize:11,fontWeight:800,color:"#10b981"}}>
-                    {item.precio===0?"Gratis":`🪙${item.precio}`}
-                  </span>
-                  {item.es_suscripcion&&item.precio>0&&(
-                    <span style={{background:"#8b5cf622",color:"#8b5cf6",borderRadius:99,
-                      padding:"2px 7px",fontSize:9,fontWeight:800}}>
-                      🔄 {item.periodo_default==="weekly"?"Semanal":item.periodo_default==="annual"?"Anual":"Mensual"}
+                  {item.es_suscripcion?(
+                    <span style={{fontSize:11,fontWeight:800,color:"#8b5cf6"}}>
+                      🔄 🪙{item.precio_mensual??0}/{item.periodo_default==="weekly"?"sem":item.periodo_default==="annual"?"año":"mes"}
                     </span>
-                  )}
-                  {item.es_suscripcion&&item.precio===0&&(
-                    <span style={{background:"#10b98122",color:"#10b981",borderRadius:99,
-                      padding:"2px 7px",fontSize:9,fontWeight:800}}>Gratis</span>
+                  ):(
+                    <span style={{fontSize:11,fontWeight:800,color:"#10b981"}}>
+                      {item.precio===0?"Gratis":`🪙${item.precio} único`}
+                    </span>
                   )}
                   {!item.activo&&<span style={{fontSize:9,color:"#aaa",fontWeight:700}}>Inactivo</span>}
                 </div>
