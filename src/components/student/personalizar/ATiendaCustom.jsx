@@ -72,6 +72,9 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
       showToast(`Compraste: ${item.nombre} ✅`);
       await refreshBalance();
       await loadAll();
+      // Limpiar cualquier preview activo
+      setPreview(null);
+      if(onThemeChange) onThemeChange(currentThemeId, null, false);
     }catch(e){showToast(e.message||"Error","error");}
     finally{setBuying(null);}
   };

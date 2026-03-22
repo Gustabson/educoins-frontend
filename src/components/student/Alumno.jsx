@@ -26,6 +26,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [camOpen,setCamOpen]=useState(false);
   const [notifs,setNotifs]=useState([]);
   const [badges,setBadges]=useState({chat:0,notifs:0});
+  const [perfilUserId,setPerfilUserId]=useState(null); // perfil modal global
 
   // ── Tema dual ────────────────────────────────────────────────
   const savedThemeId = localStorage.getItem("ec_theme")||"oceano";
@@ -208,6 +209,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       transition:"background .3s",overflow:"hidden"}}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
+      {perfilUserId&&<PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>}
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
         {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} balDir={balDir} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
@@ -229,7 +231,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           onDarkChange={toggleDark}
           currentThemeId={themeId} isDark={isDark}
           currentPrimary={dbThemePrimary||theme.primary}/>}
-        {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig}/>}
+        {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig} onOpenPerfil={setPerfilUserId}/>}
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="reportes"   && <AReportes   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}

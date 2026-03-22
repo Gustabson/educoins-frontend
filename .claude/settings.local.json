@@ -48,7 +48,12 @@
       "Bash(unzip -q \"/c/Users/GustavoS/Downloads/educoins-src.zip\" -d .)",
       "Bash(ls -la /c/Users/GustavoS/Downloads/educoins-src*.zip)",
       "Bash(sort -k6,7)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -c \"DELETE FROM user_custom_items WHERE user_id = \\(SELECT id FROM users WHERE email = ''maria@escuela.com''\\);\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -c \"DELETE FROM user_custom_active WHERE user_id = \\(SELECT id FROM users WHERE email = ''maria@escuela.com''\\);\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -c \"DELETE FROM user_subscriptions WHERE user_id = \\(SELECT id FROM users WHERE email = ''maria@escuela.com''\\);\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -c \"\\\\dt\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -c \"DELETE FROM subscriptions WHERE user_id = \\(SELECT id FROM users WHERE email = 'maria@escuela.com'\\);\")"
     ]
   }
 }

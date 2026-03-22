@@ -4,7 +4,6 @@ import { api, connectSocket, getSocket } from "../../api";;
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, Sheet, Toast, WCard, displayName, useToast } from "../shared/index";
 
-import PerfilModal from "../shared/PerfilModal";
 
 function useChatSocket(token, onMessage, onTyping) {
   const socketRef  = useRef(null);
@@ -45,7 +44,7 @@ function useChatSocket(token, onMessage, onTyping) {
   return socketRef;
 }
 
-function AChat({me, showToast, onBack, nameColorConfig}){
+function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,inputBg,inputBd} = useTheme();
   const [sec, setSec]           = useState(0);
   const [friend, setFriend]     = useState(null);
@@ -65,7 +64,7 @@ function AChat({me, showToast, onBack, nameColorConfig}){
   const [results, setResults]   = useState([]);
   const [addOpen, setAddOpen]   = useState(false);
   const [loading, setLoading]   = useState(true);
-  const [perfilUserId,setPerfilUserId] = useState(null);
+  // perfilUserId manejado en Alumno via onOpenPerfil prop
   // Emoji picker
   const [emojiOpen, setEmojiOpen]     = useState(false);
   const [emojiPacks, setEmojiPacks]   = useState([]); // packs desbloqueados
@@ -271,9 +270,9 @@ function AChat({me, showToast, onBack, nameColorConfig}){
           style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
             color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
             display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-        <div onClick={()=>setPerfilUserId(friend.id)} style={{cursor:"pointer"}}><Av user={friend} sz={36}/></div>
+        <div onClick={()=>onOpenPerfil&&onOpenPerfil(friend.id)} style={{cursor:"pointer"}}><Av user={friend} sz={36}/></div>
         <div style={{flex:1}}>
-          <div onClick={()=>setPerfilUserId(friend.id)} style={{fontWeight:800,fontSize:15,cursor:"pointer"}}>{friend.nombre}</div>
+          <div onClick={()=>onOpenPerfil&&onOpenPerfil(friend.id)} style={{fontWeight:800,fontSize:15,cursor:"pointer"}}>{friend.nombre}</div>
           {typing&&<div style={{fontSize:11,opacity:.8}}>escribiendo...</div>}
         </div>
       </div>
@@ -637,10 +636,6 @@ function AChat({me, showToast, onBack, nameColorConfig}){
         </div>
       )}
 
-      {/* Modal perfil */}
-      {perfilUserId&&(
-        <PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>
-      )}
     </div>
   );
 }
