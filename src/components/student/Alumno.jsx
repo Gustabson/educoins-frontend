@@ -46,31 +46,56 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
 
   const sm = dbModeCfg || BUILTIN_SCREEN_MODES.find(m=>m.id===activeModeId) || BUILTIN_SCREEN_MODES[0];
 
-  // Text style overrides
-  const ts     = textStyleCfg || {};
-  const tsTxt  = ts.preset==="custom" && ts.custom_txt ? ts.custom_txt
-               : ts.txt && ts.txt!=="default" ? ts.txt : null;
-  const tsSub  = ts.preset==="custom" && ts.custom_sub ? ts.custom_sub
-               : ts.sub && ts.sub!=="default" ? ts.sub : null;
+  // ── Text style: resuelve colores de texto ────────────────────
+  const ts = textStyleCfg || {};
+  const isDark = sm.isDark || false;
+
+  // 3 casos posibles de preset:
+  // "contraste" → máximo contraste según fondo del modo
+  // "custom"    → colores elegidos por el alumno
+  // cualquier otro (null, "clasico") → colores del modo
+  const resolveText = () => {
+    if(ts.preset==="contraste" || ts.contrast){
+      return {
+        txt: isDark ? "#ffffff" : "#000000",
+        sub: isDark ? "#cccccc" : "#222222",
+      };
+    }
+    if(ts.preset==="custom"){
+      return {
+        txt: ts.custom_txt || sm.txt,
+        sub: ts.custom_sub || sm.sub,
+      };
+    }
+    // Preset específico con colores definidos (ej: Nocturno)
+    if(ts.txt && ts.txt!=="default") {
+      return { txt: ts.txt, sub: ts.sub&&ts.sub!=="default"?ts.sub:sm.sub };
+    }
+    // Default: usar los del modo
+    return { txt: sm.txt, sub: sm.sub };
+  };
+  const {txt: resolvedTxt, sub: resolvedSub} = resolveText();
 
   const primary = previewPrimary || activePrimary || "#00c1fc";
 
   const theme = {
     primary,
     secondary: "#0369a1",
-    isDark:    sm.isDark||false,
+    isDark,
     pageBg:    sm.pageBg,
     darkBg:    sm.bg||sm.pageBg,
     cardBg:    sm.card,
     navBg:     sm.nav,
     navBord:   sm.navBord,
     navPill:   sm.navPill,
-    navInact:  sm.navInact,
+    // Nav: si hay contraste activo, los labels siguen al txt resuelto
+    navInact:  (ts.preset==="contraste"||ts.contrast) ? resolvedSub : sm.navInact,
     navActiv:  primary,
     inputBg:   sm.inputBg,
     inputBd:   sm.inputBd,
-    txt:       tsTxt || sm.txt,
-    sub:       tsSub || sm.sub,
+    // txt y sub son los colores de TODO el contenido de texto
+    txt:       resolvedTxt,
+    sub:       resolvedSub,
   };
 
   // ── Funciones de tema unificadas ─────────────────────────────
