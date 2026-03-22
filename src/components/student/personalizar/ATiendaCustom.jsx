@@ -92,11 +92,6 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
       const newActive=d.data||d;
       setActive(newActive);
       if(onCustomChange) onCustomChange(newActive, "theme");
-      // Aplicar color directo
-      if(onThemeChange){
-        const cfg=typeof item.config==="string"?JSON.parse(item.config||"{}"):item.config||{};
-        onThemeChange(null, cfg.primary||null);
-      }
     }catch(e){showToast(e.message||"Error","error");}
     finally{setBuying(null);}
   };
@@ -109,31 +104,6 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
       setActive(newActive);
       setPreview(null);
       if(onCustomChange) onCustomChange(newActive, tipo);
-      if(tipo==="theme"){
-        if(!isActive&&onThemeChange){
-          // Intentar leer primary del response del servidor (más confiable)
-          let primary = null;
-          if(newActive?.theme_config){
-            const tc=typeof newActive.theme_config==="string"?JSON.parse(newActive.theme_config||"{}"):newActive.theme_config;
-            primary = tc?.primary||null;
-          }
-          // Fallback: leer del item local
-          if(!primary){
-            const tItem=items.find(i=>i.id===item_id);
-            if(tItem){
-              const cfg=typeof tItem.config==="string"?JSON.parse(tItem.config||"{}"):tItem.config||{};
-              primary = cfg.primary||null;
-            }
-          }
-          if(primary){
-            onThemeChange(null, primary);
-            originalPrimaryRef.current = primary;
-          }
-        } else if(isActive&&onThemeChange){
-          onThemeChange("oceano",null);
-          originalPrimaryRef.current = null;
-        }
-      }
       showToast(isActive?"Desequipado":"Equipado ✅");
     }catch(e){showToast(e.message||"Error","error");}
   };

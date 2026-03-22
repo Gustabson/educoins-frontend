@@ -209,7 +209,6 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       transition:"background .3s",overflow:"hidden"}}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
-      {perfilUserId&&<PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>}
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
         {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} balDir={balDir} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
@@ -312,6 +311,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       </div>
       )}
     </div>
+    {perfilUserId&&<PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>}
     </ThemeCtx.Provider>
   );
 }
