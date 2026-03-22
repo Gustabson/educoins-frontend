@@ -25,11 +25,21 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   const [saving,    setSaving]    = useState(null);
 
   // Estado del alumno — campo en DB (necesitamos la migración)
-  const [estadoShop,setEstadoShop]= useState(null); // item de estado de la tienda
+  const [estadoShop,setEstadoShop]= useState(null);
+  const [emojiPacks, setEmojiPacks]= useState([]); // emojis comprados para el selector
   useEffect(()=>{
     api.customShop("estado").then(d=>{
       const arr=Array.isArray(d)?d:(d.data||d||[]);
       setEstadoShop(arr.find(i=>i.tipo==="estado")||null);
+    }).catch(()=>{});
+    // Cargar emojis desbloqueados del usuario
+    api.customMe().then(d=>{
+      const active = (d?.data||d)?.active;
+      if(active?.emoji_pack_config){
+        const cfg = typeof active.emoji_pack_config==="string"
+          ? JSON.parse(active.emoji_pack_config) : active.emoji_pack_config;
+        setEmojiPacks(cfg?.emojis||[]);
+      }
     }).catch(()=>{});
   },[]);
 
@@ -66,11 +76,11 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
     }
     setSaving("titulo");
     try{
-      await api.buyTituloChange(tituloVal.trim(), PRECIO_CAMBIO_TITULO);
+      const r = await api.buyTituloChange(tituloVal.trim(), PRECIO_CAMBIO_TITULO);
+      const newTitulo = (r?.data||r)?.titulo_custom ?? tituloVal.trim();
+      setMe(prev=>({...prev, titulo_custom: newTitulo}));
       showToast(`Título guardado 👑 (-🪙${PRECIO_CAMBIO_TITULO})`);
       if(refreshBalance) refreshBalance();
-      const updated=await api.me();
-      setMe(updated);
       setEditTitulo(false);
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSaving(null);}
@@ -80,10 +90,11 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   const guardarEstado=async()=>{
     setSaving("estado");
     try{
-      await api.setEstado(estadoVal.trim().slice(0,40));
+      const r = await api.setEstado(estadoVal.trim().slice(0,40));
+      // Actualizar me localmente con el nuevo estado
+      const newEstado = (r?.data||r)?.estado ?? estadoVal.trim().slice(0,40);
+      setMe(prev=>({...prev, estado: newEstado}));
       showToast("Estado actualizado ✨");
-      const updated=await api.me();
-      setMe(updated);
       setEditEstado(false);
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSaving(null);}
@@ -218,7 +229,13 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
         </div>
 
         {/* ── Títulos ───────────────────────────────────────── */}
-        <div style={{fontWeight:800,color:txt,marginBottom:8,fontSize:13}}>📛 Títulos</div>
+        <div style={{fontWeight:800,color:txt,marginBottom:4,fontSize:13}}>📛 Títulos del sistema</div>
+        {me.titulo_custom&&(
+          <div style={{fontSize:11,color:sub,marginBottom:8,padding:"6px 10px",
+            background:inputBg,borderRadius:8}}>
+            ℹ️ Tu título personalizado "{me.titulo_custom}" está activo y reemplaza estos.
+          </div>
+        )}
         <div style={{marginBottom:8}}>
           {TITLES.map(t=>{
             const owned   = unlockedTitles.includes(t.id);
@@ -274,11 +291,26 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
           {editTitulo?(
             <>
               <input value={tituloVal}
-                onChange={e=>setTituloVal(e.target.value.slice(0,20))}
-                placeholder="Tu título (máx 20 chars)..."
+                onChange={e=>setTituloVal(e.target.value.slice(0,30))}
+                placeholder="Tu título personalizado..."
                 style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${accent}44`,
                   borderRadius:10,padding:"9px 12px",fontSize:14,fontWeight:700,outline:"none",
-                  color:txt,background:inputBg,fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
+                  color:txt,background:inputBg,fontFamily:"Nunito,sans-serif",marginBottom:6}}/>
+              {/* Selector de emojis comprados */}
+              {emojiPacks.length>0&&(
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8,
+                  padding:"6px 8px",background:inputBg,borderRadius:10}}>
+                  <span style={{fontSize:10,color:sub,alignSelf:"center",marginRight:2}}>Emojis:</span>
+                  {emojiPacks.slice(0,20).map((em,i)=>(
+                    <span key={i} onClick={()=>setTituloVal(v=>v+em)}
+                      style={{fontSize:18,cursor:"pointer",padding:"2px",borderRadius:6,
+                        transition:"transform .1s"}}
+                      title="Tocar para agregar">
+                      {em}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div style={{display:"flex",gap:8}}>
                 <button onClick={guardarTitulo} disabled={saving==="titulo"||balance<PRECIO_CAMBIO_TITULO}
                   style={{flex:1,background:saving==="titulo"||balance<PRECIO_CAMBIO_TITULO?"#ccc":accent,
