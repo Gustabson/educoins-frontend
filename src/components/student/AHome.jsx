@@ -28,7 +28,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
   return(
     <div style={{minHeight:"100vh",background:pageBg,transition:"background .3s"}}>
       <div style={{background:accent,position:"sticky",top:0,zIndex:50,overflow:"hidden",
-        paddingBottom:20,color:"white",transition:"background .3s"}}>
+        color:"white",transition:"background .3s"}}>
         <div style={{position:"absolute",width:260,height:260,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-80,right:-70,pointerEvents:"none"}}/>
         <div style={{padding:"22px 20px 0",position:"relative"}}>
@@ -87,7 +87,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
       </div>
 
       {/* Accesos rápidos con check-in */}
-      <div style={{padding:"14px 14px 8px",background:dark?"#12101e":"#F5F5F5",minHeight:"60vh",transition:"background .3s"}}>
+      <div style={{padding:"14px 14px 8px",background:pageBg,minHeight:"60vh",transition:"background .3s"}}>
 
         {/* Widget check-in */}
         {checkin&&(
