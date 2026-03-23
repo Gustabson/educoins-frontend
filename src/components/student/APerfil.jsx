@@ -158,10 +158,12 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
 
   const saveActiveTitles=async(newTitles)=>{
     setSaving("titles");
+    // Filter out nulls/undefined but allow empty array
+    const cleaned = newTitles.filter(Boolean);
     try{
-      await api.setActiveTitles(newTitles);
-      setActiveTitles(newTitles);
-      setMe(prev=>({...prev,active_titles:newTitles}));
+      await api.setActiveTitles(cleaned);
+      setActiveTitles(cleaned);
+      setMe(prev=>({...prev,active_titles:cleaned}));
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSaving(null);}
   };
@@ -196,12 +198,14 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
     if(item.price>0&&balance<item.price){showToast(`Necesitás 🪙${item.price}`,"error");return;}
     setBuying(item.id);
     try{
-      await api.buyItem("avatar_bg",item);
-      showToast(`✅ ${item.name} desbloqueado!`);
-      if(refreshBalance) refreshBalance();
+      // Pass item.id as the item_id, not the full object
+      await api.buyItem("avatar_bg", item.id);
       setUnlockedAvatarBgs(prev=>[...prev,item.id]);
+      // Equip immediately after buying
+      setAvatarBgAndSave({id:item.id,name:item.name,type:item.type,value:item.value,glow:item.glow||null});
+      if(refreshBalance) refreshBalance();
+      showToast(`✅ ${item.name} desbloqueado!`);
     }catch(e){
-      // If buy fails (not in backend yet), just set it directly for free items
       if(item.price===0) setUnlockedAvatarBgs(prev=>[...prev,item.id]);
       else showToast(e.message||"Error","error");
     }
@@ -526,7 +530,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
               </div>
             );
           })}
-          {/* Slot de foto */}
+          {/* Slot de foto — siempre gratis, solo subir */}
           <div style={{...card,padding:"12px 6px",textAlign:"center",marginBottom:0,
             border:`2px solid ${me.foto_url?accent:inputBg}`,position:"relative"}}>
             {me.foto_url
@@ -535,28 +539,33 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
               : <div style={{fontSize:26,marginBottom:3}}>📸</div>
             }
             <div style={{fontSize:9,fontWeight:800,color:txt,marginBottom:3}}>Foto</div>
-            <label style={{cursor:"pointer"}}>
-              <input type="file" accept="image/*" onChange={async e=>{
+            <label style={{cursor:saving==="foto"?"not-allowed":"pointer"}}>
+              <input type="file" accept="image/*" disabled={saving==="foto"} onChange={async e=>{
                 const file=e.target.files?.[0]; if(!file) return;
                 if(file.size>500000){showToast("Max 500KB","error");return;}
                 const r2=new FileReader();
                 r2.onload=async ev=>{
-                  try{ await api.setFoto(ev.target.result);
+                  setSaving("foto");
+                  try{
+                    await api.setFoto(ev.target.result);
                     showToast("Foto actualizada 📸");
                     const u=await api.me(); setMe(u);
                   }catch(err){showToast(err.message||"Error","error");}
+                  finally{setSaving(null);}
                 };
                 r2.readAsDataURL(file);
               }} style={{display:"none"}}/>
               <span style={{fontSize:9,color:accent,fontWeight:800}}>
-                {me.foto_url?"Cambiar":"Subir"}
+                {saving==="foto"?"...":me.foto_url?"Cambiar":"Subir"}
               </span>
             </label>
             {me.foto_url&&(
               <button onClick={async()=>{
+                setSaving("foto");
                 try{await api.setFoto(null);showToast("Foto eliminada");
                   const u=await api.me();setMe(u);}
                 catch(e){showToast(e.message||"Error","error");}
+                finally{setSaving(null);}
               }} style={{position:"absolute",top:3,right:3,background:"rgba(0,0,0,.4)",
                 border:"none",borderRadius:"50%",color:"white",width:16,height:16,
                 fontSize:8,cursor:"pointer",display:"flex",alignItems:"center",
