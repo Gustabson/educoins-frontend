@@ -229,19 +229,8 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
         {/* Card principal */}
         <div style={{...card,padding:20,textAlign:"center",marginBottom:20}}>
           <div style={{position:"relative",display:"inline-block",marginBottom:12}}>
-            {/* Fondo del avatar — envuelve el Av directamente */}
-            <div style={{
-              borderRadius:"50%",
-              padding: avatarBg&&avatarBg.type!=="none" ? 5 : 0,
-              background: avatarBg&&avatarBg.type==="gradient" ? avatarBg.value
-                        : avatarBg&&avatarBg.type==="solid"    ? avatarBg.value
-                        : "transparent",
-              border:    avatarBg&&avatarBg.type==="frame"     ? avatarBg.value : "none",
-              boxShadow: avatarBg?.glow ? `0 0 14px 4px ${avatarBg.glow}` : "none",
-              display:"inline-block",
-            }}>
-              <Av user={me} sz={72}/>
-            </div>
+            {/* Av recibe el avatarBg directamente y lo maneja internamente */}
+            <Av user={me} sz={72} avatarBg={avatarBg}/>
             <label style={{position:"absolute",bottom:0,right:0,zIndex:2,
               background:accent,borderRadius:"50%",width:22,height:22,
               display:"flex",alignItems:"center",justifyContent:"center",

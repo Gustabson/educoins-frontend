@@ -116,7 +116,7 @@ function PerfilModal({userId, onClose}){
           {/* Banner */}
           <div style={{background:accent,padding:"8px 0 24px",
             display:"flex",flexDirection:"column",alignItems:"center"}}>
-            <Av user={perfil} sz={84}/>
+            <Av user={perfil} sz={84} avatarBg={perfil.avatar_bg}/>
             <div style={{marginTop:10,textAlign:"center",padding:"0 20px"}}>
               <div style={{fontWeight:900,fontSize:20,color:"white"}}>
                 {displayName(perfil)}

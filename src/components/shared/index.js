@@ -40,21 +40,58 @@ function useCountUp(target, duration=600){
 
   return display;
 }
-function Av({user,sz}){
+function Av({user,sz,avatarBg}){
   const s=sz||48;
   const sk=SKINS.find(x=>x.id===(user?.skin||"s1"))||SKINS[0];
   const br=BORDERS.find(x=>x.id===(user?.border||"b1"))||BORDERS[0];
-  // Si tiene foto personalizada, mostrarla
-  if(user?.foto_url) return(
-    <div style={{width:s,height:s,borderRadius:"50%",border:br.bs,overflow:"hidden",
-      flexShrink:0,boxShadow:`0 2px 10px rgba(0,0,0,.2)`}}>
-      <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-    </div>
-  );
+
+  // Resolver fondo — avatarBg prop override, sino skin
+  const bg = avatarBg ? null : sk.bg; // null = usamos avatarBg en el wrapper
+
+  const inner = user?.foto_url
+    ? <div style={{width:s,height:s,borderRadius:"50%",overflow:"hidden",flexShrink:0}}>
+        <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+      </div>
+    : <div style={{width:s,height:s,borderRadius:"50%",
+        background:avatarBg?"transparent":sk.bg,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:s*.46,flexShrink:0}}>{sk.emoji}</div>;
+
+  if(!avatarBg || avatarBg.type==="none") {
+    // Sin fondo override — comportamiento normal con borde
+    return(
+      <div style={{width:s,height:s,borderRadius:"50%",
+        background:user?.foto_url?"transparent":sk.bg,
+        border:br.bs,display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:s*.46,flexShrink:0,overflow:user?.foto_url?"hidden":"visible",
+        boxShadow:`0 2px 10px ${sk.bg}55`}}>
+        {user?.foto_url
+          ? <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          : sk.emoji}
+      </div>
+    );
+  }
+
+  // Con fondo override — el wrapper tiene el fondo, el inner es transparente
+  const wrapBg = avatarBg.type==="gradient" ? avatarBg.value
+               : avatarBg.type==="solid"    ? avatarBg.value
+               : "transparent";
+  const wrapBorder = avatarBg.type==="frame" ? avatarBg.value : br.bs;
+  const wrapGlow   = avatarBg.glow ? `0 0 14px 4px ${avatarBg.glow}` : `0 2px 10px ${sk.bg}55`;
+  const pad = avatarBg.type==="frame" ? 0 : Math.round(s*0.12);
+
   return(
-    <div style={{width:s,height:s,borderRadius:"50%",background:sk.bg,border:br.bs,
-      display:"flex",alignItems:"center",justifyContent:"center",fontSize:s*.46,flexShrink:0,
-      boxShadow:`0 2px 10px ${sk.bg}55`}}>{sk.emoji}</div>
+    <div style={{borderRadius:"50%",background:wrapBg,border:wrapBorder,
+      boxShadow:wrapGlow,padding:pad,display:"inline-flex",
+      alignItems:"center",justifyContent:"center",flexShrink:0}}>
+      <div style={{width:s,height:s,borderRadius:"50%",overflow:"hidden",
+        background:user?.foto_url?"transparent":sk.bg,
+        display:"flex",alignItems:"center",justifyContent:"center",fontSize:s*.46}}>
+        {user?.foto_url
+          ? <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          : sk.emoji}
+      </div>
+    </div>
   );
 }
 function Pill({text,col}){
