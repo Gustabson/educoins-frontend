@@ -15,6 +15,7 @@ import APerfil from "./APerfil";
 import AOpciones from "./AOpciones";
 import ANotificaciones from "./ANotificaciones";
 import AChat from "./AChat";
+import AAmigos from "./AAmigos";
 import ANoticias from "./ANoticias";
 import AVotaciones from "./AVotaciones";
 import AReportes from "./AReportes";
@@ -217,7 +218,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     return()=>clearTimeout(t);
   },[balance]);
 
-  const hideNav = ["chat","noticias","votaciones","reportes","notificaciones"].includes(tab);
+  const hideNav = ["chat","amigos","noticias","votaciones","reportes","notificaciones"].includes(tab);
 
   // ── Socket notificaciones ────────────────────────────────────
   useEffect(()=>{
@@ -246,6 +247,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const navTo=(dest)=>{
     setTab(dest);
     if(dest==="chat") setBadges(b=>({...b,chat:0}));
+    if(dest==="amigos") setBadges(b=>({...b,amigos:0}));
     if(dest==="notificaciones"||dest==="opciones") setBadges(b=>({...b,notifs:0}));
   };
 
@@ -281,6 +283,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           currentPrimary={activePrimary||theme.primary}
           currentMode={sm}/>}
         {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig} onOpenPerfil={setPerfilUserId}/>}
+        {tab==="amigos"     && <AAmigos     me={me} showToast={showToast} onBack={()=>navTo("home")} onOpenPerfil={setPerfilUserId} onOpenChat={(friend)=>{navTo("chat");}}/>}
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="reportes"   && <AReportes   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}

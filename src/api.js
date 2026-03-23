@@ -58,6 +58,7 @@ const api = {
   transfer:       (to_user_id, amount)    => apiFetch("/transactions/transfer",{ method:"POST", body:{to_user_id,amount} }),
   ranking:        ()                      => apiFetch("/ranking/live?periodo=weekly&scope=global"),
   rankingConfig:  ()                      => apiFetch("/ranking/config"),
+  rankingData:    (params)                => apiFetch(`/ranking/live?${params}`),
   rankingConfigUpdate:(id,d)              => apiFetch(`/ranking/config/${id}`, { method:"PATCH", body:d }),
   rankingClose:   (d)                     => apiFetch("/ranking/close",        { method:"POST",  body:d }),
   rankingPayouts: ()                      => apiFetch("/ranking/payouts"),

@@ -22,7 +22,7 @@ function ARanking({nameColorConfig}){
     setLoading(true);
     const params = new URLSearchParams({periodo,scope});
     if(scope==="aula"&&selClass) params.append("classroom_id",selClass.id);
-    apiFetch(`/ranking/live?${params}`)
+    api.rankingData(params)
       .then(d=>setData(d.data||d))
       .catch(()=>{})
       .finally(()=>setLoading(false));

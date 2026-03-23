@@ -79,7 +79,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
           <div style={{display:"flex",justifyContent:"space-around",paddingBottom:4}}>
             <CircBtn icon="💸" label="Enviar"    onClick={()=>onNav("enviar")}/>
             <CircBtn icon="⬇️" label="Ingresar"  onClick={()=>onNav("ingresar")}/>
-            <CircBtn icon="👥" label="Amigos"    onClick={()=>onNav("chat")}/>
+            <CircBtn icon="👥" label="Amigos"    onClick={()=>onNav("amigos")}/>
             <CircBtn icon="⚡" label="Misiones"  onClick={()=>onNav("misiones")}/>
             <CircBtn icon="🏆" label="Ranking"   onClick={()=>onNav("ranking")}/>
           </div>
@@ -127,6 +127,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
         <div style={{fontWeight:900,color:txt,fontSize:15,marginBottom:10,transition:"color .3s"}}>Accesos rápidos</div>
         {[
           ["💬","Chat",          "Personal · Aula · Global",    "#3b82f6","chat",         badges.chat],
+          ["👥","Amigos",        "Social · Solicitudes · Grupos","#8b5cf6","amigos",       badges.amigos||0],
           ["📰","Noticias",      "Novedades de la escuela",     "#10b981","noticias",     0],
           ["🗳️","Votaciones",    "Participá en encuestas",      "#8b5cf6","votaciones",   0],
           ["🎨","Personalizar",  "Temas, emojis y más",         "#f59e0b","personalizar", 0],

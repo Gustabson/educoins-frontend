@@ -62,7 +62,6 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   const [typing, setTyping]     = useState(null);
   const [search, setSearch]     = useState("");
   const [results, setResults]   = useState([]);
-  const [addOpen, setAddOpen]   = useState(false);
   const [loading, setLoading]   = useState(true);
   // perfilUserId manejado en Alumno via onOpenPerfil prop
   // Emoji picker
@@ -691,48 +690,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
       )}
 
       {/* Sheet agregar amigo */}
-      {addOpen&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:400,
-          display:"flex",alignItems:"flex-end"}}
-          onClick={e=>{if(e.target===e.currentTarget){setAddOpen(false);setSearch("");setResults([]);}}}>
-          <div style={{background:cardBg,borderRadius:"24px 24px 0 0",width:"100%",
-            padding:"20px 20px 40px",animation:"slideUp .25s ease"}}>
-            <div style={{width:36,height:4,background:navInact,borderRadius:2,margin:"0 auto 14px"}}/>
-            <div style={{fontWeight:900,fontSize:16,color:txt,marginBottom:12}}>Agregar amigo</div>
-            <input value={search} onChange={e=>setSearch(e.target.value)}
-              placeholder="Buscar por nombre..."
-              style={{width:"100%",boxSizing:"border-box",background:inputBg,
-                border:`1.5px solid ${inputBord}`,borderRadius:14,padding:"11px 14px",
-                fontSize:13,outline:"none",color:txt,fontFamily:"Nunito,sans-serif",marginBottom:10}}/>
-            {results.map(u=>(
-              <div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",
-                borderBottom:`1px solid ${inputBg}`}}>
-                <Av user={u} sz={36} avatarBg={u?.avatar_bg||null}/>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:800,fontSize:13,color:txt}}>{u.nombre}</div>
-                  <div style={{fontSize:11,color:sub}}>{u.rol}</div>
-                </div>
-                {!u.friendship_estado?(
-                  <button onClick={()=>sendFriendReq(u.id)}
-                    style={{background:accent,border:"none",borderRadius:99,color:"white",
-                      padding:"5px 13px",fontWeight:800,fontSize:11,cursor:"pointer"}}>
-                    Agregar
-                  </button>
-                ):(
-                  <span style={{fontSize:11,color:sub,fontWeight:700}}>
-                    {u.friendship_estado==='accepted'?"Amigos ✓":"Pendiente ⏳"}
-                  </span>
-                )}
-              </div>
-            ))}
-            {search.length>=2&&results.length===0&&(
-              <div style={{textAlign:"center",color:sub,fontSize:13,padding:12}}>
-                No encontramos a nadie con ese nombre
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      }
 
     </div>
   );
