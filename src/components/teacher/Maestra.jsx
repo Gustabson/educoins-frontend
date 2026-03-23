@@ -368,7 +368,7 @@ function MAprobar({me,showToast}){
         {subs.map(s=>(
           <WCard key={s.id} style={{marginBottom:12,borderTop:`3px solid ${DIFCOL[s.dificultad]||"#f59e0b"}`}}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-              <Av user={{nombre:s.alumno_nombre,skin:s.skin,border:s.border}} sz={40}/>
+              <Av user={{nombre:s.alumno_nombre,skin:s.skin,border:s.border,avatar_bg:s.avatar_bg||null,foto_url:s.foto_url||null}} sz={40} avatarBg={s.avatar_bg||null}/>
               <div style={{flex:1}}>
                 <div style={{fontWeight:800,color:"#1a1a1a"}}>{s.alumno_nombre}</div>
                 <div style={{fontSize:12,color:"#00c1fc",fontWeight:700}}>{s.titulo}</div>

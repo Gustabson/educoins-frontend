@@ -384,7 +384,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
           const isMe = m.sender_id===me.id;
           return(
             <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
-              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||""}} sz={28}/>}
+              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||"",avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
               <div style={{maxWidth:"72%"}}>
                 {!isMe&&<div style={{fontSize:10,marginBottom:2,marginLeft:4,fontWeight:700,
                   color: m.sender_name_color
@@ -487,7 +487,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
           return(
             <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",
               gap:8,alignItems:"flex-end"}}>
-              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||""}} sz={28}/>}
+              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||"",avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
               <div style={{maxWidth:"75%"}}>
                 {!isMe&&(
                   <div style={{fontSize:10,marginBottom:2,marginLeft:4,
