@@ -716,7 +716,12 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                 boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
                 {/* Buscar usuario */}
                 <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Alumno destinatario:</div>
-                <select value={grantUser} onChange={e=>setGrantUser(e.target.value)}
+                <select value={grantUser} onChange={e=>{
+                  const uid=e.target.value; setGrantUser(uid);
+                  if(uid) api.earnedTitlesOf(uid).then(d=>{
+                    setPayouts(prev=>({...prev,[uid]:Array.isArray(d)?d:(d?.data||[])}));
+                  }).catch(()=>{});
+                }}
                   style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",
                     borderRadius:10,padding:"10px 12px",fontSize:13,outline:"none",
                     fontFamily:"Nunito,sans-serif",marginBottom:12,boxSizing:"border-box"}}>
@@ -773,6 +778,12 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                         await api.grantTitle({user_id:grantUser,...grantForm});
                         showToast("🏅 Título otorgado!");
                         setGrantForm({name:"",rarity:"common",color:"#8b5cf6",glow_color:"#8b5cf6",emoji:"",note:""});
+                        // Reload granted titles for selected user
+                        if(grantUser) {
+                          api.earnedTitlesOf(grantUser).then(d=>{
+                            setPayouts(prev=>({...prev,[grantUser]:Array.isArray(d)?d:(d?.data||[])}));
+                          }).catch(()=>{});
+                        }
                         setGrantUser("");
                       }catch(e){showToast(e.message||"Error","error");}
                       finally{setGranting(false);}
@@ -783,6 +794,36 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                       fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                     {granting?"Otorgando...":"🏅 Otorgar título"}
                   </button>
+                  {/* Ver y revocar títulos del alumno seleccionado */}
+                  {grantUser&&payouts[grantUser]?.length>0&&(
+                    <div style={{marginTop:14}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:8}}>
+                        Títulos otorgados a este alumno:
+                      </div>
+                      {payouts[grantUser].map(t=>(
+                        <div key={t.id} style={{background:"#f9f9f9",borderRadius:10,
+                          padding:"8px 12px",marginBottom:6,display:"flex",
+                          alignItems:"center",gap:8}}>
+                          <span style={{fontSize:16}}>{t.emoji||"🏅"}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,fontSize:12,color:t.color||"#333"}}>{t.name}</div>
+                            <div style={{fontSize:10,color:"#aaa"}}>{t.rarity} · {new Date(t.created_at).toLocaleDateString("es-AR")}</div>
+                          </div>
+                          <button onClick={async()=>{
+                            try{
+                              await api.revokeTitle(t.id);
+                              setPayouts(prev=>({...prev,[grantUser]:prev[grantUser].filter(x=>x.id!==t.id)}));
+                              showToast("Título revocado");
+                            }catch(e){showToast(e.message||"Error","error");}
+                          }} style={{background:"#fee2e2",border:"none",borderRadius:8,
+                            color:"#ef4444",padding:"4px 8px",fontSize:10,fontWeight:700,
+                            cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                            Revocar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -797,7 +838,12 @@ function AdminEconomiaSec({sec, onBack, showToast}){
               <div style={{background:"white",borderRadius:14,padding:16,
                 boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
                 <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Alumno destinatario:</div>
-                <select value={loanUser} onChange={e=>setLoanUser(e.target.value)}
+                <select value={loanUser} onChange={e=>{
+                  const uid=e.target.value; setLoanUser(uid);
+                  if(uid) api.loanedItemsOf(uid)
+                    .then(d=>setPayouts(prev=>({...prev,["loans_"+uid]:Array.isArray(d)?d:(d?.data||[])})))
+                    .catch(()=>{});
+                }}
                   style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",
                     borderRadius:10,padding:"10px 12px",fontSize:13,outline:"none",
                     fontFamily:"Nunito,sans-serif",marginBottom:12,boxSizing:"border-box"}}>
@@ -868,6 +914,41 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                     fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                   {granting?"Prestando...":"🎁 Prestar marco"}
                 </button>
+                {/* Ver préstamos activos del alumno seleccionado */}
+                {loanUser&&payouts["loans_"+loanUser]?.length>0&&(
+                  <div style={{marginTop:14}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:8}}>
+                      Préstamos activos:
+                    </div>
+                    {payouts["loans_"+loanUser].map(l=>{
+                      const item = typeof l.item_data==="string"?JSON.parse(l.item_data):l.item_data;
+                      return(
+                        <div key={l.id} style={{background:"#f9f9f9",borderRadius:10,
+                          padding:"8px 12px",marginBottom:6,display:"flex",
+                          alignItems:"center",gap:8}}>
+                          <span style={{fontSize:14}}>🖼️</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,fontSize:12}}>{item?.name}</div>
+                            {l.expires_at&&<div style={{fontSize:10,color:"#aaa"}}>
+                              Vence: {new Date(l.expires_at).toLocaleDateString("es-AR")}
+                            </div>}
+                          </div>
+                          <button onClick={async()=>{
+                            try{
+                              await api.revokeLoan(l.id);
+                              setPayouts(prev=>({...prev,["loans_"+loanUser]:prev["loans_"+loanUser].filter(x=>x.id!==l.id)}));
+                              showToast("Préstamo revocado");
+                            }catch(e){showToast(e.message||"Error","error");}
+                          }} style={{background:"#fee2e2",border:"none",borderRadius:8,
+                            color:"#ef4444",padding:"4px 8px",fontSize:10,fontWeight:700,
+                            cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                            Revocar
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </>
           )}

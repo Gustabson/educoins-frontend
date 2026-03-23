@@ -151,13 +151,6 @@ const AVATAR_BACKGROUNDS = [
   {id:"ab8", name:"Aurora",    type:"gradient", value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",   price:200},
 ];
 
-// Marcos disponibles solo por préstamo del admin (no comprables)
-const LOAN_FRAMES = [
-  {id:"lf1", name:"Marco Dorado", type:"frame", value:"3px solid #f59e0b", glow:"#f59e0b66"},
-  {id:"lf2", name:"Marco Épico",  type:"frame", value:"3px solid #8b5cf6", glow:"#8b5cf666"},
-  {id:"lf3", name:"Marco Rojo",   type:"frame", value:"3px solid #ef4444", glow:"#ef444466"},
-  {id:"lf4", name:"Marco Cyan",   type:"frame", value:"3px solid #06b6d4", glow:"#06b6d466"},
-];
 
 const DIFCOL = {"fácil":"#10b981","media":"#f59e0b","difícil":"#ef4444"};
 
@@ -203,7 +196,7 @@ input::placeholder{color:#bbb;}
 export {
   THEMES_DEFAULT, DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode,
   LEVELS, getLv, nextLv,
-  SKINS, BORDERS, TITLES, RARITIES, RARITY_CSS, AVATAR_BACKGROUNDS, LOAN_FRAMES,
+  SKINS, BORDERS, TITLES, RARITIES, RARITY_CSS, AVATAR_BACKGROUNDS,
   DIFCOL, GS,
   TAG_COLORS, TAG_LIST,
   REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR,
