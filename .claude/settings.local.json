@@ -60,7 +60,8 @@
       "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/builtin_as_items.sql\")",
       "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/020_user_estado.sql\")",
       "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/021_active_titles.sql\")",
-      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/022_earned_titles_avatar_bg.sql\")"
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/022_earned_titles_avatar_bg.sql\")",
+      "Bash(PGPASSWORD=\"TOfmAilSppYqAzEapTnpAWiwNjrvTWuU\" psql -h hopper.proxy.rlwy.net -p 29346 -U postgres -d railway -f \"/c/Users/GustavoS/Downloads/023_loaned_items.sql\")"
     ]
   }
 }

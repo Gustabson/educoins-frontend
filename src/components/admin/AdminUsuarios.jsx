@@ -14,8 +14,10 @@ function AdminUsuarios({showToast}){
   const [rol,setRol]=useState("student");
   const [budget,setBudget]=useState("");
   const [loading,setLoading]=useState(true);
-  const [grantModal,setGrantModal]=useState(null); // user to grant title to
+  const [grantModal,setGrantModal]=useState(null);
+  const [grantTab,setGrantTab]=useState("title"); // "title" | "loan"
   const [grantForm,setGrantForm]=useState({name:"",rarity:"common",color:"#8b5cf6",glow_color:"",emoji:"",note:""});
+  const [loanForm,setLoanForm]=useState({itemName:"Marco Dorado",type:"frame",value:"3px solid #f59e0b",glow:"#f59e0b44",note:"",days:""});
   const [granting,setGranting]=useState(false);
 
   useEffect(()=>{
@@ -89,13 +91,24 @@ function AdminUsuarios({showToast}){
             display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
           <div style={{background:"white",borderRadius:"20px 20px 0 0",padding:20,
             width:"100%",maxWidth:480,maxHeight:"80vh",overflowY:"auto"}}>
-            <div style={{fontWeight:800,fontSize:16,marginBottom:4}}>
-              🏅 Otorgar título a {grantModal.nombre}
+            <div style={{fontWeight:800,fontSize:16,marginBottom:10}}>
+              🎁 Premiar a {grantModal.nombre}
             </div>
-            <div style={{fontSize:12,color:"#888",marginBottom:14}}>
-              Los títulos obtenidos son únicos y tienen rarezas especiales.
+            {/* Tabs */}
+            <div style={{display:"flex",gap:6,marginBottom:14}}>
+              {[["title","🏅 Título"],["loan","🖼️ Marco prestado"]].map(([id,lbl])=>(
+                <button key={id} onClick={()=>setGrantTab(id)}
+                  style={{flex:1,background:grantTab===id?"#f59e0b22":"#f7f7f7",
+                    border:`1.5px solid ${grantTab===id?"#f59e0b":"#eee"}`,
+                    borderRadius:8,padding:"8px",fontSize:12,fontWeight:800,
+                    cursor:"pointer",color:grantTab===id?"#b45309":"#555",
+                    fontFamily:"Nunito,sans-serif"}}>
+                  {lbl}
+                </button>
+              ))}
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {grantTab==="title"&&<>
               <input value={grantForm.name} onChange={e=>setGrantForm(v=>({...v,name:e.target.value.slice(0,40)}))}
                 placeholder="Nombre del título (ej: El Primero 🥇)"
                 style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
@@ -132,12 +145,47 @@ function AdminUsuarios({showToast}){
                 placeholder="Motivo (opcional, visible al alumno)"
                 style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
                   padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
-              <div style={{display:"flex",gap:8,marginTop:4}}>
-                <button onClick={grantTitle} disabled={granting||!grantForm.name.trim()}
-                  style={{flex:1,background:granting||!grantForm.name.trim()?"#ccc":"#f59e0b",
+              </>}
+              {grantTab==="loan"&&(
+                <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:4}}>
+                  <div style={{fontSize:12,color:"#888"}}>
+                    El alumno puede equiparlo. Si ponés días de duración, expira automáticamente.
+                  </div>
+                  {/* Marcos predefinidos */}
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {[
+                      {name:"Marco Dorado",type:"frame",value:"3px solid #f59e0b",glow:"#f59e0b44"},
+                      {name:"Marco Épico", type:"frame",value:"3px solid #8b5cf6",glow:"#8b5cf644"},
+                      {name:"Fuego",       type:"gradient",value:"linear-gradient(135deg,#f97316,#ef4444)",glow:null},
+                      {name:"Aurora",      type:"gradient",value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",glow:null},
+                    ].map(p=>(
+                      <button key={p.name} onClick={()=>setLoanForm(v=>({...v,...p,itemName:p.name}))}
+                        style={{background:loanForm.itemName===p.name?"#f59e0b22":"#f7f7f7",
+                          border:`1.5px solid ${loanForm.itemName===p.name?"#f59e0b":"#eee"}`,
+                          borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,
+                          cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                  <input value={loanForm.note} onChange={e=>setLoanForm(v=>({...v,note:e.target.value}))}
+                    placeholder="Motivo / mensaje para el alumno (opcional)"
+                    style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                      padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                  <input value={loanForm.days} onChange={e=>setLoanForm(v=>({...v,days:e.target.value}))}
+                    placeholder="Días de duración (vacío = sin límite)" type="number" min="1"
+                    style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                      padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                </div>
+              )}
+              <div style={{display:"flex",gap:8,marginTop:10}}>
+                <button
+                  onClick={grantTab==="title"?grantTitle:grantLoan}
+                  disabled={granting||(grantTab==="title"&&!grantForm.name.trim())}
+                  style={{flex:1,background:granting?"#ccc":"#f59e0b",
                     border:"none",borderRadius:50,color:"white",padding:"12px",fontWeight:800,
                     fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  {granting?"Otorgando...":"🏅 Otorgar"}
+                  {granting?"Otorgando...":grantTab==="title"?"🏅 Otorgar título":"🎁 Prestar marco"}
                 </button>
                 <button onClick={()=>setGrantModal(null)}
                   style={{background:"#f0f0f0",border:"none",borderRadius:50,

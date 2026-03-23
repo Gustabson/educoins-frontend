@@ -64,6 +64,8 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   const [earnedTitles,    setEarnedTitles]    = useState([]);
   // Emojis
   const [emojiPacks,      setEmojiPacks]      = useState([]);
+  const [loanedItems,     setLoanedItems]     = useState([]);
+  const [apodoCosto,      setApodoCosto]      = useState(15); // default, se carga del server
   // Avatar bg
   const [avatarBg,        setAvatarBg]        = useState(me.avatar_bg||null);
   const [unlockedAvatarBgs,setUnlockedAvatarBgs]=useState(me.unlocked_avatar_bgs||["ab0"]);
@@ -81,6 +83,15 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
     }).catch(()=>{});
     api.earnedTitles().then(d=>{
       setEarnedTitles(Array.isArray(d)?d:(d?.data||[]));
+    }).catch(()=>{});
+    api.loanedItems().then(d=>{
+      setLoanedItems(Array.isArray(d)?d:(d?.data||[]));
+    }).catch(()=>{});
+    // Cargar precio del apodo desde el shop
+    api.customShop("nickname").then(d=>{
+      const arr=Array.isArray(d)?d:(d?.data||d||[]);
+      const item=arr.find(i=>i.tipo==="nickname");
+      if(item?.precio) setApodoCosto(item.precio);
     }).catch(()=>{});
   },[]);
 
@@ -116,7 +127,8 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
     try{
       await api.setApodo(apodoVal.trim());
       setMe(prev=>({...prev,apodo:apodoVal.trim()}));
-      showToast("Apodo guardado 🏷️");
+      if(refreshBalance) refreshBalance();
+      showToast(`Apodo guardado 🏷️${apodoCosto>0?` (-🪙${apodoCosto})`:""}`);
     }catch(e){showToast(e.message||"Error","error");}
     finally{setSavingApodo(false);}
   };
@@ -299,11 +311,11 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
                   fontSize:14,fontWeight:700,outline:"none",color:txt,
                   fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={guardarApodo} disabled={savingApodo||!apodoVal.trim()}
-                  style={{flex:1,background:savingApodo||!apodoVal.trim()?"#ccc":accent,
+                <button onClick={guardarApodo} disabled={savingApodo||!apodoVal.trim()||balance<apodoCosto}
+                  style={{flex:1,background:savingApodo||!apodoVal.trim()||balance<apodoCosto?"#ccc":accent,
                     border:"none",borderRadius:50,color:"white",padding:"10px",fontWeight:800,
                     fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  {savingApodo?"Guardando...":"Guardar"}
+                  {savingApodo?"Guardando...":balance<apodoCosto?"Sin saldo":apodoCosto>0?`Guardar 🪙${apodoCosto}`:"Guardar"}
                 </button>
                 {me.apodo&&(
                   <button onClick={quitarApodo} disabled={savingApodo}
@@ -585,6 +597,40 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
 
         {/* ── 6. FONDOS DEL AVATAR ──────────────────────────── */}
         <div style={{fontWeight:800,color:txt,fontSize:13,marginBottom:8}}>🖼️ Fondo del avatar</div>
+        {/* Marcos/fondos prestados por el admin */}
+        {loanedItems.filter(l=>l.type==="avatar_bg").map(loan=>{
+          const item = typeof loan.item_data==="string" ? JSON.parse(loan.item_data) : loan.item_data;
+          const equipped = avatarBg?.loaned_id===loan.id;
+          return(
+            <div key={loan.id} style={{...card,padding:"12px 14px",marginBottom:8,
+              border:`2px solid ${equipped?"#FFB800":"#f59e0b44"}`,
+              background:dark?"#1a140a":"#fffbeb"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:36,height:36,borderRadius:"50%",flexShrink:0,
+                  background:item.type==="gradient"?item.value:item.type==="solid"?item.value:"transparent",
+                  border:item.type==="frame"?item.value:"none",
+                  boxShadow:item.glow?`0 0 8px 3px ${item.glow}`:undefined}}/>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:12,color:txt}}>
+                    🎁 {item.name} <span style={{fontSize:10,color:"#f59e0b",fontWeight:700}}>Prestado</span>
+                  </div>
+                  {loan.note&&<div style={{fontSize:10,color:sub,fontStyle:"italic"}}>{loan.note}</div>}
+                  {loan.expires_at&&(
+                    <div style={{fontSize:10,color:sub}}>
+                      Vence: {new Date(loan.expires_at).toLocaleDateString("es-AR")}
+                    </div>
+                  )}
+                </div>
+                <button onClick={()=>setAvatarBgAndSave(equipped?null:{...item,loaned_id:loan.id})}
+                  style={{background:equipped?"#FFB800":"#f59e0b",border:"none",borderRadius:99,
+                    color:"white",padding:"6px 12px",fontSize:11,fontWeight:800,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {equipped?"✅ Activo":"Equipar"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:24}}>
           {AVATAR_BACKGROUNDS.map(bg=>{
             const owned   = unlockedAvatarBgs.includes(bg.id);
