@@ -57,7 +57,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   // Títulos activos (slots)
   const initTitles = Array.isArray(me.active_titles)&&me.active_titles.length>0
     ? me.active_titles : [];
-  const [activeTitles,    setActiveTitles]    = useState(initTitles);
+  const [activeTitles,    setActiveTitles]    = useState(initTitles); // max 5
   const [editingSlot,     setEditingSlot]     = useState(null);
   const [customTitleVal,  setCustomTitleVal]  = useState("");
   // Títulos ganados
@@ -375,12 +375,21 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
 
         {/* 3a. Slots personalizados (hasta 3) */}
         <div style={{fontSize:11,color:sub,marginBottom:8}}>
-          Hasta 3 títulos activos. Personalizados cuestan 🪙{PRECIO_TITULO_CUSTOM} cada cambio.
+          Hasta 5 títulos activos. Los ganados del admin también aparecen aquí para activar.
         </div>
-        {[0,1,2].map(slot=>{
+        {[0,1,2,3,4].map(slot=>{
           const cur = activeTitles[slot]||null;
-          const isCustom = cur?.startsWith("custom:");
-          const label = cur ? (isCustom?cur.slice(7):(TITLES.find(t=>t.id===cur)?.name||cur)) : null;
+          const isCustom  = cur?.startsWith("custom:");
+          const isEarned  = cur?.startsWith("earned:");
+          const earnedT   = isEarned ? earnedTitles.find(t=>t.id===cur.slice(7)) : null;
+          const label = cur
+            ? isCustom  ? cur.slice(7)
+            : isEarned  ? (earnedT?.name || cur)
+            : (TITLES.find(t=>t.id===cur)?.name||cur)
+            : null;
+          const labelColor = isEarned && earnedT
+            ? (RARITIES[earnedT.rarity]||RARITIES.common).color
+            : accent;
           const isEditing = editingSlot===slot;
           return(
             <div key={slot} style={{...card,padding:"12px 16px",marginBottom:8,
@@ -388,8 +397,8 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{flex:1}}>
                   {label
-                    ? <span style={{fontWeight:800,fontSize:13,color:accent}}>
-                        {isCustom?"✏️ ":""}{label}
+                    ? <span style={{fontWeight:800,fontSize:13,color:labelColor}}>
+                        {isCustom?"✏️ ":isEarned&&earnedT?.emoji?earnedT.emoji+" ":""}{label}
                       </span>
                     : <span style={{fontSize:12,color:sub}}>Slot {slot+1} vacío</span>
                   }
@@ -416,6 +425,36 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
 
               {isEditing&&(
                 <div style={{marginTop:10}}>
+                  {/* Earned titles from admin - free to activate */}
+                  {earnedTitles.filter(t=>!activeTitles.includes("earned:"+t.id)).length>0&&(
+                    <div style={{marginBottom:10}}>
+                      <div style={{fontSize:11,fontWeight:700,color:sub,marginBottom:6}}>
+                        🏅 Tus títulos obtenidos (gratis):
+                      </div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                        {earnedTitles
+                          .filter(t=>!t.expires_at||new Date(t.expires_at)>new Date())
+                          .map(t=>{
+                            const r = RARITIES[t.rarity]||RARITIES.common;
+                            return(
+                              <div key={t.id}
+                                onClick={()=>{
+                                  const newT=[...activeTitles];
+                                  newT[slot]="earned:"+t.id;
+                                  saveActiveTitles(newT);
+                                  setEditingSlot(null);
+                                }}
+                                style={{background:r.color+"22",border:`1.5px solid ${r.color}44`,
+                                  borderRadius:99,padding:"5px 12px",cursor:"pointer",
+                                  display:"inline-flex",alignItems:"center",gap:4}}>
+                                {t.emoji&&<span style={{fontSize:12}}>{t.emoji}</span>}
+                                <span style={{fontSize:11,fontWeight:800,color:r.color}}>{t.name}</span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
                   <div style={{fontSize:11,fontWeight:700,color:sub,marginBottom:6}}>
                     ✏️ Escribí tu título (🪙{PRECIO_TITULO_CUSTOM} por cambio):
                   </div>

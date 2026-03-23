@@ -78,6 +78,13 @@ const api = {
   earnedTitlesOf: (userId)                => apiFetch(`/profile/earned-titles/${userId}`),
   revokeLoan:     (id)                    => apiFetch(`/profile/loaned-items/${id}`,  { method:"DELETE" }),
   loanedItemsOf:  (userId)                => apiFetch(`/profile/loaned-items/${userId}`),
+  // Prizes
+  prizeSets:      ()                      => apiFetch("/prizes/sets"),
+  prizeAddItem:   (setId, data)           => apiFetch(`/prizes/sets/${setId}/items`, { method:"POST", body:data }),
+  prizeDelItem:   (itemId)                => apiFetch(`/prizes/items/${itemId}`,     { method:"DELETE" }),
+  prizeGrantManual:(userId, premios)      => apiFetch("/prizes/grant-manual",        { method:"POST", body:{user_id:userId, premios} }),
+  prizeExecute:   (periodo)               => apiFetch(`/prizes/execute/${periodo}`,  { method:"POST" }),
+  prizeHistory:   ()                      => apiFetch("/prizes/history"),
   loanedItems:    ()                      => apiFetch("/profile/loaned-items"),
   loanItem:       (data)                  => apiFetch("/profile/loaned-items",       { method:"POST",   body:data }),
   adminUsers:     ()                      => apiFetch("/admin/users"),

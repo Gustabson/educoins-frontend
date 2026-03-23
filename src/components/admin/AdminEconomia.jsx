@@ -17,6 +17,7 @@ function AdminEconomia({showToast, onBack}){
     {id:"checkin",    icon:"🔥", title:"Check-in Diario",     sub:"Recompensas por racha",    col:"#ef4444"},
     {id:"suscripciones",icon:"🔄",title:"Suscripciones",      sub:"Ver cobros pendientes",    col:"#0ea5e9"},
     {id:"perfil",     icon:"👤", title:"Personalización Perfil",sub:"Apodo, títulos, fondos, préstamos",col:"#f59e0b"},
+    {id:"premios",    icon:"🏆", title:"Premios y Recompensas",  sub:"Ranking, manual, historial",     col:"#10b981"},
     {id:"historial",  icon:"📋", title:"Historial de Pagos",  sub:"Premios, banco, impuestos",col:"#64748b"},
   ];
 
@@ -72,6 +73,15 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   const [loanNote,setLoanNote]  = useState("");
   const [loanDays,setLoanDays]  = useState("");
   const [granting,setGranting]  = useState(false);
+  // Premios section
+  const [premioTab,setPremioTab]   = useState("ranking"); // ranking|manual|historial
+  const [prizeSets,setPrizeSets]   = useState([]);
+  const [prizeHistory,setPrizeHistory] = useState([]);
+  const [manualUser,setManualUser] = useState("");
+  const [manualPremios,setManualPremios] = useState([]); // [{tipo,valor}]
+  const [addingPremio,setAddingPremio] = useState(null); // {tipo}
+  const [premioForm,setPremioForm] = useState({});
+  const [executing,setExecuting]   = useState(null);
   const [closeMotivo,setCloseMotivo]=useState("");
   const [periodoClose,setPClose]=useState("weekly");
   const [scopeClose,setSClose]=useState("global");
@@ -108,6 +118,13 @@ function AdminEconomiaSec({sec, onBack, showToast}){
       }).catch(()=>{}).finally(()=>setLoading(false));
     } else if(sec==="suscripciones"){
       api.chargeAll().then(d=>setItems(d.data?.results||[])).catch(()=>{}).finally(()=>setLoading(false));
+    } else if(sec==="premios"){
+      Promise.all([api.prizeSets(), api.prizeHistory(), api.adminUsers()])
+        .then(([ps, ph, us])=>{
+          setPrizeSets(ps.data||ps||[]);
+          setPrizeHistory(ph.data||ph||[]);
+          setConfig(us.data||us||[]);
+        }).catch(()=>{}).finally(()=>setLoading(false));
     } else if(sec==="perfil"){
       // Cargar items de perfil (apodo, titulo_custom, estado) + users + loaned items
       Promise.all([
@@ -611,7 +628,157 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           </>
         )}
 
-        {sec==="suscripciones"&&!loading&&(
+        {/* Modal agregar ítem a prize set */}
+      {addingPremio&&(
+        <div onClick={e=>{if(e.target===e.currentTarget){setAddingPremio(null);setPremioForm({});}}}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
+            display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div style={{background:"white",borderRadius:"20px 20px 0 0",padding:20,
+            width:"100%",maxWidth:480,maxHeight:"85vh",overflowY:"auto",
+            fontFamily:"Nunito,sans-serif"}}>
+            <div style={{fontWeight:800,fontSize:16,marginBottom:4}}>
+              {addingPremio.isManual?"🎁 Agregar premio manual":"🎁 Premio para "+addingPremio.puesto+"° puesto"}
+            </div>
+            <div style={{fontSize:12,color:"#888",marginBottom:14}}>
+              Tipo: <strong>{addingPremio.tipo||"elegí abajo"}</strong>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+
+              {/* Duración */}
+              {addingPremio.tipo&&addingPremio.tipo!=="monedas"&&addingPremio.tipo!=="skin"&&(
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>Duración:</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {[
+                      {label:"1 día",days:1},{label:"3 días",days:3},{label:"1 semana",days:7},
+                      {label:"1 mes",days:30},{label:"6 meses",days:180},{label:"1 año",days:365},
+                      {label:"Para siempre",days:null}
+                    ].map(opt=>(
+                      <button key={opt.label}
+                        onClick={()=>setPremioForm(v=>({...v,expires_days:opt.days}))}
+                        style={{background:premioForm.expires_days===opt.days?"#10b98122":"#f7f7f7",
+                          border:`1.5px solid ${premioForm.expires_days===opt.days?"#10b981":"#eee"}`,
+                          borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,
+                          cursor:"pointer",color:premioForm.expires_days===opt.days?"#065f46":"#555",
+                          fontFamily:"Nunito,sans-serif"}}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Campos según tipo */}
+              {addingPremio.tipo==="monedas"&&(
+                <input type="number" value={premioForm.cantidad||""} min="1"
+                  onChange={e=>setPremioForm(v=>({...v,cantidad:parseInt(e.target.value)||0}))}
+                  placeholder="Cantidad de monedas"
+                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                    padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+              )}
+              {addingPremio.tipo==="titulo"&&(<>
+                <input value={premioForm.name||""} onChange={e=>setPremioForm(v=>({...v,name:e.target.value}))}
+                  placeholder="Nombre del título"
+                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                    padding:"10px 12px",fontSize:13,fontWeight:700,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                <input value={premioForm.emoji||""} onChange={e=>setPremioForm(v=>({...v,emoji:e.target.value.slice(0,4)}))}
+                  placeholder="Emoji (ej: 🏆)"
+                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                    padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                <div style={{display:"flex",gap:6}}>
+                  {[{id:"common",label:"Común",col:"#94a3b8"},{id:"rare",label:"Raro",col:"#3b82f6"},
+                    {id:"epic",label:"Épico",col:"#8b5cf6"},{id:"legendary",label:"Legendario",col:"#f59e0b"}
+                  ].map(r=>(
+                    <button key={r.id} onClick={()=>setPremioForm(v=>({...v,rarity:r.id,color:r.col,glow_color:r.col}))}
+                      style={{flex:1,background:premioForm.rarity===r.id?r.col+"22":"#f7f7f7",
+                        border:`1.5px solid ${premioForm.rarity===r.id?r.col:"#eee"}`,
+                        borderRadius:8,padding:"7px 4px",fontSize:10,fontWeight:800,
+                        cursor:"pointer",color:r.col,fontFamily:"Nunito,sans-serif"}}>
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </>)}
+              {(addingPremio.tipo==="borde"||addingPremio.tipo==="skin")&&(
+                <select value={premioForm.item_id||""}
+                  onChange={e=>setPremioForm(v=>({...v,item_id:e.target.value,name:e.target.options[e.target.selectedIndex].text}))}
+                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                    padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}>
+                  <option value="">— Elegí —</option>
+                  {addingPremio.tipo==="borde"
+                    ?[{id:"b2",n:"Dorado"},{id:"b3",n:"Verde"},{id:"b4",n:"Rojo"},{id:"b5",n:"Violeta"}]
+                      .map(b=><option key={b.id} value={b.id}>{b.n}</option>)
+                    :[{id:"s2",n:"Ninja"},{id:"s3",n:"Astro"},{id:"s4",n:"Mago"},{id:"s5",n:"Robot"},{id:"s6",n:"Vikingo"},{id:"s7",n:"Pirata"},{id:"s8",n:"Alien"}]
+                      .map(s=><option key={s.id} value={s.id}>{s.n}</option>)
+                  }
+                </select>
+              )}
+              {addingPremio.tipo==="marco"&&(
+                <select value={premioForm.name||""}
+                  onChange={e=>{
+                    const FRAMES=[
+                      {name:"Marco Dorado",type:"frame",value:"3px solid #f59e0b",glow:"#f59e0b66"},
+                      {name:"Marco Épico",type:"frame",value:"3px solid #8b5cf6",glow:"#8b5cf666"},
+                      {name:"Marco Rojo",type:"frame",value:"3px solid #ef4444",glow:"#ef444466"},
+                      {name:"Fuego",type:"gradient",value:"linear-gradient(135deg,#f97316,#ef4444)",glow:null},
+                      {name:"Aurora",type:"gradient",value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",glow:null},
+                    ];
+                    const f=FRAMES.find(x=>x.name===e.target.value);
+                    if(f) setPremioForm(v=>({...v,...f}));
+                  }}
+                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                    padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}>
+                  <option value="">— Elegí marco —</option>
+                  {["Marco Dorado","Marco Épico","Marco Rojo","Fuego","Aurora"].map(n=>(
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              )}
+
+              <input value={premioForm.note||""} onChange={e=>setPremioForm(v=>({...v,note:e.target.value}))}
+                placeholder="Nota para el alumno (opcional)"
+                style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                  padding:"10px 12px",fontSize:12,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={async()=>{
+                  if(!addingPremio.tipo) return;
+                  // Build valor
+                  let valor = {...premioForm};
+                  if(addingPremio.tipo==="monedas") valor = {cantidad:premioForm.cantidad||0,motivo:premioForm.note};
+                  const premio = {tipo:addingPremio.tipo, valor};
+
+                  if(addingPremio.isManual){
+                    setManualPremios(prev=>[...prev, premio]);
+                    setAddingPremio(null); setPremioForm({});
+                  } else {
+                    setGranting(true);
+                    try{
+                      await api.prizeAddItem(addingPremio.setId, premio);
+                      showToast("Premio agregado ✅");
+                      api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
+                      setAddingPremio(null); setPremioForm({});
+                    }catch(e){showToast(e.message||"Error","error");}
+                    finally{setGranting(false);}
+                  }
+                }} disabled={granting}
+                  style={{flex:1,background:granting?"#ccc":"#10b981",border:"none",borderRadius:50,
+                    color:"white",padding:"12px",fontWeight:800,fontSize:14,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {granting?"Guardando...":addingPremio.isManual?"+ Agregar a la lista":"✅ Guardar"}
+                </button>
+                <button onClick={()=>{setAddingPremio(null);setPremioForm({});}}
+                  style={{background:"#f0f0f0",border:"none",borderRadius:50,color:"#555",
+                    padding:"12px 18px",fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sec==="suscripciones"&&!loading&&(
           <>
             <div style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:10,
               boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
@@ -950,6 +1117,242 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                   </div>
                 )}
               </div>
+            </>
+          )}
+        </div>
+      )}
+
+
+      {sec==="premios"&&!loading&&(
+        <div>
+          {/* Tabs */}
+          <div style={{display:"flex",gap:6,marginBottom:14}}>
+            {[["ranking","🏆 Por Ranking"],["manual","🎁 Manual"],["historial","📋 Historial"]].map(([id,lbl])=>(
+              <button key={id} onClick={()=>setPremioTab(id)}
+                style={{flex:1,background:premioTab===id?"#10b98122":"white",
+                  border:`1.5px solid ${premioTab===id?"#10b981":"#eee"}`,
+                  borderRadius:10,padding:"8px 4px",fontSize:11,fontWeight:800,
+                  cursor:"pointer",color:premioTab===id?"#065f46":"#555",
+                  fontFamily:"Nunito,sans-serif"}}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Tab Ranking ─────────────────────────────────── */}
+          {premioTab==="ranking"&&(
+            <>
+              <div style={{fontSize:11,color:"#888",marginBottom:10,lineHeight:1.5}}>
+                Configurá qué recibe cada puesto al cerrar el período.
+                Los premios se ejecutan automáticamente o podés forzarlos manualmente.
+              </div>
+              {/* Ejecutar manualmente */}
+              <div style={{background:"white",borderRadius:14,padding:"14px 16px",
+                marginBottom:16,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>⚡ Ejecutar premios ahora</div>
+                <div style={{display:"flex",gap:8}}>
+                  {["weekly","monthly"].map(p=>(
+                    <button key={p} onClick={async()=>{
+                      if(!window.confirm(`¿Ejecutar premios ${p==="weekly"?"semanales":"mensuales"}?`)) return;
+                      setExecuting(p);
+                      try{
+                        const r = await api.prizeExecute(p);
+                        const res = r.data||r;
+                        showToast(`✅ ${res.ejecutados||0} premios entregados`);
+                        api.prizeHistory().then(d=>setPrizeHistory(d.data||d||[])).catch(()=>{});
+                      }catch(e){showToast(e.message||"Error","error");}
+                      finally{setExecuting(null);}
+                    }} disabled={executing===p}
+                      style={{flex:1,background:executing===p?"#ccc":"#10b981",
+                        border:"none",borderRadius:50,color:"white",padding:"10px",
+                        fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {executing===p?"Ejecutando...":`${p==="weekly"?"📅 Semanales":"📆 Mensuales"}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Prize sets por período */}
+              {["weekly","monthly"].map(periodo=>{
+                const sets = prizeSets.filter(s=>s.periodo===periodo).sort((a,b)=>a.puesto-b.puesto);
+                return(
+                  <div key={periodo} style={{marginBottom:16}}>
+                    <div style={{fontWeight:800,fontSize:13,marginBottom:8,color:"#333"}}>
+                      {periodo==="weekly"?"📅 Semanal":"📆 Mensual"}
+                    </div>
+                    {sets.map(set=>{
+                      const items = typeof set.items==="string"?JSON.parse(set.items):set.items||[];
+                      return(
+                        <div key={set.id} style={{background:"white",borderRadius:14,
+                          padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:items.length?8:0}}>
+                            <div style={{width:28,height:28,borderRadius:8,
+                              background:set.puesto===1?"#f59e0b22":set.puesto===2?"#94a3b822":"#cd7c3422",
+                              display:"flex",alignItems:"center",justifyContent:"center",
+                              fontWeight:900,fontSize:13,color:set.puesto===1?"#b45309":set.puesto===2?"#475569":"#92400e"}}>
+                              {set.puesto}°
+                            </div>
+                            <div style={{fontWeight:800,fontSize:13}}>Puesto {set.puesto}</div>
+                            <div style={{flex:1}}/>
+                            <button onClick={()=>setAddingPremio({setId:set.id,periodo,puesto:set.puesto})}
+                              style={{background:"#10b98122",border:"none",borderRadius:8,
+                                color:"#065f46",padding:"4px 10px",fontSize:11,fontWeight:800,
+                                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                              + Premio
+                            </button>
+                          </div>
+                          {items.map((item,i)=>{
+                            const v = typeof item.valor==="string"?JSON.parse(item.valor):item.valor;
+                            return(
+                              <div key={item.id||i} style={{display:"flex",alignItems:"center",
+                                gap:8,padding:"5px 8px",background:"#f9f9f9",borderRadius:8,marginBottom:4}}>
+                                <span style={{fontSize:14}}>
+                                  {item.tipo==="monedas"?"🪙":item.tipo==="titulo"?"🏅":
+                                   item.tipo==="borde"?"🔲":item.tipo==="skin"?"🎨":
+                                   item.tipo==="marco"?"🖼️":item.tipo==="name_color"?"✏️":"🎁"}
+                                </span>
+                                <div style={{flex:1,fontSize:12}}>
+                                  <span style={{fontWeight:700}}>{item.tipo}</span>
+                                  {item.tipo==="monedas"&&<span style={{color:"#f59e0b",fontWeight:800}}> 🪙{v.cantidad}</span>}
+                                  {item.tipo==="titulo"&&<span style={{color:"#8b5cf6"}}> "{v.name}"</span>}
+                                  {(item.tipo==="borde"||item.tipo==="skin")&&<span style={{color:"#555"}}> {v.item_id||v.name}</span>}
+                                  {item.tipo==="marco"&&<span style={{color:"#555"}}> {v.name}</span>}
+                                  {v.expires_days&&<span style={{fontSize:10,color:"#aaa"}}> · {v.expires_days}d</span>}
+                                </div>
+                                <button onClick={async()=>{
+                                  try{ await api.prizeDelItem(item.id); 
+                                    api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
+                                  }catch(e){showToast(e.message||"Error","error");}
+                                }} style={{background:"#fee2e2",border:"none",borderRadius:6,
+                                  color:"#ef4444",padding:"3px 7px",fontSize:10,fontWeight:700,
+                                  cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>✕</button>
+                              </div>
+                            );
+                          })}
+                          {items.length===0&&(
+                            <div style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>Sin premios configurados</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {/* ── Tab Manual ──────────────────────────────────── */}
+          {premioTab==="manual"&&(
+            <>
+              <div style={{fontSize:11,color:"#888",marginBottom:12}}>
+                Otorgá premios individuales a cualquier alumno.
+              </div>
+              <div style={{background:"white",borderRadius:14,padding:16,
+                boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Alumno:</div>
+                <select value={manualUser} onChange={e=>setManualUser(e.target.value)}
+                  style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",
+                    borderRadius:10,padding:"10px 12px",fontSize:13,outline:"none",
+                    fontFamily:"Nunito,sans-serif",marginBottom:12,boxSizing:"border-box"}}>
+                  <option value="">— Seleccioná un alumno —</option>
+                  {(config||[]).filter(u=>u.rol==="student").map(u=>(
+                    <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>
+                  ))}
+                </select>
+
+                {/* Premios agregados */}
+                {manualPremios.length>0&&(
+                  <div style={{marginBottom:12}}>
+                    {manualPremios.map((p,i)=>{
+                      const icons={monedas:"🪙",titulo:"🏅",borde:"🔲",skin:"🎨",marco:"🖼️",name_color:"✏️"};
+                      return(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,
+                          padding:"6px 10px",background:"#f0fdf4",borderRadius:8,marginBottom:4}}>
+                          <span>{icons[p.tipo]||"🎁"}</span>
+                          <span style={{flex:1,fontSize:12,fontWeight:700}}>
+                            {p.tipo}{p.tipo==="monedas"?` 🪙${p.valor.cantidad}`:
+                              p.tipo==="titulo"?` "${p.valor.name}"`:
+                              ` ${p.valor.name||p.valor.item_id||""}`}
+                          </span>
+                          <button onClick={()=>setManualPremios(prev=>prev.filter((_,j)=>j!==i))}
+                            style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:12}}>✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Botones para agregar tipo de premio */}
+                <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:"#555"}}>+ Agregar premio:</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+                  {[
+                    {tipo:"monedas",icon:"🪙",label:"Monedas"},
+                    {tipo:"titulo",icon:"🏅",label:"Título"},
+                    {tipo:"borde",icon:"🔲",label:"Borde"},
+                    {tipo:"skin",icon:"🎨",label:"Skin"},
+                    {tipo:"marco",icon:"🖼️",label:"Marco"},
+                  ].map(({tipo,icon,label})=>(
+                    <button key={tipo} onClick={()=>{
+                      setAddingPremio({tipo,isManual:true});
+                      setPremioForm({});
+                    }}
+                      style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:8,
+                        padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",
+                        color:"#333",fontFamily:"Nunito,sans-serif"}}>
+                      {icon} {label}
+                    </button>
+                  ))}
+                </div>
+
+                <button onClick={async()=>{
+                  if(!manualUser||!manualPremios.length){
+                    showToast("Seleccioná un alumno y al menos un premio","error"); return;
+                  }
+                  setGranting(true);
+                  try{
+                    const r = await api.prizeGrantManual(manualUser, manualPremios);
+                    showToast(`✅ ${(r.data||r).filter?.(x=>x.ok).length||0} premios entregados`);
+                    setManualPremios([]);
+                    setManualUser("");
+                  }catch(e){showToast(e.message||"Error","error");}
+                  finally{setGranting(false);}
+                }} disabled={granting||!manualUser||!manualPremios.length}
+                  style={{width:"100%",background:granting||!manualUser||!manualPremios.length?"#ccc":"#10b981",
+                    border:"none",borderRadius:50,color:"white",padding:"12px",fontWeight:800,
+                    fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {granting?"Entregando...":"🎁 Entregar premios"}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ── Tab Historial ───────────────────────────────── */}
+          {premioTab==="historial"&&(
+            <>
+              {prizeHistory.length===0&&(
+                <div style={{textAlign:"center",padding:32,color:"#aaa"}}>
+                  <div style={{fontSize:32,marginBottom:8}}>📭</div>
+                  <div style={{fontWeight:700}}>Sin historial todavía</div>
+                </div>
+              )}
+              {prizeHistory.map((h,i)=>(
+                <div key={i} style={{background:"white",borderRadius:12,padding:"10px 14px",
+                  marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13}}>{h.alumno_nombre}</div>
+                      <div style={{fontSize:10,color:"#888"}}>
+                        Puesto {h.puesto} · {h.periodo} · {new Date(h.granted_at).toLocaleDateString("es-AR")}
+                      </div>
+                    </div>
+                    <span style={{fontSize:10,color:h.granted_by==="system"?"#10b981":"#f59e0b",
+                      fontWeight:700,background:h.granted_by==="system"?"#10b98122":"#f59e0b22",
+                      borderRadius:99,padding:"2px 8px"}}>
+                      {h.granted_by==="system"?"Auto":"Admin"}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </>
           )}
         </div>

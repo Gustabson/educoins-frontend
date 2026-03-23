@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
-import { getLv, LEVELS, TITLES } from "../../constants";
+import { getLv, LEVELS, TITLES, RARITIES } from "../../constants";
 import { Av, displayName } from "./index";
 
 const ROL_LABEL = { student:"Alumno", teacher:"Profe", admin:"Admin" };
@@ -129,29 +129,41 @@ function PerfilModal({userId, onClose}){
               {/* Badges de títulos */}
               <div style={{marginTop:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 {(()=>{
-                  // active_titles es el nuevo sistema: array de ids o "custom:texto"
                   const activeTitles = Array.isArray(perfil.active_titles) && perfil.active_titles.length>0
                     ? perfil.active_titles
-                    : perfil.title && perfil.title!=="tl1" ? [perfil.title]  // fallback legacy
+                    : perfil.title && perfil.title!=="tl1" ? [perfil.title]
                     : perfil.titulo_custom ? ["custom:"+perfil.titulo_custom]
                     : [];
 
-                  const badges = activeTitles.slice(0,3).map(t=>{
-                    if(t.startsWith("custom:")) return t.slice(7);
+                  // earned_titles lookup
+                  const earnedMap = {};
+                  if(Array.isArray(perfil.earned_titles))
+                    perfil.earned_titles.forEach(t=>{ earnedMap[t.id]=t; });
+
+                  const badges = activeTitles.slice(0,5).map(t=>{
+                    if(t.startsWith("custom:")) return {label:t.slice(7),color:null,emoji:null};
+                    if(t.startsWith("earned:")){
+                      const et = earnedMap[t.slice(7)];
+                      if(!et) return null;
+                      const r = RARITIES[et.rarity]||RARITIES.common;
+                      return {label:et.name, color:r.color, emoji:et.emoji};
+                    }
                     const found = TITLES.find(ti=>ti.id===t);
-                    return found ? found.name : null;
+                    return found ? {label:found.name,color:null,emoji:null} : null;
                   }).filter(Boolean);
 
-                  // Teacher/admin siempre muestran su rol
-                  if(perfil.rol==="teacher"||perfil.rol==="admin"){
-                    badges.unshift(ROL_ICON[perfil.rol]+" "+ROL_LABEL[perfil.rol]);
-                  }
+                  if(perfil.rol==="teacher"||perfil.rol==="admin")
+                    badges.unshift({label:ROL_ICON[perfil.rol]+" "+ROL_LABEL[perfil.rol],color:null,emoji:null});
 
                   if(!badges.length) return null;
-                  return badges.slice(0,3).map((b,i)=>(
-                    <div key={i} style={{display:"inline-flex",alignItems:"center",
-                      background:"rgba(0,0,0,.2)",borderRadius:99,padding:"3px 12px"}}>
-                      <span style={{fontSize:11,fontWeight:700,color:"white"}}>{b}</span>
+                  return badges.slice(0,5).map((b,i)=>(
+                    <div key={i} style={{display:"inline-flex",alignItems:"center",gap:3,
+                      background:b.color?b.color+"44":"rgba(0,0,0,.2)",
+                      border:b.color?`1px solid ${b.color}66`:undefined,
+                      borderRadius:99,padding:"3px 12px"}}>
+                      {b.emoji&&<span style={{fontSize:11}}>{b.emoji}</span>}
+                      <span style={{fontSize:11,fontWeight:700,
+                        color:b.color||"white"}}>{b.label}</span>
                     </div>
                   ));
                 })()}
