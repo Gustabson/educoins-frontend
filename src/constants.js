@@ -136,18 +136,25 @@ const RARITY_CSS = `
 `;
 
 // ── FONDOS DE AVATAR PREDEFINIDOS ────────────────────────────
+// Fondos comprables — los marcos solo se obtienen por préstamo del admin
 const AVATAR_BACKGROUNDS = [
-  {id:"ab0", name:"Sin fondo",    type:"none",     value:null,                                                          price:0},
-  {id:"ab1", name:"Rojo",         type:"solid",    value:"#ef4444",                                                     price:80},
-  {id:"ab2", name:"Azul",         type:"solid",    value:"#3b82f6",                                                     price:80},
-  {id:"ab3", name:"Verde",        type:"solid",    value:"#10b981",                                                     price:80},
-  {id:"ab4", name:"Violeta",      type:"solid",    value:"#8b5cf6",                                                     price:80},
-  {id:"ab5", name:"Dorado",       type:"solid",    value:"#f59e0b",                                                     price:100},
-  {id:"ab6", name:"Fuego",        type:"gradient", value:"linear-gradient(135deg,#f97316,#ef4444)",                     price:150},
-  {id:"ab7", name:"Océano",       type:"gradient", value:"linear-gradient(135deg,#0ea5e9,#6366f1)",                     price:150},
-  {id:"ab8", name:"Aurora",       type:"gradient", value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",             price:200},
-  {id:"ab9", name:"Marco Dorado", type:"frame",    value:"3px solid #f59e0b",    glow:"#f59e0b44",                      price:200},
-  {id:"ab10",name:"Marco Épico",  type:"frame",    value:"3px solid #8b5cf6",    glow:"#8b5cf644",                      price:300},
+  {id:"ab0", name:"Sin fondo", type:"none",     value:null,                                                 price:0},
+  {id:"ab1", name:"Rojo",      type:"solid",    value:"#ef4444",                                            price:80},
+  {id:"ab2", name:"Azul",      type:"solid",    value:"#3b82f6",                                            price:80},
+  {id:"ab3", name:"Verde",     type:"solid",    value:"#10b981",                                            price:80},
+  {id:"ab4", name:"Violeta",   type:"solid",    value:"#8b5cf6",                                            price:80},
+  {id:"ab5", name:"Dorado",    type:"solid",    value:"#f59e0b",                                            price:100},
+  {id:"ab6", name:"Fuego",     type:"gradient", value:"linear-gradient(135deg,#f97316,#ef4444)",            price:150},
+  {id:"ab7", name:"Océano",    type:"gradient", value:"linear-gradient(135deg,#0ea5e9,#6366f1)",            price:150},
+  {id:"ab8", name:"Aurora",    type:"gradient", value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",   price:200},
+];
+
+// Marcos disponibles solo por préstamo del admin (no comprables)
+const LOAN_FRAMES = [
+  {id:"lf1", name:"Marco Dorado", type:"frame", value:"3px solid #f59e0b", glow:"#f59e0b66"},
+  {id:"lf2", name:"Marco Épico",  type:"frame", value:"3px solid #8b5cf6", glow:"#8b5cf666"},
+  {id:"lf3", name:"Marco Rojo",   type:"frame", value:"3px solid #ef4444", glow:"#ef444466"},
+  {id:"lf4", name:"Marco Cyan",   type:"frame", value:"3px solid #06b6d4", glow:"#06b6d466"},
 ];
 
 const DIFCOL = {"fácil":"#10b981","media":"#f59e0b","difícil":"#ef4444"};
@@ -194,7 +201,7 @@ input::placeholder{color:#bbb;}
 export {
   THEMES_DEFAULT, DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode,
   LEVELS, getLv, nextLv,
-  SKINS, BORDERS, TITLES, RARITIES, RARITY_CSS, AVATAR_BACKGROUNDS,
+  SKINS, BORDERS, TITLES, RARITIES, RARITY_CSS, AVATAR_BACKGROUNDS, LOAN_FRAMES,
   DIFCOL, GS,
   TAG_COLORS, TAG_LIST,
   REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR,

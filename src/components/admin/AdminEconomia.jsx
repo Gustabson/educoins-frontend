@@ -16,6 +16,7 @@ function AdminEconomia({showToast, onBack}){
     {id:"ranking",    icon:"🏆", title:"Premios del Ranking", sub:"Diario, semanal, mensual", col:"#10b981"},
     {id:"checkin",    icon:"🔥", title:"Check-in Diario",     sub:"Recompensas por racha",    col:"#ef4444"},
     {id:"suscripciones",icon:"🔄",title:"Suscripciones",      sub:"Ver cobros pendientes",    col:"#0ea5e9"},
+    {id:"perfil",     icon:"👤", title:"Personalización Perfil",sub:"Apodo, títulos, fondos, préstamos",col:"#f59e0b"},
     {id:"historial",  icon:"📋", title:"Historial de Pagos",  sub:"Premios, banco, impuestos",col:"#64748b"},
   ];
 
@@ -62,6 +63,15 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   const [editVal,setEditVal]= useState({});
   const [saving,setSaving]  = useState(false);
   const [closingSec,setClosing]= useState(null);
+  // Perfil section state
+  const [perfilTab,setPerfilTab]= useState("items"); // items|titles|loans
+  const [grantUser,setGrantUser]= useState("");
+  const [grantForm,setGrantForm]= useState({name:"",rarity:"common",color:"#8b5cf6",glow_color:"#8b5cf6",emoji:"",note:""});
+  const [loanUser,setLoanUser]  = useState("");
+  const [loanFrame,setLoanFrame]= useState("Marco Dorado");
+  const [loanNote,setLoanNote]  = useState("");
+  const [loanDays,setLoanDays]  = useState("");
+  const [granting,setGranting]  = useState(false);
   const [closeMotivo,setCloseMotivo]=useState("");
   const [periodoClose,setPClose]=useState("weekly");
   const [scopeClose,setSClose]=useState("global");
@@ -97,8 +107,18 @@ function AdminEconomiaSec({sec, onBack, showToast}){
         setPayouts([...rpArr,...alArr].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,50));
       }).catch(()=>{}).finally(()=>setLoading(false));
     } else if(sec==="suscripciones"){
-      // Ver suscripciones activas
       api.chargeAll().then(d=>setItems(d.data?.results||[])).catch(()=>{}).finally(()=>setLoading(false));
+    } else if(sec==="perfil"){
+      // Cargar items de perfil (apodo, titulo_custom, estado) + users + loaned items
+      Promise.all([
+        api.customAdminItems(),
+        api.adminUsers(),
+      ]).then(([items, usersRes])=>{
+        const allItems = items.data||items||[];
+        const profileItems = allItems.filter(i=>['nickname','title_custom','estado'].includes(i.tipo));
+        setItems(profileItems);
+        setConfig(usersRes.data||usersRes||[]);
+      }).catch(()=>{}).finally(()=>setLoading(false));
     }
   },[sec]);
 
@@ -623,6 +643,237 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             ))}
           </>
         )}
+      {sec==="perfil"&&!loading&&(
+        <div>
+          {/* Tabs */}
+          <div style={{display:"flex",gap:6,marginBottom:14}}>
+            {[["items","⚙️ Items"],["titles","🏅 Títulos"],["loans","🎁 Préstamos"]].map(([id,lbl])=>(
+              <button key={id} onClick={()=>setPerfilTab(id)}
+                style={{flex:1,background:perfilTab===id?"#f59e0b22":"white",
+                  border:`1.5px solid ${perfilTab===id?"#f59e0b":"#eee"}`,
+                  borderRadius:10,padding:"8px 4px",fontSize:11,fontWeight:800,
+                  cursor:"pointer",color:perfilTab===id?"#b45309":"#555",
+                  fontFamily:"Nunito,sans-serif"}}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          {/* Items de perfil (apodo, titulo_custom, estado) */}
+          {perfilTab==="items"&&(
+            <>
+              <div style={{fontSize:11,color:"#888",marginBottom:10,lineHeight:1.5}}>
+                Estos son los items comprables de perfil. Editá precio, suscripción y estado.
+              </div>
+              {items.length===0&&(
+                <div style={{background:"white",borderRadius:14,padding:16,textAlign:"center",
+                  color:"#aaa",fontSize:12}}>
+                  No hay items de perfil. Creá uno desde la sección Personalización → Efectos.
+                </div>
+              )}
+              {items.map(item=>(
+                <div key={item.id} style={{background:"white",borderRadius:14,marginBottom:8,
+                  overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+                  <div style={{height:4,background:"linear-gradient(90deg,#f59e0b,#ef4444)"}}/>
+                  <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:20}}>{item.tipo==="nickname"?"🏷️":item.tipo==="title_custom"?"📛":"💬"}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13}}>{item.nombre}</div>
+                      <div style={{fontSize:10,color:"#888"}}>{item.tipo}</div>
+                      {item.es_suscripcion
+                        ? <span style={{fontSize:10,color:"#8b5cf6",fontWeight:700}}>
+                            🔄 🪙{item.precio_mensual}/mes · compra: 🪙{item.precio}
+                          </span>
+                        : <span style={{fontSize:10,color:"#10b981",fontWeight:700}}>
+                            🪙{item.precio} compra · 🪙{item.precio} por cambio
+                          </span>
+                      }
+                    </div>
+                    <button onClick={()=>{setEditing(item);setEditVal({
+                      precio:item.precio||0,
+                      precio_mensual:item.precio_mensual||0,
+                      es_suscripcion:item.es_suscripcion||false,
+                      periodo_default:item.periodo_default||"monthly",
+                      activo:item.activo??true,
+                    });}}
+                      style={{background:"#f0f0f0",border:"none",borderRadius:10,padding:"6px 12px",
+                        fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      Editar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Otorgar títulos */}
+          {perfilTab==="titles"&&(
+            <>
+              <div style={{fontSize:11,color:"#888",marginBottom:12,lineHeight:1.5}}>
+                Otorgá títulos únicos a alumnos. Aparecen con efectos especiales según rareza.
+              </div>
+              <div style={{background:"white",borderRadius:14,padding:16,
+                boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+                {/* Buscar usuario */}
+                <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Alumno destinatario:</div>
+                <select value={grantUser} onChange={e=>setGrantUser(e.target.value)}
+                  style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",
+                    borderRadius:10,padding:"10px 12px",fontSize:13,outline:"none",
+                    fontFamily:"Nunito,sans-serif",marginBottom:12,boxSizing:"border-box"}}>
+                  <option value="">— Seleccioná un alumno —</option>
+                  {(config||[]).filter(u=>u.rol==="student").map(u=>(
+                    <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>
+                  ))}
+                </select>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <input value={grantForm.name} onChange={e=>setGrantForm(v=>({...v,name:e.target.value.slice(0,40)}))}
+                    placeholder="Nombre del título (ej: El Primero 🥇)"
+                    style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                      padding:"10px 12px",fontSize:13,fontWeight:700,outline:"none",
+                      fontFamily:"Nunito,sans-serif"}}/>
+                  <input value={grantForm.emoji} onChange={e=>setGrantForm(v=>({...v,emoji:e.target.value.slice(0,4)}))}
+                    placeholder="Emoji único (ej: 🏆)"
+                    style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                      padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                  <div style={{display:"flex",gap:6}}>
+                    {[
+                      {id:"common",label:"Común",color:"#94a3b8"},
+                      {id:"rare",label:"Raro",color:"#3b82f6"},
+                      {id:"epic",label:"Épico",color:"#8b5cf6"},
+                      {id:"legendary",label:"Legendario",color:"#f59e0b"},
+                    ].map(r=>(
+                      <button key={r.id} onClick={()=>setGrantForm(v=>({...v,rarity:r.id,color:r.color,glow_color:r.color}))}
+                        style={{flex:1,background:grantForm.rarity===r.id?r.color+"22":"#f7f7f7",
+                          border:`1.5px solid ${grantForm.rarity===r.id?r.color:"#eee"}`,
+                          borderRadius:8,padding:"7px 4px",fontSize:10,fontWeight:800,
+                          cursor:"pointer",color:r.color,fontFamily:"Nunito,sans-serif"}}>
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <span style={{fontSize:12,color:"#555",fontWeight:700}}>Color:</span>
+                    <input type="color" value={grantForm.color}
+                      onChange={e=>setGrantForm(v=>({...v,color:e.target.value}))}
+                      style={{width:40,height:32,border:"none",borderRadius:8,cursor:"pointer"}}/>
+                    <span style={{fontSize:12,color:"#555",fontWeight:700}}>Glow:</span>
+                    <input type="color" value={grantForm.glow_color||"#8b5cf6"}
+                      onChange={e=>setGrantForm(v=>({...v,glow_color:e.target.value}))}
+                      style={{width:40,height:32,border:"none",borderRadius:8,cursor:"pointer"}}/>
+                  </div>
+                  <input value={grantForm.note} onChange={e=>setGrantForm(v=>({...v,note:e.target.value.slice(0,100)}))}
+                    placeholder="Motivo (visible al alumno, opcional)"
+                    style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                      padding:"10px 12px",fontSize:12,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                  <button
+                    onClick={async()=>{
+                      if(!grantUser||!grantForm.name.trim()){showToast("Completá todos los campos","error");return;}
+                      setGranting(true);
+                      try{
+                        await api.grantTitle({user_id:grantUser,...grantForm});
+                        showToast("🏅 Título otorgado!");
+                        setGrantForm({name:"",rarity:"common",color:"#8b5cf6",glow_color:"#8b5cf6",emoji:"",note:""});
+                        setGrantUser("");
+                      }catch(e){showToast(e.message||"Error","error");}
+                      finally{setGranting(false);}
+                    }}
+                    disabled={granting||!grantUser||!grantForm.name.trim()}
+                    style={{background:granting||!grantUser||!grantForm.name.trim()?"#ccc":"#f59e0b",
+                      border:"none",borderRadius:50,color:"white",padding:"12px",fontWeight:800,
+                      fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    {granting?"Otorgando...":"🏅 Otorgar título"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Préstamos de marcos */}
+          {perfilTab==="loans"&&(
+            <>
+              <div style={{fontSize:11,color:"#888",marginBottom:12,lineHeight:1.5}}>
+                Prestá marcos especiales a alumnos. Pueden ser temporales o permanentes.
+              </div>
+              <div style={{background:"white",borderRadius:14,padding:16,
+                boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Alumno destinatario:</div>
+                <select value={loanUser} onChange={e=>setLoanUser(e.target.value)}
+                  style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",
+                    borderRadius:10,padding:"10px 12px",fontSize:13,outline:"none",
+                    fontFamily:"Nunito,sans-serif",marginBottom:12,boxSizing:"border-box"}}>
+                  <option value="">— Seleccioná un alumno —</option>
+                  {(config||[]).filter(u=>u.rol==="student").map(u=>(
+                    <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>
+                  ))}
+                </select>
+                <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Marco a prestar:</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+                  {[
+                    {name:"Marco Dorado",type:"frame",value:"3px solid #f59e0b",glow:"#f59e0b66"},
+                    {name:"Marco Épico", type:"frame",value:"3px solid #8b5cf6",glow:"#8b5cf666"},
+                    {name:"Marco Rojo",  type:"frame",value:"3px solid #ef4444",glow:"#ef444466"},
+                    {name:"Marco Cyan",  type:"frame",value:"3px solid #06b6d4",glow:"#06b6d466"},
+                    {name:"Fuego",       type:"gradient",value:"linear-gradient(135deg,#f97316,#ef4444)",glow:null},
+                    {name:"Aurora",      type:"gradient",value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",glow:null},
+                  ].map(f=>(
+                    <button key={f.name} onClick={()=>setLoanFrame(f.name)}
+                      style={{background:loanFrame===f.name?"#f59e0b22":"#f7f7f7",
+                        border:`1.5px solid ${loanFrame===f.name?"#f59e0b":"#eee"}`,
+                        borderRadius:8,padding:"7px 12px",fontSize:11,fontWeight:700,
+                        cursor:"pointer",color:loanFrame===f.name?"#b45309":"#555",
+                        fontFamily:"Nunito,sans-serif"}}>
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
+                <input value={loanNote} onChange={e=>setLoanNote(e.target.value)}
+                  placeholder="Motivo / mensaje para el alumno (opcional)"
+                  style={{width:"100%",boxSizing:"border-box",background:"#f7f7f7",border:"1.5px solid #eee",
+                    borderRadius:10,padding:"10px 12px",fontSize:12,outline:"none",
+                    fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
+                <input value={loanDays} onChange={e=>setLoanDays(e.target.value)}
+                  placeholder="Días de duración (vacío = sin límite)" type="number" min="1"
+                  style={{width:"100%",boxSizing:"border-box",background:"#f7f7f7",border:"1.5px solid #eee",
+                    borderRadius:10,padding:"10px 12px",fontSize:12,outline:"none",
+                    fontFamily:"Nunito,sans-serif",marginBottom:12}}/>
+                <button
+                  onClick={async()=>{
+                    if(!loanUser){showToast("Seleccioná un alumno","error");return;}
+                    const FRAMES=[
+                      {name:"Marco Dorado",type:"frame",value:"3px solid #f59e0b",glow:"#f59e0b66"},
+                      {name:"Marco Épico", type:"frame",value:"3px solid #8b5cf6",glow:"#8b5cf666"},
+                      {name:"Marco Rojo",  type:"frame",value:"3px solid #ef4444",glow:"#ef444466"},
+                      {name:"Marco Cyan",  type:"frame",value:"3px solid #06b6d4",glow:"#06b6d466"},
+                      {name:"Fuego",       type:"gradient",value:"linear-gradient(135deg,#f97316,#ef4444)",glow:null},
+                      {name:"Aurora",      type:"gradient",value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",glow:null},
+                    ];
+                    const frame = FRAMES.find(f=>f.name===loanFrame);
+                    setGranting(true);
+                    try{
+                      await api.loanItem({
+                        user_id: loanUser,
+                        type: "avatar_bg",
+                        item_data: {id:"loaned_"+Date.now(),name:frame.name,type:frame.type,value:frame.value,glow:frame.glow||null},
+                        note: loanNote||null,
+                        expires_days: loanDays?parseInt(loanDays):null,
+                      });
+                      showToast(`🎁 ${frame.name} prestado!`);
+                      setLoanUser(""); setLoanNote(""); setLoanDays("");
+                    }catch(e){showToast(e.message||"Error","error");}
+                    finally{setGranting(false);}
+                  }}
+                  disabled={granting||!loanUser}
+                  style={{width:"100%",background:granting||!loanUser?"#ccc":"#f59e0b",
+                    border:"none",borderRadius:50,color:"white",padding:"12px",fontWeight:800,
+                    fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {granting?"Prestando...":"🎁 Prestar marco"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       </div>
     </div>
   );
