@@ -69,6 +69,8 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   // Avatar bg
   const [avatarBg,        setAvatarBg]        = useState(me.avatar_bg||null);
   const [unlockedAvatarBgs,setUnlockedAvatarBgs]=useState(me.unlocked_avatar_bgs||["ab0"]);
+  const [fotoShop,  setFotoShop]   = useState(null);  // item photo_profile de la tienda
+  const [fotoAccess,setFotoAccess] = useState(false); // tiene acceso activo (compró en la última hora)
 
   useEffect(()=>{
     api.customMe().then(d=>{
@@ -86,6 +88,12 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
     }).catch(()=>{});
     api.loanedItems().then(d=>{
       setLoanedItems(Array.isArray(d)?d:(d?.data||[]));
+    }).catch(()=>{});
+    // Cargar item de foto
+    api.customShop("photo_profile").then(d=>{
+      const arr=Array.isArray(d)?d:(d?.data||d||[]);
+      const item=arr.find(i=>i.tipo==="photo_profile");
+      setFotoShop(item||null);
     }).catch(()=>{});
     // Cargar precio del apodo desde el shop
     api.customShop("nickname").then(d=>{
@@ -221,16 +229,17 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
         {/* Card principal */}
         <div style={{...card,padding:20,textAlign:"center",marginBottom:20}}>
           <div style={{position:"relative",display:"inline-block",marginBottom:12}}>
-            {/* Fondo del avatar */}
-            {avatarBg&&avatarBg.type!=="none"&&(
-              <div style={{position:"absolute",inset:-6,borderRadius:"50%",zIndex:0,
-                background:avatarBg.type==="gradient"?avatarBg.value:
-                           avatarBg.type==="solid"?avatarBg.value:"transparent",
-                border:avatarBg.type==="frame"?avatarBg.value:undefined,
-                boxShadow:avatarBg.glow?`0 0 12px 4px ${avatarBg.glow}`:undefined,
-              }}/>
-            )}
-            <div style={{position:"relative",zIndex:1}}>
+            {/* Fondo del avatar — envuelve el Av directamente */}
+            <div style={{
+              borderRadius:"50%",
+              padding: avatarBg&&avatarBg.type!=="none" ? 5 : 0,
+              background: avatarBg&&avatarBg.type==="gradient" ? avatarBg.value
+                        : avatarBg&&avatarBg.type==="solid"    ? avatarBg.value
+                        : "transparent",
+              border:    avatarBg&&avatarBg.type==="frame"     ? avatarBg.value : "none",
+              boxShadow: avatarBg?.glow ? `0 0 14px 4px ${avatarBg.glow}` : "none",
+              display:"inline-block",
+            }}>
               <Av user={me} sz={72}/>
             </div>
             <label style={{position:"absolute",bottom:0,right:0,zIndex:2,
@@ -530,48 +539,85 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
               </div>
             );
           })}
-          {/* Slot de foto — siempre gratis, solo subir */}
-          <div style={{...card,padding:"12px 6px",textAlign:"center",marginBottom:0,
-            border:`2px solid ${me.foto_url?accent:inputBg}`,position:"relative"}}>
-            {me.foto_url
-              ? <img src={me.foto_url} alt="" style={{width:36,height:36,borderRadius:"50%",
-                  objectFit:"cover",margin:"0 auto 4px",display:"block"}}/>
-              : <div style={{fontSize:26,marginBottom:3}}>📸</div>
-            }
-            <div style={{fontSize:9,fontWeight:800,color:txt,marginBottom:3}}>Foto</div>
-            <label style={{cursor:saving==="foto"?"not-allowed":"pointer"}}>
-              <input type="file" accept="image/*" disabled={saving==="foto"} onChange={async e=>{
-                const file=e.target.files?.[0]; if(!file) return;
-                if(file.size>500000){showToast("Max 500KB","error");return;}
-                const r2=new FileReader();
-                r2.onload=async ev=>{
-                  setSaving("foto");
-                  try{
-                    await api.setFoto(ev.target.result);
-                    showToast("Foto actualizada 📸");
-                    const u=await api.me(); setMe(u);
-                  }catch(err){showToast(err.message||"Error","error");}
-                  finally{setSaving(null);}
-                };
-                r2.readAsDataURL(file);
-              }} style={{display:"none"}}/>
-              <span style={{fontSize:9,color:accent,fontWeight:800}}>
-                {saving==="foto"?"...":me.foto_url?"Cambiar":"Subir"}
-              </span>
-            </label>
-            {me.foto_url&&(
-              <button onClick={async()=>{
+          {/* Slot de foto — compra acceso por 1 hora */}
+          {(()=>{
+            const precio = fotoShop?.precio || 0;
+            const handleUpload = async(e) => {
+              const file=e.target.files?.[0]; if(!file) return;
+              if(file.size>500000){showToast("Max 500KB","error");return;}
+              const r2=new FileReader();
+              r2.onload=async ev=>{
                 setSaving("foto");
-                try{await api.setFoto(null);showToast("Foto eliminada");
-                  const u=await api.me();setMe(u);}
-                catch(e){showToast(e.message||"Error","error");}
+                try{
+                  await api.setFoto(ev.target.result);
+                  showToast("Foto actualizada 📸");
+                  const u=await api.me(); setMe(u);
+                }catch(err){
+                  // If access expired, offer to buy again
+                  if(err.message?.includes("expiró")||err.message?.includes("Comprá")) {
+                    setFotoAccess(false);
+                    showToast(err.message,"error");
+                  } else {
+                    showToast(err.message||"Error","error");
+                  }
+                }
                 finally{setSaving(null);}
-              }} style={{position:"absolute",top:3,right:3,background:"rgba(0,0,0,.4)",
-                border:"none",borderRadius:"50%",color:"white",width:16,height:16,
-                fontSize:8,cursor:"pointer",display:"flex",alignItems:"center",
-                justifyContent:"center"}}>✕</button>
-            )}
-          </div>
+              };
+              r2.readAsDataURL(file);
+            };
+            const comprarAcceso = async() => {
+              if(!fotoShop){showToast("Item no disponible","error");return;}
+              if(precio>0&&balance<precio){showToast(`Necesitás 🪙${precio}`,"error");return;}
+              setBuying("foto");
+              try{
+                await api.customBuy(fotoShop.id);
+                setFotoAccess(true);
+                if(refreshBalance) refreshBalance();
+                showToast(`Acceso desbloqueado por 1 hora 📸${precio>0?` (-🪙${precio})`:""}`);
+              }catch(e){showToast(e.message||"Error","error");}
+              finally{setBuying(null);}
+            };
+            return(
+              <div style={{...card,padding:"12px 6px",textAlign:"center",marginBottom:0,
+                border:`2px solid ${me.foto_url?accent:fotoAccess?accent+"44":inputBg}`,
+                position:"relative",gridColumn:"span 1"}}>
+                {me.foto_url
+                  ? <img src={me.foto_url} alt="" style={{width:36,height:36,borderRadius:"50%",
+                      objectFit:"cover",margin:"0 auto 4px",display:"block"}}/>
+                  : <div style={{fontSize:26,marginBottom:3}}>📸</div>
+                }
+                <div style={{fontSize:9,fontWeight:800,color:txt,marginBottom:3}}>Foto</div>
+                {fotoAccess||me.foto_url?(
+                  <label style={{cursor:saving==="foto"?"not-allowed":"pointer"}}>
+                    <input type="file" accept="image/*" disabled={saving==="foto"}
+                      onChange={handleUpload} style={{display:"none"}}/>
+                    <span style={{fontSize:9,color:accent,fontWeight:800}}>
+                      {saving==="foto"?"...":me.foto_url?"Cambiar":"Subir"}
+                    </span>
+                  </label>
+                ):(
+                  <button onClick={comprarAcceso} disabled={buying==="foto"}
+                    style={{background:"none",border:"none",cursor:"pointer",
+                      fontSize:9,color:precio>0?accent:"#10b981",fontWeight:800,
+                      fontFamily:"Nunito,sans-serif",padding:0}}>
+                    {buying==="foto"?"...":precio>0?`🪙${precio}`:"Gratis"}
+                  </button>
+                )}
+                {me.foto_url&&(
+                  <button onClick={async()=>{
+                    setSaving("foto");
+                    try{await api.setFoto(null);showToast("Foto eliminada");
+                      const u=await api.me();setMe(u);}
+                    catch(e){showToast(e.message||"Error","error");}
+                    finally{setSaving(null);}
+                  }} style={{position:"absolute",top:3,right:3,background:"rgba(0,0,0,.4)",
+                    border:"none",borderRadius:"50%",color:"white",width:16,height:16,
+                    fontSize:8,cursor:"pointer",display:"flex",alignItems:"center",
+                    justifyContent:"center"}}>✕</button>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* ── 5. BORDES ─────────────────────────────────────── */}
