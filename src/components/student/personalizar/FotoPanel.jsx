@@ -4,7 +4,7 @@ import { useTheme } from "../../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../../shared/index";
 
 
-function FotoPanel({me,owned,items,balance,showToast,onRefresh,onRefreshBalance,cardBg,txt,sub,accent}){
+function FotoPanel({me,owned,items,balance,showToast,onRefresh,onRefreshBalance,cardBg,txt,sub,accent,inputBg}){
   const hasPermiso = owned.some(o=>o.tipo==="photo_profile");
   const fotoItem   = items.find(i=>i.tipo==="photo_profile");
   const [buying,setBuying] = useState(false);
