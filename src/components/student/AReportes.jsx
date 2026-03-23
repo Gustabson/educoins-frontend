@@ -80,7 +80,7 @@ function AReportes({me,showToast,onBack}){
     const estCol   = ESTADO_COLOR[reporteSel.estado]||"#94a3b8";
     const abierto  = reporteSel.estado!=="resuelto"&&reporteSel.estado!=="descartado";
     return(
-      <div style={{background:pageBg,minHeight:"100vh"}}>
+      <div style={{background:bg,minHeight:"100vh"}}>
         {/* Header */}
         <div style={{background:accent,position:"sticky",top:0,zIndex:50,
           padding:"16px 16px 20px",color:"white",

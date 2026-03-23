@@ -252,7 +252,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                   const isSub=item.es_suscripcion;
                   const precio=isSub?(item.precio_mensual??item.precio):item.precio;
                   if(cfg.custom) return null;
-                  const modeBg = cfg.bg||cfg.pageBg||"#888";
+                  const modeBg = cfg.bg||cfg.bg||"#888";
                   const modeBgSel = cfg.card||modeBg;
                   return(
                     <div key={item.id}
