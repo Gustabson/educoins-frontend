@@ -73,22 +73,26 @@ function Av({user,sz,avatarBg}){
   }
 
   // Con avatarBg:
-  // - wrapper exterior = fondo/marco elegido
-  // - inner = SIEMPRE transparente (el fondo del wrapper se ve a través)
-  const wrapBg     = avatarBg.type==="frame" ? sk.bg : avatarBg.value; // frame: bg de skin adentro
+  // Estructura: [wrapper con fondo/marco] > [gap/padding] > [avatar normal con su skin]
+  // El avatar interno es IDÉNTICO al sin-fondo (skin propia, borde propio)
+  // El wrapper exterior agrega el anillo/halo/marco alrededor
+
+  const wrapBg     = (avatarBg.type==="solid"||avatarBg.type==="gradient") ? avatarBg.value : "transparent";
   const wrapBorder = avatarBg.type==="frame" ? avatarBg.value : "none";
   const wrapGlow   = avatarBg.glow ? `0 0 16px 5px ${avatarBg.glow}` : "none";
-  // Para sólido/gradiente: padding crea el halo de color alrededor del avatar
-  const pad = avatarBg.type==="frame" ? 4 : Math.round(s * 0.15);
+  const gap        = Math.round(s * 0.13); // espacio entre fondo y avatar
 
   return(
     <div style={{borderRadius:"50%",background:wrapBg,border:wrapBorder,
-      boxShadow:wrapGlow,padding:pad,display:"inline-flex",
+      boxShadow:wrapGlow,padding:gap,display:"inline-flex",
       alignItems:"center",justifyContent:"center",flexShrink:0}}>
-      {/* inner: fondo transparente para que el wrapper se vea */}
-      <div style={{width:s,height:s,borderRadius:"50%",overflow:"hidden",
-        background:avatarBg.type==="frame" ? "transparent" : sk.bg,
-        display:"flex",alignItems:"center",justifyContent:"center",fontSize:s*.46}}>
+      {/* Avatar interno — sin cambios, usa su propia skin y borde */}
+      <div style={{width:s,height:s,borderRadius:"50%",
+        background:user?.foto_url?"transparent":sk.bg,
+        border:br.bs,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:s*.46,overflow:user?.foto_url?"hidden":"visible",
+        boxShadow:`0 2px 8px ${sk.bg}55`,flexShrink:0}}>
         {user?.foto_url
           ? <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
           : sk.emoji}
