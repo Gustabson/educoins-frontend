@@ -56,7 +56,7 @@ function FotoPanel({me,owned,items,balance,showToast,onRefresh,onRefreshBalance,
             :`Comprar por 🪙${fotoItem.precio}`}
         </button>
       ):(
-        <div style={{background:"#f0f0f0",borderRadius:12,padding:"12px 16px",
+        <div style={{background:inputBg,borderRadius:12,padding:"12px 16px",
           fontSize:12,color:sub,textAlign:"center"}}>
           El administrador aún no habilitó este item
         </div>

@@ -282,7 +282,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
           <div onClick={()=>{ onOpenPerfil&&onOpenPerfil(friend.user_id); }}
             style={{flex:1,display:"flex",alignItems:"center",gap:10,cursor:"pointer",
               minWidth:0}}>
-            <div style={{flexShrink:0}}><Av user={friend} sz={36}/></div>
+            <div style={{flexShrink:0}}><Av user={friend} sz={36} avatarBg={friend?.avatar_bg||null}/></div>
             <div style={{minWidth:0}}>
               <div style={{fontWeight:800,fontSize:15,
                 overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
@@ -609,7 +609,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
                 <div key={f.friendship_id} style={{display:"flex",alignItems:"center",gap:10,
                   padding:"10px 14px",background:cardBg,borderRadius:16,marginBottom:6,
                   boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-                  <Av user={f} sz={36}/>
+                  <Av user={f} sz={36} avatarBg={f?.avatar_bg||null}/>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:800,fontSize:13,color:txt}}>{f.nombre}</div>
                     <div style={{fontSize:11,color:sub}}>quiere ser tu amigo</div>
@@ -636,7 +636,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
             </button>
           </div>
 
-          {loading&&<div style={{textAlign:"center",color:"#aaa",padding:20}}>Cargando...</div>}
+          {loading&&<div style={{textAlign:"center",color:sub,padding:20}}>Cargando...</div>}
           {!loading&&friends.length===0&&(
             <div style={{textAlign:"center",color:sub,padding:24,fontSize:13}}>
               Sin amigos todavia. Agrega a tus companeros! 👋
@@ -647,7 +647,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
               style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer",
                 background:cardBg,borderRadius:16,marginBottom:8,
                 boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-              <Av user={f} sz={42}/>
+              <Av user={f} sz={42} avatarBg={f?.avatar_bg||null}/>
               <div style={{flex:1}}>
                 <div style={{fontWeight:800,fontSize:13,color:txt}}>{f.nombre}</div>
                 <div style={{fontSize:11,color:sub}}>Toca para chatear</div>
@@ -707,7 +707,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
             {results.map(u=>(
               <div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",
                 borderBottom:`1px solid ${inputBg}`}}>
-                <Av user={u} sz={36}/>
+                <Av user={u} sz={36} avatarBg={u?.avatar_bg||null}/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:800,fontSize:13,color:txt}}>{u.nombre}</div>
                   <div style={{fontSize:11,color:sub}}>{u.rol}</div>

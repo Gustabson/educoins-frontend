@@ -32,7 +32,7 @@ function ATienda({me,balance,showToast,refreshBalance}){
     finally{setBuying(null);}
   };
 
-  if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando tienda...</div>;
+  if(loading) return <div style={{padding:40,textAlign:"center",color:subTxt}}>Cargando tienda...</div>;
 
   return(
     <div style={{background:bg,minHeight:"100vh",transition:"background .3s"}}>

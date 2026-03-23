@@ -134,7 +134,7 @@ function AdminBanco({me,showToast,onBack}){
           <div key={u.id} onClick={()=>{onSel(u);setVal(u.nombre);}}
             style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",
               borderRadius:10,cursor:"pointer",background:"#f9f9f9",marginBottom:3}}>
-            <Av user={u} sz={28}/>
+            <Av user={u} sz={28} avatarBg={u?.avatar_bg||null}/>
             <div style={{flex:1}}>
               <div style={{fontWeight:700,fontSize:12}}>{u.nombre}</div>
               <div style={{fontSize:10,color:"#aaa"}}>{u.rol}</div>

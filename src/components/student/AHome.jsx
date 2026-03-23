@@ -37,7 +37,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <button onClick={()=>onNav("perfil")} style={{display:"flex",alignItems:"center",gap:10,
               background:"none",border:"none",cursor:"pointer",padding:0,color:"white"}}>
-              <Av user={me} sz={44}/>
+              <Av user={me} sz={44} avatarBg={me?.avatar_bg||null}/>
               <div style={{fontWeight:900,fontSize:17,lineHeight:1.1}}>Hola, {me.nombre.split(" ")[0]} 👋</div>
             </button>
             <button onClick={()=>onNav("personalizar")} style={{

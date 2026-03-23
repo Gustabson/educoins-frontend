@@ -107,7 +107,7 @@ function ARanking({nameColorConfig}){
                 fontSize:i<3?18:14,flexShrink:0,color:i<3?"inherit":sub}}>
                 {medal}
               </div>
-              <Av user={u} sz={42}/>
+              <Av user={u} sz={42} avatarBg={u?.avatar_bg||null}/>
               <div style={{flex:1}}>
                 <div style={{fontWeight:800,fontSize:14,
                   color:nameColorConfig?.rainbow?"transparent":nameColorConfig?.color||txt,

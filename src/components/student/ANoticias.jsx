@@ -62,7 +62,7 @@ function ANoticias({me,onBack}){
         ))}
       </div>
       <div style={{padding:"10px 14px"}}>
-        {loading&&<div style={{textAlign:"center",padding:40,color:"#aaa"}}>Cargando noticias...</div>}
+        {loading&&<div style={{textAlign:"center",padding:40,color:sub}}>Cargando noticias...</div>}
         {!loading&&posts.length===0&&(
           <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center",
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>

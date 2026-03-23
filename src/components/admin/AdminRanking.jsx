@@ -39,7 +39,7 @@ function AdminRanking({onBack}){
         fontSize:rank<3?18:12,fontWeight:900,color:COLOR[rank]||"#94a3b8",flexShrink:0}}>
         {rank<3?MEDAL[rank]:rank+1}
       </div>
-      <Av user={user} sz={36}/>
+      <Av user={user} sz={36} avatarBg={user?.avatar_bg||null}/>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",
           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div>
@@ -184,7 +184,7 @@ function AdminRanking({onBack}){
                   fontSize:i<3?18:12,fontWeight:900,color:COLOR[i]||"#94a3b8",flexShrink:0}}>
                   {i<3?MEDAL[i]:i+1}
                 </div>
-                <Av user={u} sz={36}/>
+                <Av user={u} sz={36} avatarBg={u?.avatar_bg||null}/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{u.nombre}</div>
                   <div style={{fontSize:10,color:"#aaa"}}>{u.total_checkins} check-ins totales</div>

@@ -137,7 +137,7 @@ function MHome({me,onNav}){
                 style={{padding:"11px 16px",borderBottom:i<students.length-1?"1px solid #f5f5f5":"none",
                   cursor:"pointer",background:rewardSel?.id===s.id?"#f0f9ff":"white",
                   display:"flex",alignItems:"center",gap:10,transition:"background .15s"}}>
-                <Av user={s} sz={34}/>
+                <Av user={s} sz={34} avatarBg={s?.avatar_bg||null}/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{s.nombre}</div>
                   <div style={{fontSize:10,color:"#aaa"}}>

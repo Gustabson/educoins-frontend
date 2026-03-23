@@ -110,7 +110,7 @@ function AEnviar({me,balance,showToast,refreshBalance}){
                   border:`1.5px solid ${selected?.id===f.user_id?accent:"transparent"}`,
                   boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
                   transition:"all .15s"}}>
-                <Av user={f} sz={42}/>
+                <Av user={f} sz={42} avatarBg={f?.avatar_bg||null}/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:800,fontSize:14,color:txt}}>{f.nombre}</div>
                   <div style={{fontSize:11,color:sub,marginTop:1}}>
@@ -146,7 +146,7 @@ function AEnviar({me,balance,showToast,refreshBalance}){
                   border:`1.5px solid ${selected?.id===u.id?accent:"transparent"}`,
                   boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
                   transition:"all .15s"}}>
-                <Av user={u} sz={42}/>
+                <Av user={u} sz={42} avatarBg={u?.avatar_bg||null}/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:800,fontSize:14,color:txt}}>{u.nombre}</div>
                   <div style={{fontSize:11,color:sub}}>
@@ -188,7 +188,7 @@ function AEnviar({me,balance,showToast,refreshBalance}){
             {selected&&(
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,
                 padding:"10px 12px",background:dark?"rgba(255,255,255,.05)":"#f7f7f7",borderRadius:12}}>
-                <Av user={selected} sz={36}/>
+                <Av user={selected} sz={36} avatarBg={selected?.avatar_bg||null}/>
                 <div>
                   <div style={{fontSize:11,color:sub,fontWeight:700}}>Enviando a</div>
                   <div style={{fontWeight:800,fontSize:14,color:txt}}>{selected.nombre}</div>

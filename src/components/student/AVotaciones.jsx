@@ -141,7 +141,7 @@ function AVotaciones({me,showToast,onBack}){
             <div style={{background:cardBg,borderRadius:16,padding:"12px 14px",
               boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                <Av user={c} sz={28}/>
+                <Av user={c} sz={28} avatarBg={c?.avatar_bg||null}/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:800,fontSize:12,color:txt}}>{c.nombre}</div>
                   <div style={{fontSize:10,color:sub}}>
@@ -189,7 +189,7 @@ function AVotaciones({me,showToast,onBack}){
                   <div key={r.id} style={{background:cardBg,borderRadius:14,padding:"10px 12px",
                     boxShadow:dark?"0 1px 6px rgba(0,0,0,.3)":"0 1px 6px rgba(0,0,0,.04)"}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-                      <Av user={r} sz={22}/>
+                      <Av user={r} sz={22} avatarBg={r?.avatar_bg||null}/>
                       <span style={{fontWeight:800,fontSize:11,color:txt}}>{r.nombre}</span>
                       <span style={{fontSize:10,color:sub}}>
                         {new Date(r.created_at).toLocaleDateString("es-AR")}
@@ -231,7 +231,7 @@ function AVotaciones({me,showToast,onBack}){
             </div>
           )}
           <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
-            <Av user={me} sz={28}/>
+            <Av user={me} sz={28} avatarBg={me?.avatar_bg||null}/>
             <textarea value={newCmt} onChange={e=>setNewCmt(e.target.value)}
               placeholder={replyTo?`Responder a ${replyTo.nombre}...`:"Escribi un comentario..."}
               rows={2} style={{flex:1,background:inputBg,border:`1.5px solid ${inputBd}`,
