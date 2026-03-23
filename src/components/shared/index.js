@@ -72,20 +72,22 @@ function Av({user,sz,avatarBg}){
     );
   }
 
-  // Con fondo override — el wrapper tiene el fondo, el inner es transparente
-  const wrapBg = avatarBg.type==="gradient" ? avatarBg.value
-               : avatarBg.type==="solid"    ? avatarBg.value
-               : "transparent";
-  const wrapBorder = avatarBg.type==="frame" ? avatarBg.value : br.bs;
-  const wrapGlow   = avatarBg.glow ? `0 0 14px 4px ${avatarBg.glow}` : `0 2px 10px ${sk.bg}55`;
-  const pad = avatarBg.type==="frame" ? 0 : Math.round(s*0.12);
+  // Con avatarBg:
+  // - wrapper exterior = fondo/marco elegido
+  // - inner = SIEMPRE transparente (el fondo del wrapper se ve a través)
+  const wrapBg     = avatarBg.type==="frame" ? sk.bg : avatarBg.value; // frame: bg de skin adentro
+  const wrapBorder = avatarBg.type==="frame" ? avatarBg.value : "none";
+  const wrapGlow   = avatarBg.glow ? `0 0 16px 5px ${avatarBg.glow}` : "none";
+  // Para sólido/gradiente: padding crea el halo de color alrededor del avatar
+  const pad = avatarBg.type==="frame" ? 4 : Math.round(s * 0.15);
 
   return(
     <div style={{borderRadius:"50%",background:wrapBg,border:wrapBorder,
       boxShadow:wrapGlow,padding:pad,display:"inline-flex",
       alignItems:"center",justifyContent:"center",flexShrink:0}}>
+      {/* inner: fondo transparente para que el wrapper se vea */}
       <div style={{width:s,height:s,borderRadius:"50%",overflow:"hidden",
-        background:user?.foto_url?"transparent":sk.bg,
+        background:avatarBg.type==="frame" ? "transparent" : sk.bg,
         display:"flex",alignItems:"center",justifyContent:"center",fontSize:s*.46}}>
         {user?.foto_url
           ? <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
