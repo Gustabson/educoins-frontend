@@ -45,58 +45,39 @@ function Av({user,sz,avatarBg}){
   const sk=SKINS.find(x=>x.id===(user?.skin||"s1"))||SKINS[0];
   const br=BORDERS.find(x=>x.id===(user?.border||"b1"))||BORDERS[0];
 
-  // Resolver fondo — avatarBg prop override, sino skin
-  const bg = avatarBg ? null : sk.bg; // null = usamos avatarBg en el wrapper
+  // Fondo del círculo:
+  // - Si hay avatarBg sólido/gradiente → usa ese color
+  // - Si no hay avatarBg → usa sk.bg (color de skin legacy) o gris neutro
+  const hasColorBg = avatarBg && avatarBg.type!=="none" && avatarBg.type!=="frame";
+  const circleBg   = user?.foto_url ? "transparent"
+                   : hasColorBg     ? avatarBg.value
+                   : sk.bg;
 
-  const inner = user?.foto_url
-    ? <div style={{width:s,height:s,borderRadius:"50%",overflow:"hidden",flexShrink:0}}>
-        <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-      </div>
-    : <div style={{width:s,height:s,borderRadius:"50%",
-        background:avatarBg?"transparent":sk.bg,
-        display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:s*.46,flexShrink:0}}>{sk.emoji}</div>;
+  // Glow / sombra exterior
+  const glow = avatarBg?.glow ? `0 0 16px 5px ${avatarBg.glow}`
+             : `0 2px 10px ${sk.bg}55`;
 
-  if(!avatarBg || avatarBg.type==="none") {
-    // Sin fondo override — comportamiento normal con borde
-    return(
-      <div style={{width:s,height:s,borderRadius:"50%",
-        background:user?.foto_url?"transparent":sk.bg,
-        border:br.bs,display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:s*.46,flexShrink:0,overflow:user?.foto_url?"hidden":"visible",
-        boxShadow:`0 2px 10px ${sk.bg}55`}}>
-        {user?.foto_url
-          ? <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-          : sk.emoji}
-      </div>
-    );
-  }
-
-  // Con avatarBg:
-  // Estructura: [wrapper con fondo/marco] > [gap/padding] > [avatar normal con su skin]
-  // El avatar interno es IDÉNTICO al sin-fondo (skin propia, borde propio)
-  // El wrapper exterior agrega el anillo/halo/marco alrededor
-
-  const wrapBg     = (avatarBg.type==="solid"||avatarBg.type==="gradient") ? avatarBg.value : "transparent";
-  const wrapBorder = avatarBg.type==="frame" ? avatarBg.value : "none";
-  const wrapGlow   = avatarBg.glow ? `0 0 16px 5px ${avatarBg.glow}` : "none";
-  const gap        = Math.round(s * 0.13); // espacio entre fondo y avatar
+  // Marco (frame): borde decorativo sobre el círculo
+  const border = avatarBg?.type==="frame" ? avatarBg.value : br.bs;
 
   return(
-    <div style={{borderRadius:"50%",background:wrapBg,border:wrapBorder,
-      boxShadow:wrapGlow,padding:gap,display:"inline-flex",
-      alignItems:"center",justifyContent:"center",flexShrink:0}}>
-      {/* Avatar interno — sin cambios, usa su propia skin y borde */}
-      <div style={{width:s,height:s,borderRadius:"50%",
-        background:user?.foto_url?"transparent":sk.bg,
-        border:br.bs,
-        display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:s*.46,overflow:user?.foto_url?"hidden":"visible",
-        boxShadow:`0 2px 8px ${sk.bg}55`,flexShrink:0}}>
-        {user?.foto_url
-          ? <img src={user.foto_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-          : sk.emoji}
-      </div>
+    <div style={{
+      width:s, height:s, borderRadius:"50%",
+      background:circleBg,
+      border,
+      display:"flex", alignItems:"center", justifyContent:"center",
+      fontSize:s*.46, flexShrink:0,
+      overflow: user?.foto_url ? "hidden" : "visible",
+      boxShadow: glow,
+    }}>
+      {user?.foto_url
+        ? <img src={user.foto_url} alt=""
+            style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+        : sk.img_url
+          ? <img src={sk.img_url} alt={sk.name}
+              style={{width:"80%",height:"80%",objectFit:"contain"}}/>
+          : sk.emoji
+      }
     </div>
   );
 }

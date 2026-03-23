@@ -229,8 +229,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
         {/* Card principal */}
         <div style={{...card,padding:20,textAlign:"center",marginBottom:20}}>
           <div style={{position:"relative",display:"inline-block",marginBottom:12}}>
-            {/* Av recibe el avatarBg directamente y lo maneja internamente */}
-            <Av user={me} sz={72} avatarBg={avatarBg}/>
+            <Av user={me} sz={72} avatarBg={avatarBg||null}/>
             <label style={{position:"absolute",bottom:0,right:0,zIndex:2,
               background:accent,borderRadius:"50%",width:22,height:22,
               display:"flex",alignItems:"center",justifyContent:"center",

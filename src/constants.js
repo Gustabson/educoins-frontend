@@ -80,15 +80,17 @@ const LEVELS = [
 const getLv  = e => { let l=LEVELS[0]; for(const x of LEVELS) if(e>=x.min) l=x; return l; };
 const nextLv = e => { for(const x of LEVELS) if(e<x.min) return x; return null; };
 
+// bg = color de respaldo si no hay avatarBg ni img_url
+// img_url = PNG transparente (se agrega desde admin cuando esté listo Cloudinary)
 const SKINS = [
-  {id:"s1",emoji:"🧑‍🎓",name:"Clásico", price:0,   bg:"#6366f1"},
-  {id:"s2",emoji:"🥷",  name:"Ninja",   price:150, bg:"#1a1a2e"},
-  {id:"s3",emoji:"👨‍🚀", name:"Astro",   price:200, bg:"#0369a1"},
-  {id:"s4",emoji:"🧙",  name:"Mago",    price:250, bg:"#52177f"},
-  {id:"s5",emoji:"🤖",  name:"Robot",   price:300, bg:"#0f766e"},
-  {id:"s6",emoji:"🧔",  name:"Vikingo", price:350, bg:"#92400e"},
-  {id:"s7",emoji:"🦸",  name:"Héroe",   price:400, bg:"#1d4ed8"},
-  {id:"s8",emoji:"🏴‍☠️", name:"Pirata",  price:500, bg:"#1c1917"},
+  {id:"s1",emoji:"🧑‍🎓",name:"Clásico", price:0,   bg:"#6366f1", img_url:null},
+  {id:"s2",emoji:"🥷",  name:"Ninja",   price:150, bg:"#1a1a2e", img_url:null},
+  {id:"s3",emoji:"👨‍🚀", name:"Astro",   price:200, bg:"#0369a1", img_url:null},
+  {id:"s4",emoji:"🧙",  name:"Mago",    price:250, bg:"#52177f", img_url:null},
+  {id:"s5",emoji:"🤖",  name:"Robot",   price:300, bg:"#0f766e", img_url:null},
+  {id:"s6",emoji:"🧔",  name:"Vikingo", price:350, bg:"#92400e", img_url:null},
+  {id:"s7",emoji:"🦸",  name:"Héroe",   price:400, bg:"#1d4ed8", img_url:null},
+  {id:"s8",emoji:"🏴‍☠️", name:"Pirata",  price:500, bg:"#1c1917", img_url:null},
 ];
 const BORDERS = [
   {id:"b1",name:"Básico",  bs:"3px solid #DC2626", price:0},  // rojo
