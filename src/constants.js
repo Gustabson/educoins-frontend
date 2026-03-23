@@ -105,6 +105,51 @@ const TITLES = [
   {id:"tl5",name:"🏆 Campeón",   price:500},
 ];
 
+// ── RAREZAS DE TÍTULOS OBTENIDOS ─────────────────────────────
+const RARITIES = {
+  common:    { label:"Común",     color:"#94a3b8", glow:null,      anim:null,        icon:"⚪" },
+  rare:      { label:"Raro",      color:"#3b82f6", glow:"#3b82f6", anim:null,        icon:"🔵" },
+  epic:      { label:"Épico",     color:"#8b5cf6", glow:"#8b5cf6", anim:"pulse",     icon:"🟣" },
+  legendary: { label:"Legendario",color:"#f59e0b", glow:"#f59e0b", anim:"rainbow",   icon:"🌟" },
+};
+
+// CSS de efectos para badges de rareza
+const RARITY_CSS = `
+@keyframes earnedPulse {
+  0%,100% { box-shadow: 0 0 6px 2px var(--glow); }
+  50%      { box-shadow: 0 0 14px 6px var(--glow); }
+}
+@keyframes earnedRainbow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.earned-epic {
+  animation: earnedPulse 2s ease-in-out infinite;
+}
+.earned-legendary {
+  background: linear-gradient(90deg,#f59e0b,#ef4444,#8b5cf6,#3b82f6,#10b981,#f59e0b) !important;
+  background-size: 300% 300% !important;
+  animation: earnedRainbow 3s ease infinite !important;
+  color: white !important;
+}
+`;
+
+// ── FONDOS DE AVATAR PREDEFINIDOS ────────────────────────────
+const AVATAR_BACKGROUNDS = [
+  {id:"ab0", name:"Sin fondo",    type:"none",     value:null,                                                          price:0},
+  {id:"ab1", name:"Rojo",         type:"solid",    value:"#ef4444",                                                     price:80},
+  {id:"ab2", name:"Azul",         type:"solid",    value:"#3b82f6",                                                     price:80},
+  {id:"ab3", name:"Verde",        type:"solid",    value:"#10b981",                                                     price:80},
+  {id:"ab4", name:"Violeta",      type:"solid",    value:"#8b5cf6",                                                     price:80},
+  {id:"ab5", name:"Dorado",       type:"solid",    value:"#f59e0b",                                                     price:100},
+  {id:"ab6", name:"Fuego",        type:"gradient", value:"linear-gradient(135deg,#f97316,#ef4444)",                     price:150},
+  {id:"ab7", name:"Océano",       type:"gradient", value:"linear-gradient(135deg,#0ea5e9,#6366f1)",                     price:150},
+  {id:"ab8", name:"Aurora",       type:"gradient", value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",             price:200},
+  {id:"ab9", name:"Marco Dorado", type:"frame",    value:"3px solid #f59e0b",    glow:"#f59e0b44",                      price:200},
+  {id:"ab10",name:"Marco Épico",  type:"frame",    value:"3px solid #8b5cf6",    glow:"#8b5cf644",                      price:300},
+];
+
 const DIFCOL = {"fácil":"#10b981","media":"#f59e0b","difícil":"#ef4444"};
 
 // ── ESTILOS GLOBALES ──────────────────────────────────────────
@@ -149,7 +194,7 @@ input::placeholder{color:#bbb;}
 export {
   THEMES_DEFAULT, DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode,
   LEVELS, getLv, nextLv,
-  SKINS, BORDERS, TITLES,
+  SKINS, BORDERS, TITLES, RARITIES, RARITY_CSS, AVATAR_BACKGROUNDS,
   DIFCOL, GS,
   TAG_COLORS, TAG_LIST,
   REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR,

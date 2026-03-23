@@ -14,6 +14,9 @@ function AdminUsuarios({showToast}){
   const [rol,setRol]=useState("student");
   const [budget,setBudget]=useState("");
   const [loading,setLoading]=useState(true);
+  const [grantModal,setGrantModal]=useState(null); // user to grant title to
+  const [grantForm,setGrantForm]=useState({name:"",rarity:"common",color:"#8b5cf6",glow_color:"",emoji:"",note:""});
+  const [granting,setGranting]=useState(false);
 
   useEffect(()=>{
     api.adminUsers().then(setUsers).finally(()=>setLoading(false));
@@ -63,12 +66,90 @@ function AdminUsuarios({showToast}){
               <div style={{fontSize:11,color:"#aaa"}}>{u.email}</div>
               <Pill text={u.rol} col={u.rol==="admin"?"#ef4444":u.rol==="teacher"?"#f59e0b":"#6366f1"}/>
             </div>
-            {u.activo&&u.rol!=="admin"&&(
-              <OBtn label="Desactivar" onClick={()=>deactivate(u.id)} color="#ef4444"/>
-            )}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              {u.activo&&u.rol!=="admin"&&(
+                <OBtn label="Desactivar" onClick={()=>deactivate(u.id)} color="#ef4444"/>
+              )}
+              {u.rol==="student"&&(
+                <button onClick={()=>setGrantModal(u)}
+                  style={{background:"#f59e0b22",border:"none",borderRadius:8,
+                    color:"#b45309",padding:"5px 8px",fontSize:10,fontWeight:800,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif",whiteSpace:"nowrap"}}>
+                  🏅 Título
+                </button>
+              )}
+            </div>
           </WCard>
         ))}
       </div>
+      {/* Modal otorgar título */}
+      {grantModal&&(
+        <div onClick={e=>{if(e.target===e.currentTarget)setGrantModal(null);}}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
+            display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div style={{background:"white",borderRadius:"20px 20px 0 0",padding:20,
+            width:"100%",maxWidth:480,maxHeight:"80vh",overflowY:"auto"}}>
+            <div style={{fontWeight:800,fontSize:16,marginBottom:4}}>
+              🏅 Otorgar título a {grantModal.nombre}
+            </div>
+            <div style={{fontSize:12,color:"#888",marginBottom:14}}>
+              Los títulos obtenidos son únicos y tienen rarezas especiales.
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <input value={grantForm.name} onChange={e=>setGrantForm(v=>({...v,name:e.target.value.slice(0,40)}))}
+                placeholder="Nombre del título (ej: El Primero 🥇)"
+                style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                  padding:"10px 12px",fontSize:14,fontWeight:700,outline:"none",
+                  fontFamily:"Nunito,sans-serif"}}/>
+              <input value={grantForm.emoji} onChange={e=>setGrantForm(v=>({...v,emoji:e.target.value.slice(0,4)}))}
+                placeholder="Emoji (opcional, ej: 🏆)"
+                style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                  padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+              {/* Rareza */}
+              <div style={{display:"flex",gap:6}}>
+                {RARITIES_OPTS.map(r=>(
+                  <button key={r.id} onClick={()=>setGrantForm(v=>({...v,rarity:r.id,color:r.color,glow_color:r.color}))}
+                    style={{flex:1,background:grantForm.rarity===r.id?r.color+"22":"#f7f7f7",
+                      border:`1.5px solid ${grantForm.rarity===r.id?r.color:"#eee"}`,
+                      borderRadius:8,padding:"7px 4px",fontSize:10,fontWeight:800,
+                      cursor:"pointer",color:r.color,fontFamily:"Nunito,sans-serif"}}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              {/* Color custom */}
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <label style={{fontSize:12,color:"#555",fontWeight:700}}>Color:</label>
+                <input type="color" value={grantForm.color}
+                  onChange={e=>setGrantForm(v=>({...v,color:e.target.value}))}
+                  style={{width:40,height:32,border:"none",borderRadius:8,cursor:"pointer"}}/>
+                <label style={{fontSize:12,color:"#555",fontWeight:700}}>Glow:</label>
+                <input type="color" value={grantForm.glow_color||grantForm.color}
+                  onChange={e=>setGrantForm(v=>({...v,glow_color:e.target.value}))}
+                  style={{width:40,height:32,border:"none",borderRadius:8,cursor:"pointer"}}/>
+              </div>
+              <input value={grantForm.note} onChange={e=>setGrantForm(v=>({...v,note:e.target.value.slice(0,100)}))}
+                placeholder="Motivo (opcional, visible al alumno)"
+                style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                  padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+              <div style={{display:"flex",gap:8,marginTop:4}}>
+                <button onClick={grantTitle} disabled={granting||!grantForm.name.trim()}
+                  style={{flex:1,background:granting||!grantForm.name.trim()?"#ccc":"#f59e0b",
+                    border:"none",borderRadius:50,color:"white",padding:"12px",fontWeight:800,
+                    fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {granting?"Otorgando...":"🏅 Otorgar"}
+                </button>
+                <button onClick={()=>setGrantModal(null)}
+                  style={{background:"#f0f0f0",border:"none",borderRadius:50,
+                    color:"#555",padding:"12px 18px",fontWeight:700,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {form&&(
         <Sheet title="+ Nuevo usuario" onClose={()=>setForm(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
