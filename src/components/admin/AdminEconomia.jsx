@@ -716,146 +716,325 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
             display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
           <div style={{background:"white",borderRadius:"20px 20px 0 0",padding:20,
-            width:"100%",maxWidth:480,maxHeight:"85vh",overflowY:"auto",
+            width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto",
             fontFamily:"Nunito,sans-serif"}}>
             <div style={{fontWeight:800,fontSize:16,marginBottom:4}}>
-              {addingPremio.isManual?"🎁 Agregar premio manual":"🎁 Premio para "+addingPremio.puesto+"° puesto"}
+              {addingPremio.isManual?"🎁 Agregar premio":"🎁 Premio — "+
+                (addingPremio.puesto_hasta===0?`Puestos ${addingPremio.puesto}° en adelante`:
+                 addingPremio.puesto_hasta?`Puestos ${addingPremio.puesto}° al ${addingPremio.puesto_hasta}°`:
+                 `Puesto ${addingPremio.puesto}°`)}
             </div>
-            <div style={{fontSize:12,color:"#888",marginBottom:14}}>
-              Tipo: <strong>{addingPremio.tipo||"elegí abajo"}</strong>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
 
-              {/* Duración */}
-              {addingPremio.tipo&&addingPremio.tipo!=="monedas"&&addingPremio.tipo!=="skin"&&(
-                <div>
-                  <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>Duración:</div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {[
-                      {label:"1 día",days:1},{label:"3 días",days:3},{label:"1 semana",days:7},
-                      {label:"1 mes",days:30},{label:"6 meses",days:180},{label:"1 año",days:365},
-                      {label:"Para siempre",days:null}
-                    ].map(opt=>(
-                      <button key={opt.label}
-                        onClick={()=>setPremioForm(v=>({...v,expires_days:opt.days}))}
-                        style={{background:premioForm.expires_days===opt.days?"#10b98122":"#f7f7f7",
-                          border:`1.5px solid ${premioForm.expires_days===opt.days?"#10b981":"#eee"}`,
-                          borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,
-                          cursor:"pointer",color:premioForm.expires_days===opt.days?"#065f46":"#555",
-                          fontFamily:"Nunito,sans-serif"}}>
-                        {opt.label}
-                      </button>
-                    ))}
+            {/* PASO 1 — Elegir tipo */}
+            <div style={{fontSize:11,fontWeight:700,color:"#888",margin:"12px 0 8px"}}>
+              Tipo de premio:
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+              {[
+                {tipo:"monedas",icon:"🪙",label:"Monedas"},
+                {tipo:"titulo", icon:"🏅",label:"Título"},
+                {tipo:"borde",  icon:"🔲",label:"Borde"},
+                {tipo:"skin",   icon:"🎨",label:"Skin"},
+                {tipo:"marco",  icon:"🖼️",label:"Marco"},
+                {tipo:"name_color",icon:"✏️",label:"Color nombre"},
+              ].map(({tipo,icon,label})=>{
+                const sel = addingPremio.tipo===tipo;
+                return(
+                  <button key={tipo}
+                    onClick={()=>{
+                      setAddingPremio(prev=>({...prev,tipo}));
+                      setPremioForm({});
+                    }}
+                    style={{background:sel?"#10b98122":"#f7f7f7",
+                      border:`1.5px solid ${sel?"#10b981":"#eee"}`,
+                      borderRadius:10,padding:"8px 12px",fontSize:12,fontWeight:800,
+                      cursor:"pointer",color:sel?"#065f46":"#333",
+                      fontFamily:"Nunito,sans-serif",display:"flex",alignItems:"center",gap:5}}>
+                    <span>{icon}</span>{label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {addingPremio.tipo&&(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+
+                {/* Duración — aplica a todo menos monedas y skin permanente */}
+                {addingPremio.tipo!=="monedas"&&(
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Duración:</div>
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                      {[
+                        {label:"1 día",days:1},{label:"3 días",days:3},{label:"1 semana",days:7},
+                        {label:"1 mes",days:30},{label:"6 meses",days:180},{label:"1 año",days:365},
+                        {label:"Para siempre",days:null}
+                      ].map(opt=>{
+                        const sel = premioForm.expires_days===opt.days;
+                        return(
+                          <button key={opt.label} onClick={()=>setPremioForm(v=>({...v,expires_days:opt.days}))}
+                            style={{background:sel?"#10b98122":"#f7f7f7",
+                              border:`1.5px solid ${sel?"#10b981":"#eee"}`,
+                              borderRadius:8,padding:"5px 9px",fontSize:10,fontWeight:700,
+                              cursor:"pointer",color:sel?"#065f46":"#555",
+                              fontFamily:"Nunito,sans-serif"}}>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+                )}
+
+                {/* Monedas */}
+                {addingPremio.tipo==="monedas"&&(
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Cantidad:</div>
+                    <input type="number" value={premioForm.cantidad||""} min="1"
+                      onChange={e=>setPremioForm(v=>({...v,cantidad:parseInt(e.target.value)||0}))}
+                      placeholder="ej: 100"
+                      style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                        padding:"10px 12px",fontSize:18,fontWeight:800,outline:"none",
+                        boxSizing:"border-box",fontFamily:"Nunito,sans-serif"}}/>
+                  </div>
+                )}
+
+                {/* Título */}
+                {addingPremio.tipo==="titulo"&&(<>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Nombre del título:</div>
+                    <input value={premioForm.name||""} onChange={e=>setPremioForm(v=>({...v,name:e.target.value}))}
+                      placeholder="ej: Campeón del Mes 🏆"
+                      style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                        padding:"10px 12px",fontSize:14,fontWeight:700,outline:"none",
+                        boxSizing:"border-box",fontFamily:"Nunito,sans-serif"}}/>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Emoji:</div>
+                      <input value={premioForm.emoji||""} onChange={e=>setPremioForm(v=>({...v,emoji:e.target.value.slice(0,4)}))}
+                        placeholder="🏆"
+                        style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                          padding:"10px 12px",fontSize:20,outline:"none",
+                          boxSizing:"border-box",fontFamily:"Nunito,sans-serif"}}/>
+                    </div>
+                    <div style={{flex:2}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Rareza:</div>
+                      <div style={{display:"flex",gap:4}}>
+                        {[{id:"common",label:"Común",col:"#94a3b8"},{id:"rare",label:"Raro",col:"#3b82f6"},
+                          {id:"epic",label:"Épico",col:"#8b5cf6"},{id:"legendary",label:"✨ Legendario",col:"#f59e0b"}
+                        ].map(r=>(
+                          <button key={r.id} onClick={()=>setPremioForm(v=>({...v,rarity:r.id,color:r.col,glow_color:r.col}))}
+                            style={{flex:1,background:premioForm.rarity===r.id?r.col+"33":"#f7f7f7",
+                              border:`1.5px solid ${premioForm.rarity===r.id?r.col:"#eee"}`,
+                              borderRadius:8,padding:"6px 2px",fontSize:9,fontWeight:800,
+                              cursor:"pointer",color:r.col,fontFamily:"Nunito,sans-serif"}}>
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Preview */}
+                  {premioForm.name&&(
+                    <div style={{background:"#f9f9f9",borderRadius:10,padding:"8px 12px",
+                      display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:11,color:"#888"}}>Preview:</span>
+                      <span style={{background:(premioForm.color||"#94a3b8")+"22",
+                        border:`1px solid ${premioForm.color||"#94a3b8"}44`,
+                        borderRadius:99,padding:"3px 10px",fontSize:11,fontWeight:800,
+                        color:premioForm.color||"#94a3b8"}}>
+                        {premioForm.emoji||""} {premioForm.name}
+                      </span>
+                    </div>
+                  )}
+                </>)}
+
+                {/* Borde */}
+                {addingPremio.tipo==="borde"&&(
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Elegí el borde:</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {[
+                        {id:"b2",n:"Dorado",   bs:"3px solid #f59e0b",col:"#f59e0b"},
+                        {id:"b3",n:"Verde",    bs:"3px solid #10b981",col:"#10b981"},
+                        {id:"b4",n:"Rojo",     bs:"3px solid #ef4444",col:"#ef4444"},
+                        {id:"b5",n:"Violeta",  bs:"3px solid #8b5cf6",col:"#8b5cf6"},
+                        {id:"b6",n:"Celeste",  bs:"3px solid #06b6d4",col:"#06b6d4"},
+                        {id:"b7",n:"Rosa",     bs:"3px solid #ec4899",col:"#ec4899"},
+                      ].map(b=>{
+                        const sel=premioForm.item_id===b.id;
+                        return(
+                          <button key={b.id} onClick={()=>setPremioForm(v=>({...v,item_id:b.id,name:b.n}))}
+                            style={{background:sel?b.col+"22":"#f7f7f7",
+                              border:`2.5px solid ${sel?b.col:"#eee"}`,
+                              borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:700,
+                              cursor:"pointer",color:b.col,fontFamily:"Nunito,sans-serif"}}>
+                            {b.n}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Skin */}
+                {addingPremio.tipo==="skin"&&(
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Elegí la skin:</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {[
+                        {id:"s2",n:"Ninja",   emoji:"🥷", bg:"#1a1a2e"},
+                        {id:"s3",n:"Astro",   emoji:"👨‍🚀",bg:"#0369a1"},
+                        {id:"s4",n:"Mago",    emoji:"🧙", bg:"#52177f"},
+                        {id:"s5",n:"Robot",   emoji:"🤖", bg:"#0f766e"},
+                        {id:"s6",n:"Vikingo", emoji:"🧔", bg:"#92400e"},
+                        {id:"s7",n:"Pirata",  emoji:"🏴‍☠️",bg:"#1e293b"},
+                        {id:"s8",n:"Alien",   emoji:"👽", bg:"#166534"},
+                      ].map(s=>{
+                        const sel=premioForm.item_id===s.id;
+                        return(
+                          <button key={s.id} onClick={()=>setPremioForm(v=>({...v,item_id:s.id,name:s.n}))}
+                            style={{background:sel?s.bg:"#f7f7f7",
+                              border:`2px solid ${sel?"transparent":"#eee"}`,
+                              borderRadius:10,padding:"8px 10px",fontSize:12,fontWeight:700,
+                              cursor:"pointer",color:sel?"white":"#333",
+                              fontFamily:"Nunito,sans-serif",display:"flex",alignItems:"center",gap:5}}>
+                            <span style={{fontSize:18}}>{s.emoji}</span>{s.n}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Marco */}
+                {addingPremio.tipo==="marco"&&(
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Elegí el marco:</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {[
+                        {name:"Marco Dorado", type:"frame",    value:"3px solid #f59e0b", glow:"#f59e0b66", preview:"#f59e0b"},
+                        {name:"Marco Épico",  type:"frame",    value:"3px solid #8b5cf6", glow:"#8b5cf666", preview:"#8b5cf6"},
+                        {name:"Marco Rojo",   type:"frame",    value:"3px solid #ef4444", glow:"#ef444466", preview:"#ef4444"},
+                        {name:"Fuego",        type:"gradient", value:"linear-gradient(135deg,#f97316,#ef4444)", glow:null, preview:"#f97316"},
+                        {name:"Aurora",       type:"gradient", value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)", glow:null, preview:"#a855f7"},
+                        {name:"Océano",       type:"gradient", value:"linear-gradient(135deg,#0ea5e9,#06b6d4)", glow:null, preview:"#0ea5e9"},
+                      ].map(f=>{
+                        const sel=premioForm.name===f.name;
+                        return(
+                          <button key={f.name} onClick={()=>setPremioForm(v=>({...v,...f}))}
+                            style={{background:sel?f.preview+"22":"#f7f7f7",
+                              border:`2px solid ${sel?f.preview:"#eee"}`,
+                              borderRadius:10,padding:"7px 12px",fontSize:11,fontWeight:700,
+                              cursor:"pointer",color:sel?f.preview:"#333",
+                              fontFamily:"Nunito,sans-serif"}}>
+                            {f.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Color de nombre */}
+                {addingPremio.tipo==="name_color"&&(
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Color del nombre:</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {[
+                        {name:"Dorado",    color:"#f59e0b"},
+                        {name:"Violeta",   color:"#8b5cf6"},
+                        {name:"Rojo fuego",color:"#ef4444"},
+                        {name:"Verde",     color:"#10b981"},
+                        {name:"Celeste",   color:"#06b6d4"},
+                        {name:"Rosa",      color:"#ec4899"},
+                        {name:"Naranja",   color:"#f97316"},
+                        {name:"Blanco",    color:"#ffffff"},
+                      ].map(c=>{
+                        const sel=premioForm.name===c.name;
+                        return(
+                          <button key={c.name} onClick={()=>setPremioForm(v=>({...v,name:c.name,color:c.color,config:{type:"solid",value:c.color}}))}
+                            style={{background:sel?c.color+"22":"#f7f7f7",
+                              border:`2px solid ${sel?c.color:"#eee"}`,
+                              borderRadius:10,padding:"7px 12px",fontSize:12,fontWeight:800,
+                              cursor:"pointer",color:c.color,
+                              fontFamily:"Nunito,sans-serif"}}>
+                            {c.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {premioForm.name&&(
+                      <div style={{marginTop:8,background:"#f9f9f9",borderRadius:10,padding:"8px 12px"}}>
+                        <span style={{fontSize:12,color:"#888"}}>Preview: </span>
+                        <span style={{fontSize:14,fontWeight:800,color:premioForm.color}}>
+                          Nombre del alumno
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Nota */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>
+                    Nota para el alumno (opcional):
+                  </div>
+                  <input value={premioForm.note||""} onChange={e=>setPremioForm(v=>({...v,note:e.target.value}))}
+                    placeholder="ej: ¡Felicitaciones por tu esfuerzo!"
+                    style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
+                      padding:"10px 12px",fontSize:12,outline:"none",
+                      boxSizing:"border-box",fontFamily:"Nunito,sans-serif"}}/>
                 </div>
-              )}
 
-              {/* Campos según tipo */}
-              {addingPremio.tipo==="monedas"&&(
-                <input type="number" value={premioForm.cantidad||""} min="1"
-                  onChange={e=>setPremioForm(v=>({...v,cantidad:parseInt(e.target.value)||0}))}
-                  placeholder="Cantidad de monedas"
-                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                    padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
-              )}
-              {addingPremio.tipo==="titulo"&&(<>
-                <input value={premioForm.name||""} onChange={e=>setPremioForm(v=>({...v,name:e.target.value}))}
-                  placeholder="Nombre del título"
-                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                    padding:"10px 12px",fontSize:13,fontWeight:700,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
-                <input value={premioForm.emoji||""} onChange={e=>setPremioForm(v=>({...v,emoji:e.target.value.slice(0,4)}))}
-                  placeholder="Emoji (ej: 🏆)"
-                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                    padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
-                <div style={{display:"flex",gap:6}}>
-                  {[{id:"common",label:"Común",col:"#94a3b8"},{id:"rare",label:"Raro",col:"#3b82f6"},
-                    {id:"epic",label:"Épico",col:"#8b5cf6"},{id:"legendary",label:"Legendario",col:"#f59e0b"}
-                  ].map(r=>(
-                    <button key={r.id} onClick={()=>setPremioForm(v=>({...v,rarity:r.id,color:r.col,glow_color:r.col}))}
-                      style={{flex:1,background:premioForm.rarity===r.id?r.col+"22":"#f7f7f7",
-                        border:`1.5px solid ${premioForm.rarity===r.id?r.col:"#eee"}`,
-                        borderRadius:8,padding:"7px 4px",fontSize:10,fontWeight:800,
-                        cursor:"pointer",color:r.col,fontFamily:"Nunito,sans-serif"}}>
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-              </>)}
-              {(addingPremio.tipo==="borde"||addingPremio.tipo==="skin")&&(
-                <select value={premioForm.item_id||""}
-                  onChange={e=>setPremioForm(v=>({...v,item_id:e.target.value,name:e.target.options[e.target.selectedIndex].text}))}
-                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                    padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}>
-                  <option value="">— Elegí —</option>
-                  {addingPremio.tipo==="borde"
-                    ?[{id:"b2",n:"Dorado"},{id:"b3",n:"Verde"},{id:"b4",n:"Rojo"},{id:"b5",n:"Violeta"}]
-                      .map(b=><option key={b.id} value={b.id}>{b.n}</option>)
-                    :[{id:"s2",n:"Ninja"},{id:"s3",n:"Astro"},{id:"s4",n:"Mago"},{id:"s5",n:"Robot"},{id:"s6",n:"Vikingo"},{id:"s7",n:"Pirata"},{id:"s8",n:"Alien"}]
-                      .map(s=><option key={s.id} value={s.id}>{s.n}</option>)
-                  }
-                </select>
-              )}
-              {addingPremio.tipo==="marco"&&(
-                <select value={premioForm.name||""}
-                  onChange={e=>{
-                    const FRAMES=[
-                      {name:"Marco Dorado",type:"frame",value:"3px solid #f59e0b",glow:"#f59e0b66"},
-                      {name:"Marco Épico",type:"frame",value:"3px solid #8b5cf6",glow:"#8b5cf666"},
-                      {name:"Marco Rojo",type:"frame",value:"3px solid #ef4444",glow:"#ef444466"},
-                      {name:"Fuego",type:"gradient",value:"linear-gradient(135deg,#f97316,#ef4444)",glow:null},
-                      {name:"Aurora",type:"gradient",value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)",glow:null},
-                    ];
-                    const f=FRAMES.find(x=>x.name===e.target.value);
-                    if(f) setPremioForm(v=>({...v,...f}));
-                  }}
-                  style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                    padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}>
-                  <option value="">— Elegí marco —</option>
-                  {["Marco Dorado","Marco Épico","Marco Rojo","Fuego","Aurora"].map(n=>(
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              )}
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={async()=>{
+                    // Validar
+                    const t = addingPremio.tipo;
+                    if(t==="monedas"&&!premioForm.cantidad) return showToast("Ingresá la cantidad","error");
+                    if(t==="titulo"&&!premioForm.name) return showToast("Ingresá el nombre del título","error");
+                    if((t==="borde"||t==="skin")&&!premioForm.item_id) return showToast("Elegí un item","error");
+                    if(t==="marco"&&!premioForm.name) return showToast("Elegí un marco","error");
+                    if(t==="name_color"&&!premioForm.name) return showToast("Elegí un color","error");
 
-              <input value={premioForm.note||""} onChange={e=>setPremioForm(v=>({...v,note:e.target.value}))}
-                placeholder="Nota para el alumno (opcional)"
-                style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                  padding:"10px 12px",fontSize:12,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                    let valor = {...premioForm};
+                    if(t==="monedas") valor = {cantidad:premioForm.cantidad,motivo:premioForm.note};
+                    const premio = {tipo:t, valor};
 
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={async()=>{
-                  if(!addingPremio.tipo) return;
-                  // Build valor
-                  let valor = {...premioForm};
-                  if(addingPremio.tipo==="monedas") valor = {cantidad:premioForm.cantidad||0,motivo:premioForm.note};
-                  const premio = {tipo:addingPremio.tipo, valor};
-
-                  if(addingPremio.isManual){
-                    setManualPremios(prev=>[...prev, premio]);
-                    setAddingPremio(null); setPremioForm({});
-                  } else {
-                    setGranting(true);
-                    try{
-                      await api.prizeAddItem(addingPremio.setId, premio);
-                      showToast("Premio agregado ✅");
-                      api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
+                    if(addingPremio.isManual){
+                      setManualPremios(prev=>[...prev, premio]);
                       setAddingPremio(null); setPremioForm({});
-                    }catch(e){showToast(e.message||"Error","error");}
-                    finally{setGranting(false);}
-                  }
-                }} disabled={granting}
-                  style={{flex:1,background:granting?"#ccc":"#10b981",border:"none",borderRadius:50,
-                    color:"white",padding:"12px",fontWeight:800,fontSize:14,
-                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  {granting?"Guardando...":addingPremio.isManual?"+ Agregar a la lista":"✅ Guardar"}
-                </button>
-                <button onClick={()=>{setAddingPremio(null);setPremioForm({});}}
-                  style={{background:"#f0f0f0",border:"none",borderRadius:50,color:"#555",
-                    padding:"12px 18px",fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  Cancelar
-                </button>
+                    } else {
+                      setGranting(true);
+                      try{
+                        await api.prizeAddItem(addingPremio.setId, premio);
+                        showToast("Premio agregado ✅");
+                        api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
+                        setAddingPremio(null); setPremioForm({});
+                      }catch(e){showToast(e.message||"Error","error");}
+                      finally{setGranting(false);}
+                    }
+                  }} disabled={granting}
+                    style={{flex:1,background:granting?"#ccc":"#10b981",border:"none",borderRadius:50,
+                      color:"white",padding:"13px",fontWeight:800,fontSize:14,
+                      cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    {granting?"Guardando...":addingPremio.isManual?"+ Agregar a la lista":"✅ Guardar premio"}
+                  </button>
+                  <button onClick={()=>{setAddingPremio(null);setPremioForm({});}}
+                    style={{background:"#f0f0f0",border:"none",borderRadius:50,color:"#555",
+                      padding:"13px 18px",fontWeight:700,cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif"}}>
+                    Cancelar
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {!addingPremio.tipo&&(
+              <div style={{textAlign:"center",padding:"20px 0",color:"#aaa",fontSize:12}}>
+                Elegí el tipo de premio arriba para continuar
+              </div>
+            )}
           </div>
         </div>
       )}
