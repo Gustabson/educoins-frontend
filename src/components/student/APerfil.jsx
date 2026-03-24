@@ -3,6 +3,7 @@ import { SKINS, TITLES, BORDERS, RARITIES, RARITY_CSS, AVATAR_BACKGROUNDS } from
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, displayName } from "../shared/index";
+import AMisPremios from "./AMisPremios";
 
 const PRECIO_TITULO_CUSTOM = 20;
 const PRECIO_ESTADO        = 10;
@@ -38,7 +39,7 @@ function EarnedBadge({title}){
 }
 
 function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
-  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg} = useTheme();
+  const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg,navBord} = useTheme();
 
   const unlockedSkins   = me.unlocked_skins   || ["s1"];
   const unlockedBorders = me.unlocked_borders || ["b1"];
@@ -224,6 +225,28 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
     <div style={{background:pageBg,minHeight:"100vh"}}>
       <style>{RARITY_CSS}</style>
       <OHdrA title="Mi Perfil 👤"/>
+      {/* Sub-nav: Perfil / Mis Premios */}
+      <div style={{display:"flex",borderBottom:`1px solid ${navBord}`,
+        background:cardBg,padding:"0 4px"}}>
+        {[
+          {id:"perfil",  label:"👤 Mi Perfil"},
+          {id:"premios", label:`🏆 Mis Premios${(earnedTitles.length+loanedItems.length)>0?" ("+String(earnedTitles.length+loanedItems.length)+")":""}`},
+        ].map(t=>(
+          <button key={t.id} onClick={()=>setPerfilSec(t.id)}
+            style={{flex:1,padding:"11px 4px",background:"none",border:"none",
+              fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+              color:perfilSec===t.id?accent:sub,
+              borderBottom:`2.5px solid ${perfilSec===t.id?accent:"transparent"}`}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {perfilSec==="premios"&&(
+        <AMisPremios me={me} showToast={showToast}
+          onEquip={async()=>{ const u=await api.me(); setMe(u); }}/>
+      )}
+      {perfilSec==="perfil"&&(
       <div style={{padding:"0 14px 32px",marginTop:12}}>
 
         {/* Card principal */}
@@ -761,6 +784,8 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
         </button>
 
       </div>
+      </div>
+      )}
     </div>
   );
 }
