@@ -855,24 +855,36 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                     <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Elegí el borde:</div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                       {[
-                        {id:"b2",n:"Dorado",   bs:"3px solid #f59e0b",col:"#f59e0b"},
-                        {id:"b3",n:"Verde",    bs:"3px solid #10b981",col:"#10b981"},
-                        {id:"b4",n:"Rojo",     bs:"3px solid #ef4444",col:"#ef4444"},
-                        {id:"b5",n:"Violeta",  bs:"3px solid #8b5cf6",col:"#8b5cf6"},
-                        {id:"b6",n:"Celeste",  bs:"3px solid #06b6d4",col:"#06b6d4"},
-                        {id:"b7",n:"Rosa",     bs:"3px solid #ec4899",col:"#ec4899"},
+                        {id:"b2",n:"Dorado",  col:"#f59e0b"},
+                        {id:"b3",n:"Verde",   col:"#10b981"},
+                        {id:"b4",n:"Rojo",    col:"#ef4444"},
+                        {id:"b5",n:"Violeta", col:"#8b5cf6"},
+                        {id:"b6",n:"Celeste", col:"#06b6d4"},
+                        {id:"b7",n:"Rosa",    col:"#ec4899"},
+                        {id:"b8",n:"Dorado brillante",col:"#fbbf24"},
+                        {id:"b9",n:"Esmeralda",col:"#059669"},
                       ].map(b=>{
-                        const sel=premioForm.item_id===b.id;
+                        const sel=(premioForm.items_ids||[]).includes(b.id);
                         return(
-                          <button key={b.id} onClick={()=>setPremioForm(v=>({...v,item_id:b.id,name:b.n}))}
-                            style={{background:sel?b.col+"22":"#f7f7f7",
+                          <button key={b.id} onClick={()=>setPremioForm(v=>{
+                            const cur=v.items_ids||[];
+                            const next=sel?cur.filter(x=>x!==b.id):[...cur,b.id];
+                            return {...v,items_ids:next};
+                          })}
+                            style={{background:sel?b.col+"33":"#f7f7f7",
                               border:`2.5px solid ${sel?b.col:"#eee"}`,
                               borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:700,
-                              cursor:"pointer",color:b.col,fontFamily:"Nunito,sans-serif"}}>
+                              cursor:"pointer",color:b.col,fontFamily:"Nunito,sans-serif",
+                              position:"relative"}}>
+                            {sel&&<span style={{position:"absolute",top:-4,right:-4,fontSize:10}}>✓</span>}
                             {b.n}
                           </button>
                         );
                       })}
+                    <div style={{fontSize:10,color:"#aaa",width:"100%",marginTop:4}}>
+                      {(premioForm.items_ids||[]).length===0?"Seleccioná uno o más bordes":
+                        `Seleccionados: ${(premioForm.items_ids||[]).length}`}
+                    </div>
                     </div>
                   </div>
                 )}
@@ -882,27 +894,39 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                   <div>
                     <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Elegí la skin:</div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      {[
-                        {id:"s2",n:"Ninja",   emoji:"🥷", bg:"#1a1a2e"},
-                        {id:"s3",n:"Astro",   emoji:"👨‍🚀",bg:"#0369a1"},
-                        {id:"s4",n:"Mago",    emoji:"🧙", bg:"#52177f"},
-                        {id:"s5",n:"Robot",   emoji:"🤖", bg:"#0f766e"},
-                        {id:"s6",n:"Vikingo", emoji:"🧔", bg:"#92400e"},
-                        {id:"s7",n:"Pirata",  emoji:"🏴‍☠️",bg:"#1e293b"},
-                        {id:"s8",n:"Alien",   emoji:"👽", bg:"#166534"},
+                      {/* Solo skins exclusivas — no las del perfil base */}
+                    {[
+                        {id:"s8", n:"Alien",      emoji:"👽",  bg:"#166534"},
+                        {id:"s9", n:"Samurai",     emoji:"⚔️",  bg:"#7f1d1d"},
+                        {id:"s10",n:"Astronauta",  emoji:"🧑‍🚀", bg:"#1e3a5f"},
+                        {id:"s11",n:"Científica",  emoji:"👩‍🔬", bg:"#1e3a5f"},
+                        {id:"s12",n:"DJ",          emoji:"🎧",  bg:"#2d1b69"},
+                        {id:"s13",n:"Detective",   emoji:"🕵️",  bg:"#1c1c2e"},
+                        {id:"s14",n:"Superhéroe",  emoji:"🦸",  bg:"#1a237e"},
+                        {id:"s15",n:"Dragón",      emoji:"🐉",  bg:"#4a0e0e"},
                       ].map(s=>{
-                        const sel=premioForm.item_id===s.id;
+                        const sel=(premioForm.items_ids||[]).includes(s.id);
                         return(
-                          <button key={s.id} onClick={()=>setPremioForm(v=>({...v,item_id:s.id,name:s.n}))}
+                          <button key={s.id} onClick={()=>setPremioForm(v=>{
+                            const cur=v.items_ids||[];
+                            const next=sel?cur.filter(x=>x!==s.id):[...cur,s.id];
+                            return {...v,items_ids:next};
+                          })}
                             style={{background:sel?s.bg:"#f7f7f7",
                               border:`2px solid ${sel?"transparent":"#eee"}`,
                               borderRadius:10,padding:"8px 10px",fontSize:12,fontWeight:700,
                               cursor:"pointer",color:sel?"white":"#333",
-                              fontFamily:"Nunito,sans-serif",display:"flex",alignItems:"center",gap:5}}>
+                              fontFamily:"Nunito,sans-serif",display:"flex",alignItems:"center",gap:5,
+                              position:"relative"}}>
+                            {sel&&<span style={{position:"absolute",top:-4,right:-4,fontSize:10}}>✓</span>}
                             <span style={{fontSize:18}}>{s.emoji}</span>{s.n}
                           </button>
                         );
                       })}
+                    <div style={{fontSize:10,color:"#aaa",width:"100%",marginTop:4}}>
+                      {(premioForm.items_ids||[]).length===0?"Seleccioná una o más skins":
+                        `Seleccionadas: ${(premioForm.items_ids||[]).length}`}
+                    </div>
                     </div>
                   </div>
                 )}
@@ -949,20 +973,36 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                         {name:"Celeste",   color:"#06b6d4"},
                         {name:"Rosa",      color:"#ec4899"},
                         {name:"Naranja",   color:"#f97316"},
-                        {name:"Blanco",    color:"#ffffff"},
+                        {name:"Blanco",    color:"#f8fafc"},
+                        {name:"Arcoíris",  color:"#f59e0b", gradient:"linear-gradient(90deg,#f59e0b,#ec4899,#8b5cf6)"},
+                        {name:"Neón verde",color:"#4ade80"},
+                        {name:"Neón azul", color:"#38bdf8"},
+                        {name:"Coral",     color:"#fb7185"},
                       ].map(c=>{
-                        const sel=premioForm.name===c.name;
+                        const sel=(premioForm.items_ids||[]).includes(c.name);
                         return(
-                          <button key={c.name} onClick={()=>setPremioForm(v=>({...v,name:c.name,color:c.color,config:{type:"solid",value:c.color}}))}
+                          <button key={c.name} onClick={()=>setPremioForm(v=>{
+                            const cur=v.items_ids||[];
+                            const next=sel?cur.filter(x=>x!==c.name):[...cur,c.name];
+                            const colors=(v.colors_data||[]).filter(x=>x.name!==c.name);
+                            if(!sel) colors.push({name:c.name,color:c.color,config:{type:c.gradient?"gradient":"solid",value:c.gradient||c.color}});
+                            return {...v,items_ids:next,colors_data:colors};
+                          })}
                             style={{background:sel?c.color+"22":"#f7f7f7",
                               border:`2px solid ${sel?c.color:"#eee"}`,
                               borderRadius:10,padding:"7px 12px",fontSize:12,fontWeight:800,
                               cursor:"pointer",color:c.color,
-                              fontFamily:"Nunito,sans-serif"}}>
+                              fontFamily:"Nunito,sans-serif",position:"relative",
+                              backgroundImage:sel&&c.gradient?c.gradient:undefined}}>
+                            {sel&&<span style={{position:"absolute",top:-4,right:-4,fontSize:10}}>✓</span>}
                             {c.name}
                           </button>
                         );
                       })}
+                    <div style={{fontSize:10,color:"#aaa",width:"100%",marginTop:4}}>
+                      {(premioForm.items_ids||[]).length===0?"Seleccioná uno o más colores":
+                        `Seleccionados: ${(premioForm.items_ids||[]).length}`}
+                    </div>
                     </div>
                     {premioForm.name&&(
                       <div style={{marginTop:8,background:"#f9f9f9",borderRadius:10,padding:"8px 12px"}}>
@@ -989,26 +1029,37 @@ function AdminEconomiaSec({sec, onBack, showToast}){
 
                 <div style={{display:"flex",gap:8}}>
                   <button onClick={async()=>{
-                    // Validar
                     const t = addingPremio.tipo;
+                    const multiTypes = ["borde","skin","name_color"];
                     if(t==="monedas"&&!premioForm.cantidad) return showToast("Ingresá la cantidad","error");
                     if(t==="titulo"&&!premioForm.name) return showToast("Ingresá el nombre del título","error");
-                    if((t==="borde"||t==="skin")&&!premioForm.item_id) return showToast("Elegí un item","error");
+                    if(multiTypes.includes(t)&&!(premioForm.items_ids||[]).length) return showToast("Elegí al menos uno","error");
                     if(t==="marco"&&!premioForm.name) return showToast("Elegí un marco","error");
-                    if(t==="name_color"&&!premioForm.name) return showToast("Elegí un color","error");
 
-                    let valor = {...premioForm};
-                    if(t==="monedas") valor = {cantidad:premioForm.cantidad,motivo:premioForm.note};
-                    const premio = {tipo:t, valor};
+                    // Para tipos múltiples, crear un premio por cada item seleccionado
+                    let premios = [];
+                    if(t==="borde"){
+                      const BORDES={b2:{col:"#f59e0b",n:"Dorado"},b3:{col:"#10b981",n:"Verde"},b4:{col:"#ef4444",n:"Rojo"},b5:{col:"#8b5cf6",n:"Violeta"},b6:{col:"#06b6d4",n:"Celeste"},b7:{col:"#ec4899",n:"Rosa"},b8:{col:"#fbbf24",n:"Dorado brillante"},b9:{col:"#059669",n:"Esmeralda"}};
+                      premios=(premioForm.items_ids||[]).map(id=>({tipo:"borde",valor:{item_id:id,name:BORDES[id]?.n||id,expires_days:premioForm.expires_days,note:premioForm.note}}));
+                    } else if(t==="skin"){
+                      premios=(premioForm.items_ids||[]).map(id=>({tipo:"skin",valor:{item_id:id,expires_days:premioForm.expires_days,note:premioForm.note}}));
+                    } else if(t==="name_color"){
+                      premios=(premioForm.colors_data||[]).map(c=>({tipo:"name_color",valor:{...c,expires_days:premioForm.expires_days,note:premioForm.note}}));
+                    } else if(t==="monedas"){
+                      premios=[{tipo:"monedas",valor:{cantidad:premioForm.cantidad,motivo:premioForm.note}}];
+                    } else {
+                      premios=[{tipo:t,valor:{...premioForm}}];
+                    }
+                    const premio = premios[0]; // para isManual, agregar todos
 
                     if(addingPremio.isManual){
-                      setManualPremios(prev=>[...prev, premio]);
+                      setManualPremios(prev=>[...prev, ...premios]);
                       setAddingPremio(null); setPremioForm({});
                     } else {
                       setGranting(true);
                       try{
-                        await api.prizeAddItem(addingPremio.setId, premio);
-                        showToast("Premio agregado ✅");
+                        await Promise.all(premios.map(p=>api.prizeAddItem(addingPremio.setId, p)));
+                        showToast(`✅ ${premios.length} premio${premios.length>1?"s":""} agregado${premios.length>1?"s":""}`);
                         api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
                         setAddingPremio(null); setPremioForm({});
                       }catch(e){showToast(e.message||"Error","error");}

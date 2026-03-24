@@ -90,7 +90,16 @@ const SKINS = [
   {id:"s5",emoji:"🤖",  name:"Robot",   price:300, bg:"#0f766e", img_url:null},
   {id:"s6",emoji:"🧔",  name:"Vikingo", price:350, bg:"#92400e", img_url:null},
   {id:"s7",emoji:"🦸",  name:"Héroe",   price:400, bg:"#1d4ed8", img_url:null},
-  {id:"s8",emoji:"🏴‍☠️", name:"Pirata",  price:500, bg:"#1c1917", img_url:null},
+  {id:"s8", emoji:"🏴‍☠️", name:"Pirata",    price:500, bg:"#1c1917", img_url:null},
+  // Exclusivas — solo como premio
+  {id:"s9", emoji:"👽",    name:"Alien",      price:0, bg:"#166534", img_url:null, exclusive:true},
+  {id:"s10",emoji:"⚔️",    name:"Samurai",    price:0, bg:"#7f1d1d", img_url:null, exclusive:true},
+  {id:"s11",emoji:"🧑‍🚀", name:"Astronauta",price:0, bg:"#1e3a5f", img_url:null, exclusive:true},
+  {id:"s12",emoji:"👩‍🔬", name:"Científica", price:0, bg:"#134e4a", img_url:null, exclusive:true},
+  {id:"s13",emoji:"🎧",    name:"DJ",         price:0, bg:"#2d1b69", img_url:null, exclusive:true},
+  {id:"s14",emoji:"🕵️",   name:"Detective",  price:0, bg:"#1c1c2e", img_url:null, exclusive:true},
+  {id:"s15",emoji:"🦸‍♂️",name:"Superhéroe",price:0, bg:"#1a237e", img_url:null, exclusive:true},
+  {id:"s16",emoji:"🐉",    name:"Dragón",     price:0, bg:"#4a0e0e", img_url:null, exclusive:true},
 ];
 const BORDERS = [
   {id:"b1",name:"Básico",  bs:"3px solid #DC2626", price:0},  // rojo
