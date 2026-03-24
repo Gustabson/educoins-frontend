@@ -74,14 +74,18 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   const [loanDays,setLoanDays]  = useState("");
   const [granting,setGranting]  = useState(false);
   // Premios section
-  const [premioTab,setPremioTab]   = useState("ranking"); // ranking|manual|historial
+  const [premioTab,setPremioTab]   = useState("ranking");
   const [prizeSets,setPrizeSets]   = useState([]);
   const [prizeHistory,setPrizeHistory] = useState([]);
+  const [schedules,setSchedules]   = useState([]);
   const [manualUser,setManualUser] = useState("");
-  const [manualPremios,setManualPremios] = useState([]); // [{tipo,valor}]
-  const [addingPremio,setAddingPremio] = useState(null); // {tipo}
+  const [manualPremios,setManualPremios] = useState([]);
+  const [addingPremio,setAddingPremio] = useState(null);
   const [premioForm,setPremioForm] = useState({});
   const [executing,setExecuting]   = useState(null);
+  const [editingSchedule,setEditingSchedule] = useState(null);
+  const [rankingPeriodo,setRankingPeriodo] = useState("weekly");
+  const [addingSet,setAddingSet]   = useState(null); // {periodo}
   const [closeMotivo,setCloseMotivo]=useState("");
   const [periodoClose,setPClose]=useState("weekly");
   const [scopeClose,setSClose]=useState("global");
@@ -119,11 +123,12 @@ function AdminEconomiaSec({sec, onBack, showToast}){
     } else if(sec==="suscripciones"){
       api.chargeAll().then(d=>setItems(d.data?.results||[])).catch(()=>{}).finally(()=>setLoading(false));
     } else if(sec==="premios"){
-      Promise.all([api.prizeSets(), api.prizeHistory(), api.adminUsers()])
-        .then(([ps, ph, us])=>{
+      Promise.all([api.prizeSets(), api.prizeHistory(), api.adminUsers(), api.prizeSchedules()])
+        .then(([ps, ph, us, sc])=>{
           setPrizeSets(ps.data||ps||[]);
           setPrizeHistory(ph.data||ph||[]);
           setConfig(us.data||us||[]);
+          setSchedules(sc.data||sc||[]);
         }).catch(()=>{}).finally(()=>setLoading(false));
     } else if(sec==="perfil"){
       // Cargar items de perfil (apodo, titulo_custom, estado) + users + loaned items
@@ -628,7 +633,84 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           </>
         )}
 
-        {/* Modal agregar ítem a prize set */}
+        {/* Modal crear nuevo grupo de puestos */}
+      {addingSet&&(
+        <div onClick={e=>{if(e.target===e.currentTarget)setAddingSet(null);}}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
+            display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div style={{background:"white",borderRadius:"20px 20px 0 0",padding:20,
+            width:"100%",maxWidth:480,fontFamily:"Nunito,sans-serif"}}>
+            <div style={{fontWeight:800,fontSize:16,marginBottom:4}}>
+              + Nuevo grupo de puestos — {addingSet.periodo==="daily"?"Diario":addingSet.periodo==="weekly"?"Semanal":"Mensual"}
+            </div>
+            <div style={{fontSize:12,color:"#888",marginBottom:14}}>
+              Definí el rango de puestos que recibirán este premio.
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <label style={{fontSize:12,fontWeight:700,color:"#555",minWidth:80}}>Desde puesto:</label>
+                <input type="number" min="1" id="set-desde" defaultValue="1"
+                  style={{flex:1,background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:8,
+                    padding:"8px 12px",fontSize:13,outline:"none"}}/>
+              </div>
+              <div style={{fontSize:11,color:"#888"}}>Tipo de rango:</div>
+              <div style={{display:"flex",gap:6}}>
+                {[
+                  {label:"Solo ese puesto",val:"solo"},
+                  {label:"Hasta puesto...",val:"rango"},
+                  {label:"Todos desde ahí",val:"todos"},
+                ].map(opt=>(
+                  <button key={opt.val}
+                    onClick={()=>setPremioForm(v=>({...v,rangoTipo:opt.val}))}
+                    style={{flex:1,background:premioForm.rangoTipo===opt.val?"#10b98122":"#f7f7f7",
+                      border:`1.5px solid ${premioForm.rangoTipo===opt.val?"#10b981":"#eee"}`,
+                      borderRadius:8,padding:"6px 4px",fontSize:10,fontWeight:700,cursor:"pointer",
+                      color:premioForm.rangoTipo===opt.val?"#065f46":"#555",
+                      fontFamily:"Nunito,sans-serif"}}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {premioForm.rangoTipo==="rango"&&(
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <label style={{fontSize:12,fontWeight:700,color:"#555",minWidth:80}}>Hasta puesto:</label>
+                  <input type="number" min="1" id="set-hasta" defaultValue="3"
+                    style={{flex:1,background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:8,
+                      padding:"8px 12px",fontSize:13,outline:"none"}}/>
+                </div>
+              )}
+              <div style={{display:"flex",gap:8,marginTop:4}}>
+                <button onClick={async()=>{
+                  const desde = parseInt(document.getElementById("set-desde")?.value)||1;
+                  const hasta = premioForm.rangoTipo==="solo" ? null
+                    : premioForm.rangoTipo==="todos" ? 0
+                    : parseInt(document.getElementById("set-hasta")?.value)||desde+1;
+                  setGranting(true);
+                  try{
+                    await api.prizeSetCreate({periodo:addingSet.periodo, puesto:desde, puesto_hasta:hasta});
+                    api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
+                    showToast("Grupo creado ✅");
+                    setAddingSet(null); setPremioForm({});
+                  }catch(e){showToast(e.message||"Error","error");}
+                  finally{setGranting(false);}
+                }} disabled={granting}
+                  style={{flex:1,background:granting?"#ccc":"#10b981",border:"none",borderRadius:50,
+                    color:"white",padding:"12px",fontWeight:800,fontSize:14,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  {granting?"Creando...":"✅ Crear grupo"}
+                </button>
+                <button onClick={()=>{setAddingSet(null);setPremioForm({});}}
+                  style={{background:"#f0f0f0",border:"none",borderRadius:50,color:"#555",
+                    padding:"12px 18px",fontWeight:700,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* Modal agregar ítem a prize set */}
       {addingPremio&&(
         <div onClick={e=>{if(e.target===e.currentTarget){setAddingPremio(null);setPremioForm({});}}}
           style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
@@ -1142,102 +1224,185 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           {/* ── Tab Ranking ─────────────────────────────────── */}
           {premioTab==="ranking"&&(
             <>
-              <div style={{fontSize:11,color:"#888",marginBottom:10,lineHeight:1.5}}>
-                Configurá qué recibe cada puesto al cerrar el período.
-                Los premios se ejecutan automáticamente o podés forzarlos manualmente.
-              </div>
-              {/* Ejecutar manualmente */}
-              <div style={{background:"white",borderRadius:14,padding:"14px 16px",
-                marginBottom:16,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-                <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>⚡ Ejecutar premios ahora</div>
-                <div style={{display:"flex",gap:8}}>
-                  {["weekly","monthly"].map(p=>(
-                    <button key={p} onClick={async()=>{
-                      if(!window.confirm(`¿Ejecutar premios ${p==="weekly"?"semanales":"mensuales"}?`)) return;
-                      setExecuting(p);
-                      try{
-                        const r = await api.prizeExecute(p);
-                        const res = r.data||r;
-                        showToast(`✅ ${res.ejecutados||0} premios entregados`);
-                        api.prizeHistory().then(d=>setPrizeHistory(d.data||d||[])).catch(()=>{});
-                      }catch(e){showToast(e.message||"Error","error");}
-                      finally{setExecuting(null);}
-                    }} disabled={executing===p}
-                      style={{flex:1,background:executing===p?"#ccc":"#10b981",
-                        border:"none",borderRadius:50,color:"white",padding:"10px",
-                        fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                      {executing===p?"Ejecutando...":`${p==="weekly"?"📅 Semanales":"📆 Mensuales"}`}
-                    </button>
-                  ))}
-                </div>
+              {/* Selector de período */}
+              <div style={{display:"flex",gap:6,marginBottom:14}}>
+                {[["daily","📅 Diario"],["weekly","📆 Semanal"],["monthly","🗓️ Mensual"]].map(([p,lbl])=>(
+                  <button key={p} onClick={()=>setRankingPeriodo(p)}
+                    style={{flex:1,background:rankingPeriodo===p?"#10b98122":"white",
+                      border:`1.5px solid ${rankingPeriodo===p?"#10b981":"#eee"}`,
+                      borderRadius:10,padding:"8px 4px",fontSize:11,fontWeight:800,
+                      cursor:"pointer",color:rankingPeriodo===p?"#065f46":"#555",
+                      fontFamily:"Nunito,sans-serif"}}>
+                    {lbl}
+                  </button>
+                ))}
               </div>
 
-              {/* Prize sets por período */}
-              {["weekly","monthly"].map(periodo=>{
-                const sets = prizeSets.filter(s=>s.periodo===periodo).sort((a,b)=>a.puesto-b.puesto);
+              {/* Schedule del período seleccionado */}
+              {(()=>{
+                const sch = schedules.find(s=>s.periodo===rankingPeriodo);
+                if(!sch) return null;
+                const isEditing = editingSchedule===rankingPeriodo;
                 return(
-                  <div key={periodo} style={{marginBottom:16}}>
-                    <div style={{fontWeight:800,fontSize:13,marginBottom:8,color:"#333"}}>
-                      {periodo==="weekly"?"📅 Semanal":"📆 Mensual"}
+                  <div style={{background:"white",borderRadius:14,padding:"12px 14px",
+                    marginBottom:12,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700,fontSize:12}}>⏰ Ejecución automática</div>
+                        <div style={{fontSize:11,color:"#888",marginTop:2}}>
+                          {sch.activo
+                            ? `Todos los días a las ${sch.hora?.slice(0,5)}${rankingPeriodo==="weekly"?` · Viernes`:rankingPeriodo==="monthly"?` · Día ${sch.dia_mes}`:""}`
+                            : "Desactivada"}
+                          {sch.ultima_ejecucion&&<span style={{marginLeft:6,color:"#10b981"}}>
+                            · Última: {new Date(sch.ultima_ejecucion).toLocaleDateString("es-AR")}
+                          </span>}
+                        </div>
+                      </div>
+                      <button onClick={()=>setEditingSchedule(isEditing?null:rankingPeriodo)}
+                        style={{background:"#f0f0f0",border:"none",borderRadius:8,
+                          padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",
+                          fontFamily:"Nunito,sans-serif"}}>
+                        {isEditing?"✕":"✏️ Editar"}
+                      </button>
+                      <button onClick={async()=>{
+                        setExecuting(rankingPeriodo);
+                        try{
+                          const r=await api.prizeExecute(rankingPeriodo);
+                          showToast(`✅ ${(r.data||r).ejecutados||0} premios entregados`);
+                          api.prizeHistory().then(d=>setPrizeHistory(d.data||d||[])).catch(()=>{});
+                          api.prizeSchedules().then(d=>setSchedules(d.data||d||[])).catch(()=>{});
+                        }catch(e){showToast(e.message||"Error","error");}
+                        finally{setExecuting(null);}
+                      }} disabled={executing===rankingPeriodo}
+                        style={{background:executing===rankingPeriodo?"#ccc":"#10b981",border:"none",
+                          borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",
+                          color:"white",fontFamily:"Nunito,sans-serif"}}>
+                        {executing===rankingPeriodo?"...":"▶ Ejecutar"}
+                      </button>
                     </div>
+                    {isEditing&&(
+                      <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <label style={{fontSize:12,fontWeight:700,color:"#555",minWidth:40}}>Hora:</label>
+                          <input type="time" defaultValue={sch.hora?.slice(0,5)||"18:00"}
+                            onChange={async e=>{
+                              await api.prizeScheduleUpdate(rankingPeriodo,{hora:e.target.value+":00"}).catch(()=>{});
+                              api.prizeSchedules().then(d=>setSchedules(d.data||d||[])).catch(()=>{});
+                            }}
+                            style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:8,
+                              padding:"6px 10px",fontSize:13,outline:"none"}}/>
+                        </div>
+                        {rankingPeriodo==="weekly"&&(
+                          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                            {["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map((d,i)=>(
+                              <button key={i+1} onClick={async()=>{
+                                await api.prizeScheduleUpdate(rankingPeriodo,{dia_semana:i+1}).catch(()=>{});
+                                api.prizeSchedules().then(d=>setSchedules(d.data||d||[])).catch(()=>{});
+                              }}
+                                style={{background:(sch.dia_semana||5)===i+1?"#10b98122":"#f7f7f7",
+                                  border:`1.5px solid ${(sch.dia_semana||5)===i+1?"#10b981":"#eee"}`,
+                                  borderRadius:8,padding:"5px 8px",fontSize:11,fontWeight:700,
+                                  cursor:"pointer",color:(sch.dia_semana||5)===i+1?"#065f46":"#555",
+                                  fontFamily:"Nunito,sans-serif"}}>
+                                {d}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {rankingPeriodo==="monthly"&&(
+                          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                            <label style={{fontSize:12,fontWeight:700,color:"#555"}}>Día del mes:</label>
+                            <input type="number" min="1" max="28" defaultValue={sch.dia_mes||1}
+                              onChange={async e=>{
+                                await api.prizeScheduleUpdate(rankingPeriodo,{dia_mes:parseInt(e.target.value)}).catch(()=>{});
+                              }}
+                              style={{width:60,background:"#f7f7f7",border:"1.5px solid #eee",
+                                borderRadius:8,padding:"6px 10px",fontSize:13,outline:"none"}}/>
+                          </div>
+                        )}
+                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                          <label style={{fontSize:12,fontWeight:700,color:"#555"}}>Activo:</label>
+                          <button onClick={async()=>{
+                            await api.prizeScheduleUpdate(rankingPeriodo,{activo:!sch.activo}).catch(()=>{});
+                            api.prizeSchedules().then(d=>setSchedules(d.data||d||[])).catch(()=>{});
+                          }} style={{background:sch.activo?"#10b98122":"#fee2e2",
+                            border:`1.5px solid ${sch.activo?"#10b981":"#ef4444"}`,
+                            borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,
+                            cursor:"pointer",color:sch.activo?"#065f46":"#ef4444",
+                            fontFamily:"Nunito,sans-serif"}}>
+                            {sch.activo?"✅ Activado":"❌ Desactivado"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Prize sets del período seleccionado */}
+              {(()=>{
+                const sets = prizeSets.filter(s=>s.periodo===rankingPeriodo).sort((a,b)=>a.puesto-b.puesto);
+                return(
+                  <>
                     {sets.map(set=>{
                       const items = typeof set.items==="string"?JSON.parse(set.items):set.items||[];
+                      const pLabel = set.puesto_hasta===null ? `Puesto ${set.puesto}°`
+                        : set.puesto_hasta===0 ? `Puestos ${set.puesto}° en adelante`
+                        : `Puestos ${set.puesto}° al ${set.puesto_hasta}°`;
                       return(
                         <div key={set.id} style={{background:"white",borderRadius:14,
                           padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
                           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:items.length?8:0}}>
-                            <div style={{width:28,height:28,borderRadius:8,
-                              background:set.puesto===1?"#f59e0b22":set.puesto===2?"#94a3b822":"#cd7c3422",
-                              display:"flex",alignItems:"center",justifyContent:"center",
-                              fontWeight:900,fontSize:13,color:set.puesto===1?"#b45309":set.puesto===2?"#475569":"#92400e"}}>
-                              {set.puesto}°
-                            </div>
-                            <div style={{fontWeight:800,fontSize:13}}>Puesto {set.puesto}</div>
-                            <div style={{flex:1}}/>
-                            <button onClick={()=>setAddingPremio({setId:set.id,periodo,puesto:set.puesto})}
+                            <div style={{flex:1,fontWeight:800,fontSize:13}}>{pLabel}</div>
+                            <button onClick={()=>setAddingPremio({setId:set.id,periodo:rankingPeriodo,puesto:set.puesto,isRanking:true})}
                               style={{background:"#10b98122",border:"none",borderRadius:8,
                                 color:"#065f46",padding:"4px 10px",fontSize:11,fontWeight:800,
                                 cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                               + Premio
                             </button>
+                            <button onClick={async()=>{
+                              await api.prizeSetDelete(set.id).catch(()=>{});
+                              api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
+                            }} style={{background:"#fee2e2",border:"none",borderRadius:8,
+                              color:"#ef4444",padding:"4px 8px",fontSize:11,cursor:"pointer",
+                              fontFamily:"Nunito,sans-serif"}}>✕</button>
                           </div>
                           {items.map((item,i)=>{
-                            const v = typeof item.valor==="string"?JSON.parse(item.valor):item.valor;
+                            const v=typeof item.valor==="string"?JSON.parse(item.valor):item.valor;
                             return(
                               <div key={item.id||i} style={{display:"flex",alignItems:"center",
                                 gap:8,padding:"5px 8px",background:"#f9f9f9",borderRadius:8,marginBottom:4}}>
-                                <span style={{fontSize:14}}>
-                                  {item.tipo==="monedas"?"🪙":item.tipo==="titulo"?"🏅":
-                                   item.tipo==="borde"?"🔲":item.tipo==="skin"?"🎨":
-                                   item.tipo==="marco"?"🖼️":item.tipo==="name_color"?"✏️":"🎁"}
-                                </span>
+                                <span>{item.tipo==="monedas"?"🪙":item.tipo==="titulo"?"🏅":item.tipo==="borde"?"🔲":item.tipo==="skin"?"🎨":item.tipo==="marco"?"🖼️":"🎁"}</span>
                                 <div style={{flex:1,fontSize:12}}>
                                   <span style={{fontWeight:700}}>{item.tipo}</span>
                                   {item.tipo==="monedas"&&<span style={{color:"#f59e0b",fontWeight:800}}> 🪙{v.cantidad}</span>}
                                   {item.tipo==="titulo"&&<span style={{color:"#8b5cf6"}}> "{v.name}"</span>}
-                                  {(item.tipo==="borde"||item.tipo==="skin")&&<span style={{color:"#555"}}> {v.item_id||v.name}</span>}
-                                  {item.tipo==="marco"&&<span style={{color:"#555"}}> {v.name}</span>}
                                   {v.expires_days&&<span style={{fontSize:10,color:"#aaa"}}> · {v.expires_days}d</span>}
+                                  {!v.expires_days&&item.tipo!=="monedas"&&<span style={{fontSize:10,color:"#10b981"}}> · Permanente</span>}
                                 </div>
                                 <button onClick={async()=>{
-                                  try{ await api.prizeDelItem(item.id); 
-                                    api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
-                                  }catch(e){showToast(e.message||"Error","error");}
+                                  await api.prizeDelItem(item.id).catch(()=>{});
+                                  api.prizeSets().then(d=>setPrizeSets(d.data||d||[])).catch(()=>{});
                                 }} style={{background:"#fee2e2",border:"none",borderRadius:6,
                                   color:"#ef4444",padding:"3px 7px",fontSize:10,fontWeight:700,
                                   cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>✕</button>
                               </div>
                             );
                           })}
-                          {items.length===0&&(
-                            <div style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>Sin premios configurados</div>
-                          )}
+                          {items.length===0&&<div style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>Sin premios configurados</div>}
                         </div>
                       );
                     })}
-                  </div>
+                    {/* Agregar nuevo grupo de puestos */}
+                    <button onClick={()=>setAddingSet({periodo:rankingPeriodo})}
+                      style={{width:"100%",background:"#f0fdf4",border:"1.5px dashed #10b981",
+                        borderRadius:14,padding:"12px",fontWeight:800,fontSize:12,
+                        cursor:"pointer",color:"#065f46",fontFamily:"Nunito,sans-serif"}}>
+                      + Agregar grupo de puestos
+                    </button>
+                  </>
                 );
-              })}
+              })()}
             </>
           )}
 

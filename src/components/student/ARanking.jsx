@@ -15,7 +15,46 @@ function ARanking({nameColorConfig}){
   const [loading,setLoading] = useState(true);
   const [closing,setClosing] = useState(false);
 
-  const PERIODO_LABEL = {daily:"📅 Hoy", weekly:"📆 Semana", monthly:"🗓️ Mes"};
+  const PERIODO_LABEL = {daily:"📅 Diario", weekly:"📆 Semanal", monthly:"🗓️ Mensual"};
+
+  // Countdown to next period reset
+  const getNextReset = (periodo) => {
+    const now = new Date();
+    if(periodo==="daily"){
+      const next = new Date(now); next.setHours(18,0,0,0);
+      if(next<=now) next.setDate(next.getDate()+1);
+      return next;
+    }
+    if(periodo==="weekly"){
+      const day = now.getDay(); // 0=sun,5=fri
+      const daysUntilFri = (5-day+7)%7||7;
+      const next = new Date(now); next.setDate(now.getDate()+daysUntilFri); next.setHours(18,0,0,0);
+      return next;
+    }
+    // monthly: day 1 of next month
+    const next = new Date(now.getFullYear(), now.getMonth()+1, 1, 18, 0, 0);
+    return next;
+  };
+
+  const [countdown, setCountdown] = useState("");
+  useEffect(()=>{
+    const tick=()=>{
+      const next = getNextReset(periodo);
+      const diff = next - new Date();
+      if(diff<=0){setCountdown("¡Cerrando!");return;}
+      const h=Math.floor(diff/3600000);
+      const m=Math.floor((diff%3600000)/60000);
+      const s=Math.floor((diff%60000)/1000);
+      if(h>=24){
+        const d=Math.floor(h/24); setCountdown(`${d}d ${h%24}h`);
+      } else {
+        setCountdown(`${h}h ${String(m).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`);
+      }
+    };
+    tick();
+    const id=setInterval(tick,1000);
+    return()=>clearInterval(id);
+  },[periodo]);
   const MEDAL = ["🥇","🥈","🥉"];
 
   const load = () => {
@@ -76,6 +115,7 @@ function ARanking({nameColorConfig}){
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
             <div style={{fontWeight:800,fontSize:12,color:txt,marginBottom:8}}>
               💰 Premios {PERIODO_LABEL[periodo]}
+              {countdown&&<span style={{fontSize:10,opacity:.8,marginLeft:6}}>⏱ {countdown}</span>}
             </div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               {data.config.slice(0,5).map(c=>(
