@@ -8,35 +8,6 @@ import AMisPremios from "./AMisPremios";
 const PRECIO_TITULO_CUSTOM = 20;
 const PRECIO_ESTADO        = 10;
 
-// ── Badge de título ganado con efecto de rareza ───────────────
-function EarnedBadge({title}){
-  const r = RARITIES[title.rarity]||RARITIES.common;
-  const isLegendary = title.rarity==="legendary";
-  const isEpic      = title.rarity==="epic";
-  const isRare      = title.rarity==="rare";
-
-  const glowStyle = r.glow
-    ? {boxShadow:`0 0 8px 2px ${r.glow}55`, '--glow':r.glow+'88'}
-    : {};
-
-  return(
-    <div className={isLegendary?"earned-legendary":isEpic?"earned-epic":""}
-      style={{display:"inline-flex",alignItems:"center",gap:5,
-        background:isLegendary?"linear-gradient(90deg,#f59e0b,#ef4444,#8b5cf6)":r.color+"22",
-        border:`1.5px solid ${r.color}`,borderRadius:99,
-        padding:"4px 12px",
-        ...glowStyle}}>
-      {title.emoji&&<span style={{fontSize:13}}>{title.emoji}</span>}
-      <span style={{fontSize:11,fontWeight:800,
-        color:isLegendary?"white":r.color}}>
-        {title.name}
-      </span>
-      <span style={{fontSize:9,opacity:.7,color:isLegendary?"white":r.color}}>
-        {r.icon}
-      </span>
-    </div>
-  );
-}
 
 function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   const {primary:accent,isDark:dark,txt,sub,cardBg,pageBg,inputBg,navBord} = useTheme();
@@ -291,11 +262,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
               })}
             </div>
           )}
-          {earnedTitles.length>0&&(
-            <div style={{display:"flex",flexWrap:"wrap",gap:4,justifyContent:"center",marginTop:4}}>
-              {earnedTitles.slice(0,2).map(t=><EarnedBadge key={t.id} title={t}/>)}
-            </div>
-          )}
+
           {me.estado&&(
             <div style={{fontSize:11,color:sub,marginTop:6,fontStyle:"italic"}}>
               "{me.estado}"
@@ -516,42 +483,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
           );
         })}
 
-        {/* 3b. Títulos obtenidos */}
-        {earnedTitles.length>0&&(
-          <>
-            <div style={{fontSize:12,fontWeight:700,color:sub,margin:"12px 0 8px",
-              display:"flex",alignItems:"center",gap:6}}>
-              🏅 Títulos obtenidos
-              <span style={{fontSize:10,background:accent+"22",color:accent,
-                borderRadius:99,padding:"2px 8px"}}>{earnedTitles.length}</span>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {earnedTitles.map(t=>{
-                const r = RARITIES[t.rarity]||RARITIES.common;
-                return(
-                  <div key={t.id} style={{...card,padding:"12px 16px",marginBottom:0,
-                    border:`1.5px solid ${r.color}44`}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{fontSize:24}}>{t.emoji||r.icon}</div>
-                      <div style={{flex:1}}>
-                        <EarnedBadge title={t}/>
-                        {t.note&&(
-                          <div style={{fontSize:10,color:sub,marginTop:3,fontStyle:"italic"}}>
-                            "{t.note}"
-                          </div>
-                        )}
-                      </div>
-                      <div style={{fontSize:9,color:sub,textAlign:"right"}}>
-                        <div style={{fontWeight:700,color:r.color}}>{r.label}</div>
-                        <div>{new Date(t.created_at).toLocaleDateString("es-AR")}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
+
 
         {/* ── 4. SKINS ──────────────────────────────────────── */}
         <div style={{fontWeight:800,color:txt,fontSize:13,margin:"20px 0 8px"}}>🎨 Skins</div>

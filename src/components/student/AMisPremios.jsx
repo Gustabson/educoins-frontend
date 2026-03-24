@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { SKINS, BORDERS, RARITIES } from "../../constants";
+import { OHdrA } from "../shared/index";
 
 const ICONS = {
   titulo:"🏅", border:"🔲", skin:"🎨", avatar_bg:"🖼️", name_color:"✏️", monedas:"🪙"
@@ -18,7 +19,7 @@ function ExpiryLabel({ expiresAt, sub }) {
   </span>;
 }
 
-function AMisPremios({ me, showToast, onEquip }) {
+function AMisPremios({ me, showToast, onEquip, onBack }) {
   const { primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, navBord } = useTheme();
 
   const [tab,          setTab]          = useState("todos");
@@ -201,7 +202,8 @@ function AMisPremios({ me, showToast, onEquip }) {
   );
 
   return (
-    <div style={{background:bg, minHeight:"100%", fontFamily:"Nunito,sans-serif", padding:"0 0 32px"}}>
+    <div style={{background:bg, minHeight:"100vh", fontFamily:"Nunito,sans-serif", padding:"0 0 32px"}}>
+      {onBack && <OHdrA title="🏆 Mis Premios" onBack={onBack}/>}
 
       {/* Header stats */}
       <div style={{...card, margin:"0 14px 12px", padding:"14px 16px"}}>
