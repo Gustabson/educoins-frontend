@@ -716,7 +716,6 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
         </button>
 
       </div>
-      </div>
       )}
     </div>
   );
