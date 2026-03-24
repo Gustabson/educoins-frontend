@@ -73,7 +73,10 @@ function AdminUsuarios({showToast}){
                 <OBtn label="Desactivar" onClick={()=>deactivate(u.id)} color="#ef4444"/>
               )}
               {u.rol==="student"&&(
-                <button onClick={()=>setGrantModal(u)}
+                <button onClick={async()=>{
+                  setGrantModal(u);
+                  api.earnedTitlesOf(u.id).then(d=>setUserTitles(Array.isArray(d)?d:(d?.data||[]))).catch(()=>{});
+                }}
                   style={{background:"#f59e0b22",border:"none",borderRadius:8,
                     color:"#b45309",padding:"5px 8px",fontSize:10,fontWeight:800,
                     cursor:"pointer",fontFamily:"Nunito,sans-serif",whiteSpace:"nowrap"}}>
@@ -96,7 +99,7 @@ function AdminUsuarios({showToast}){
             </div>
             {/* Tabs */}
             <div style={{display:"flex",gap:6,marginBottom:14}}>
-              {[["title","🏅 Título"],["loan","🖼️ Marco prestado"]].map(([id,lbl])=>(
+              {[["title","🏅 Título"],["loan","🖼️ Marco prestado"],["revocar","🗑️ Revocar"]].map(([id,lbl])=>(
                 <button key={id} onClick={()=>setGrantTab(id)}
                   style={{flex:1,background:grantTab===id?"#f59e0b22":"#f7f7f7",
                     border:`1.5px solid ${grantTab===id?"#f59e0b":"#eee"}`,
@@ -178,6 +181,44 @@ function AdminUsuarios({showToast}){
                       padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
                 </div>
               )}
+              {grantTab==="revocar"&&(
+                <div>
+                  {userTitles.length===0
+                    ? <div style={{textAlign:"center",padding:16,color:"#aaa",fontSize:12}}>
+                        Sin títulos otorgados
+                      </div>
+                    : userTitles.map(t=>{
+                        const RARITY_COLORS={common:"#94a3b8",rare:"#3b82f6",epic:"#8b5cf6",legendary:"#f59e0b"};
+                        const col=RARITY_COLORS[t.rarity]||"#94a3b8";
+                        return(
+                          <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,
+                            padding:"8px 10px",background:"#f9f9f9",borderRadius:10,marginBottom:6}}>
+                            <span style={{fontSize:16}}>{t.emoji||"🏅"}</span>
+                            <div style={{flex:1}}>
+                              <div style={{fontWeight:800,fontSize:12,color:col}}>{t.name}</div>
+                              <div style={{fontSize:10,color:"#888"}}>
+                                {t.rarity} · {new Date(t.created_at).toLocaleDateString("es-AR")}
+                                {t.expires_at&&` · Vence ${new Date(t.expires_at).toLocaleDateString("es-AR")}`}
+                              </div>
+                            </div>
+                            <button onClick={async()=>{
+                              try{
+                                await api.revokeTitle(t.id);
+                                setUserTitles(prev=>prev.filter(x=>x.id!==t.id));
+                                showToast("Título revocado");
+                              }catch(e){showToast(e.message||"Error","error");}
+                            }} style={{background:"#fee2e2",border:"none",borderRadius:8,
+                              color:"#ef4444",padding:"5px 10px",fontSize:11,fontWeight:700,
+                              cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                              Revocar
+                            </button>
+                          </div>
+                        );
+                      })
+                  }
+                </div>
+              )}
+              {grantTab!=="revocar"&&(
               <div style={{display:"flex",gap:8,marginTop:10}}>
                 <button
                   onClick={grantTab==="title"?grantTitle:grantLoan}
@@ -194,6 +235,7 @@ function AdminUsuarios({showToast}){
                   Cancelar
                 </button>
               </div>
+              )}
             </div>
           </div>
         </div>

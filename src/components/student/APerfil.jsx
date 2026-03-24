@@ -17,6 +17,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   const unlockedTitles  = me.unlocked_titles  || ["tl1"];
 
   // Estados
+  const [perfilSec,       setPerfilSec]       = useState("perfil"); // perfil | premios
   const [buying,          setBuying]          = useState(null);
   const [saving,          setSaving]          = useState(null);
   // Apodo
