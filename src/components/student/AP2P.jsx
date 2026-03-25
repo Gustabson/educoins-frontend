@@ -110,6 +110,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
   const [buyModal,    setBuyModal]   = useState(null);
   const [buyAmount,   setBuyAmount]  = useState("");
   const [submitting,  setSubmitting] = useState(false);
+  const [confirmModal, setConfirmModal] = useState(null); // {msg, onOk}
   const fileRef = useRef();
 
   const card = {
@@ -659,10 +660,14 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                                   fontSize:11, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
                                 {offer.status==="active" ? "⏸ Pausar" : "▶ Activar"}
                               </button>
-                              <button onClick={async () => {
-                                if (!window.confirm("¿Cancelar oferta y recuperar EduCoins?")) return;
-                                await api.p2pCancelOffer(offer.id);
-                                load(); if (refreshBalance) refreshBalance();
+                              <button onClick={() => {
+                                setConfirmModal({
+                                  msg: "¿Cancelar oferta y recuperar tus EduCoins?",
+                                  onOk: async () => {
+                                    await api.p2pCancelOffer(offer.id);
+                                    load(); if (refreshBalance) refreshBalance();
+                                  }
+                                });
                               }} style={{flex:1, background:inputBg, border:`1px solid #ef444466`,
                                 borderRadius:50, color:"#ef4444", padding:"8px", fontWeight:700,
                                 fontSize:11, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
@@ -706,12 +711,13 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                 </button>
               </div>
             </div>
-            {myOffers.length === 0
+            {myOffers.filter(o => o.status==="active" || o.status==="paused").length === 0
               ? <div style={{textAlign:"center", padding:32, color:sub}}>
                   <div style={{fontSize:36, marginBottom:8}}>📋</div>
-                  <div style={{fontWeight:700}}>Sin ofertas todavía</div>
+                  <div style={{fontWeight:700}}>Sin ofertas activas</div>
+                  <div style={{fontSize:12, marginTop:4}}>Las órdenes ejecutadas aparecen en la pestaña Órdenes</div>
                 </div>
-              : myOffers.map(offer => (
+              : myOffers.filter(o => o.status==="active" || o.status==="paused").map(offer => (
                   <div key={offer.id} style={{...card, padding:"14px 16px", marginBottom:10}}>
                     <div style={{display:"flex", justifyContent:"space-between", marginBottom:8}}>
                       <div>
@@ -738,9 +744,13 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                           {offer.status==="active" ? "⏸ Pausar" : "▶ Activar"}
                         </button>
                         <button onClick={async () => {
-                          if (!window.confirm("¿Cancelar oferta y recuperar EduCoins?")) return;
-                          await api.p2pCancelOffer(offer.id);
-                          load(); if (refreshBalance) refreshBalance();
+                          setConfirmModal({
+                            msg: "¿Cancelar oferta y recuperar tus EduCoins?",
+                            onOk: async () => {
+                              await api.p2pCancelOffer(offer.id);
+                              load(); if (refreshBalance) refreshBalance();
+                            }
+                          });
                         }} style={{flex:1, background:inputBg, border:`1px solid #ef444466`,
                           borderRadius:50, color:"#ef4444", padding:"9px", fontWeight:700,
                           fontSize:11, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
@@ -931,6 +941,43 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                   borderRadius:50, color:sub, padding:"13px", fontWeight:700,
                   cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
                 Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Modal: Confirmación propia (reemplaza window.confirm) ── */}
+      {confirmModal && (
+        <div onClick={() => setConfirmModal(null)}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.55)",
+            zIndex:300, display:"flex", alignItems:"center", justifyContent:"center",
+            padding:"0 24px"}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{background:cardBg, borderRadius:20, padding:"24px 20px",
+              width:"100%", maxWidth:340, fontFamily:"Nunito,sans-serif",
+              border:`1px solid ${navBord}`}}>
+            <div style={{fontSize:16, fontWeight:800, color:txt,
+              textAlign:"center", marginBottom:8}}>
+              ¿Cancelar oferta?
+            </div>
+            <div style={{fontSize:13, color:sub, textAlign:"center", marginBottom:20, lineHeight:1.5}}>
+              {confirmModal.msg}
+            </div>
+            <div style={{display:"flex", gap:10}}>
+              <button onClick={() => setConfirmModal(null)}
+                style={{flex:1, background:inputBg, border:`1px solid ${navBord}`,
+                  borderRadius:50, color:sub, padding:"12px", fontWeight:700,
+                  fontSize:13, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                No, volver
+              </button>
+              <button onClick={async () => {
+                const fn = confirmModal.onOk;
+                setConfirmModal(null);
+                await fn();
+              }} style={{flex:1, background:"#ef4444", border:"none",
+                borderRadius:50, color:"white", padding:"12px", fontWeight:800,
+                fontSize:13, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                Sí, cancelar
               </button>
             </div>
           </div>
