@@ -94,7 +94,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
   } = useTheme();
 
   const [tab,         setTab]        = useState("mercado");
-  const [bookSide,    setBookSide]   = useState("comprar"); // "comprar" | "vender"
+  const [bookSide,    setBookSide]   = useState("vender"); // "comprar" | "vender"
   const [config,      setConfig]     = useState(null);
   const [offers,      setOffers]     = useState([]);
   const [myOffers,    setMyOffers]   = useState([]);
@@ -111,6 +111,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
   const [buyAmount,   setBuyAmount]  = useState("");
   const [submitting,  setSubmitting] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null); // {msg, onOk}
+  const [orderModal,   setOrderModal]   = useState(null); // orden abierta como modal
   const fileRef = useRef();
 
   const card = {
@@ -171,9 +172,21 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
     try {
       const r = await api.p2pCreateOrder(buyModal.id, {amount: parseInt(buyAmount)});
       const order = r.data || r;
-      showToast("✅ Orden creada. Tenés 30 min para pagar.");
+      // Enriquecer la orden con datos del vendedor que ya tenemos en buyModal
+      const enriched = {
+        ...order,
+        seller_nombre:      buyModal.seller_nombre,
+        seller_apodo:       buyModal.seller_apodo,
+        seller_skin:        buyModal.seller_skin,
+        seller_border:      buyModal.seller_border,
+        seller_avatar_bg:   buyModal.seller_avatar_bg,
+        seller_rating:      buyModal.seller_rating,
+        seller_trades:      buyModal.seller_trades,
+        seller_instructions: buyModal.instructions,
+      };
       setBuyModal(null); setBuyAmount("");
-      setActiveOrder(order); load();
+      setOrderModal(enriched); // abrir modal de orden inmediatamente
+      load();
     } catch(e) { showToast(e.message || "Error", "error"); }
     finally { setSubmitting(false); }
   };
@@ -767,20 +780,116 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
         {/* ══════════════════════════════════════════════════
             TAB ÓRDENES
             ══════════════════════════════════════════════════ */}
-        {!loading && tab==="ordenes" && (
-          <>
-            {activeOrder && renderOrder(activeOrder)}
-            {orders.filter(o => o.id !== activeOrder?.id).length === 0 && !activeOrder
-              ? <div style={{textAlign:"center", padding:32, color:sub}}>
+        {!loading && tab==="ordenes" && (() => {
+          const activeStatuses  = ["pending_payment","payment_sent","disputed"];
+          const historyStatuses = ["completed","cancelled","refunded"];
+          const activeOrds  = orders.filter(o => activeStatuses.includes(o.status));
+          const historyOrds = orders.filter(o => historyStatuses.includes(o.status));
+          return (
+            <>
+              {/* Órdenes activas */}
+              {activeOrds.length === 0 && historyOrds.length === 0 ? (
+                <div style={{textAlign:"center", padding:32, color:sub}}>
                   <div style={{fontSize:36, marginBottom:8}}>📦</div>
                   <div style={{fontWeight:700}}>Sin órdenes todavía</div>
                 </div>
-              : orders
-                  .filter(o => o.id !== activeOrder?.id)
-                  .map(o => renderOrder(o, true))
-            }
-          </>
-        )}
+              ) : (
+                <>
+                  {activeOrds.length > 0 && (
+                    <>
+                      <div style={{fontSize:9, color:sub, fontWeight:700,
+                        letterSpacing:1, marginBottom:8}}>EN CURSO</div>
+                      {activeOrds.map(o => (
+                        <div key={o.id}
+                          onClick={() => setOrderModal({
+                            ...o,
+                            seller_instructions: o.seller_instructions || o.instructions,
+                          })}
+                          style={{...card, padding:"14px 16px", marginBottom:10,
+                            cursor:"pointer", borderLeft:`3px solid ${STATUS_COLOR[o.status]||"#888"}`}}>
+                          <div style={{display:"flex", justifyContent:"space-between",
+                            alignItems:"center", marginBottom:6}}>
+                            <div>
+                              <span style={{fontWeight:900, fontSize:16, color:txt}}>
+                                🪙 {o.amount}
+                              </span>
+                              <span style={{fontSize:11, color:sub, marginLeft:6}}>
+                                = ${parseFloat(o.total_ars).toLocaleString("es-AR")} ARS
+                              </span>
+                            </div>
+                            <span style={{fontSize:10, fontWeight:700,
+                              background:(STATUS_COLOR[o.status]||"#888")+"22",
+                              color:STATUS_COLOR[o.status]||"#888",
+                              borderRadius:99, padding:"3px 10px"}}>
+                              {STATUS_LABEL[o.status]}
+                            </span>
+                          </div>
+                          <div style={{display:"flex", justifyContent:"space-between",
+                            alignItems:"center"}}>
+                            <div style={{fontSize:11, color:sub}}>
+                              {o.buyer_id===me.id
+                                ? `Vendedor: ${o.seller_apodo||o.seller_nombre}`
+                                : `Comprador: ${o.buyer_apodo||o.buyer_nombre}`}
+                            </div>
+                            {o.status==="pending_payment" && o.payment_deadline && (
+                              <Countdown deadline={o.payment_deadline}/>
+                            )}
+                          </div>
+                          <div style={{fontSize:10, color:accent, marginTop:6,
+                            fontWeight:700}}>
+                            Toca para ver detalles →
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Historial */}
+                  {historyOrds.length > 0 && (
+                    <>
+                      <div style={{fontSize:9, color:sub, fontWeight:700,
+                        letterSpacing:1, marginTop: activeOrds.length > 0 ? 16 : 0,
+                        marginBottom:8}}>HISTORIAL</div>
+                      {historyOrds.map(o => (
+                        <div key={o.id}
+                          onClick={() => setOrderModal({
+                            ...o,
+                            seller_instructions: o.seller_instructions || o.instructions,
+                          })}
+                          style={{...card, padding:"12px 14px", marginBottom:8,
+                            cursor:"pointer",
+                            borderLeft:`3px solid ${STATUS_COLOR[o.status]||"#888"}`}}>
+                          <div style={{display:"flex", justifyContent:"space-between",
+                            alignItems:"center"}}>
+                            <div>
+                              <span style={{fontWeight:800, fontSize:14, color:txt}}>
+                                🪙 {o.amount}
+                              </span>
+                              <span style={{fontSize:10, color:sub, marginLeft:6}}>
+                                = ${parseFloat(o.total_ars).toLocaleString("es-AR")} ARS
+                              </span>
+                            </div>
+                            <span style={{fontSize:10, fontWeight:700,
+                              background:(STATUS_COLOR[o.status]||"#888")+"22",
+                              color:STATUS_COLOR[o.status]||"#888",
+                              borderRadius:99, padding:"3px 8px"}}>
+                              {STATUS_LABEL[o.status]}
+                            </span>
+                          </div>
+                          <div style={{fontSize:10, color:sub, marginTop:4}}>
+                            {o.buyer_id===me.id
+                              ? `Vendedor: ${o.seller_apodo||o.seller_nombre}`
+                              : `Comprador: ${o.buyer_apodo||o.buyer_nombre}`}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {/* ── Modal: Nueva oferta ───────────────────────────── */}
@@ -888,53 +997,117 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
       )}
 
       {/* ── Modal: Comprar ────────────────────────────────── */}
+      {/* ── Modal: Comprar — datos completos del vendedor ─── */}
       {buyModal && (
         <div onClick={e => { if (e.target===e.currentTarget) setBuyModal(null); }}
-          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.5)",
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.55)",
             zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center"}}>
           <div style={{background:cardBg, borderRadius:"20px 20px 0 0",
-            padding:20, width:"100%", maxWidth:480, fontFamily:"Nunito,sans-serif"}}>
-            <div style={{fontWeight:900, fontSize:18, color:txt, marginBottom:4}}>
-              💱 Comprar EduCoins
-            </div>
-            <div style={{fontSize:12, color:sub, marginBottom:14}}>
-              Vendedor: <strong>{buyModal.seller_apodo||buyModal.seller_nombre}</strong>
-            </div>
-            <div style={{background:inputBg, borderRadius:12, padding:12,
-              marginBottom:14, border:`1px solid ${navBord}`}}>
-              <div style={{fontSize:13, fontWeight:700, color:txt, marginBottom:4}}>
-                💰 Precio: ${parseFloat(buyModal.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})} por EduCoin
+            padding:20, width:"100%", maxWidth:480, maxHeight:"90vh",
+            overflowY:"auto", fontFamily:"Nunito,sans-serif"}}>
+
+            {/* Header vendedor */}
+            <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:16,
+              paddingBottom:14, borderBottom:`1px solid ${navBord}`}}>
+              <Av user={{nombre:buyModal.seller_nombre, apodo:buyModal.seller_apodo,
+                skin:buyModal.seller_skin, border:buyModal.seller_border}}
+                sz={44} avatarBg={buyModal.seller_avatar_bg}/>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:900, fontSize:15, color:txt}}>
+                  {buyModal.seller_apodo || buyModal.seller_nombre}
+                </div>
+                <div style={{fontSize:11, color:sub}}>
+                  ⭐ {buyModal.seller_rating || "5.0"} reputación
+                  · {buyModal.seller_trades || 0} operaciones
+                </div>
               </div>
-              {buyModal.instructions && (
-                <div style={{fontSize:12, color:sub}}>📋 {buyModal.instructions}</div>
-              )}
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:22, fontWeight:900, color:accent}}>
+                  ${parseFloat(buyModal.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})}
+                </div>
+                <div style={{fontSize:9, color:sub}}>por EduCoin</div>
+              </div>
             </div>
+
+            {/* Datos de pago del vendedor */}
+            {buyModal.instructions && (
+              <div style={{background:inputBg, borderRadius:12, padding:14,
+                marginBottom:14, border:`1px solid ${navBord}`}}>
+                <div style={{fontSize:10, fontWeight:800, color:sub,
+                  letterSpacing:1, marginBottom:8}}>DATOS DE PAGO DEL VENDEDOR</div>
+                <div style={{fontSize:13, color:txt, lineHeight:1.7, whiteSpace:"pre-wrap"}}>
+                  {buyModal.instructions}
+                </div>
+              </div>
+            )}
+
+            {/* Métodos aceptados */}
+            {buyModal.payment_methods?.length > 0 && (
+              <div style={{display:"flex", gap:6, marginBottom:14}}>
+                {buyModal.payment_methods.map(m => (
+                  <span key={m} style={{background:accent+"18", borderRadius:99,
+                    padding:"4px 10px", fontSize:10, fontWeight:700, color:accent,
+                    border:`1px solid ${accent}33`}}>
+                    {m==="transferencia" ? "🏦 Transferencia"
+                      : m==="efectivo" ? "💵 Efectivo"
+                      : "💙 MercadoPago"}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Cantidad */}
             <div style={{marginBottom:14}}>
               <div style={{fontSize:12, fontWeight:700, color:sub, marginBottom:6}}>
-                Cantidad (entre {buyModal.min_order} y {Math.min(buyModal.max_order||999,buyModal.amount)}):
+                ¿Cuántas EduCoins querés comprar?
+              </div>
+              <div style={{fontSize:10, color:sub, marginBottom:8}}>
+                Mínimo {buyModal.min_order} · Disponible {buyModal.amount}
               </div>
               <input type="number" value={buyAmount}
                 min={buyModal.min_order}
-                max={Math.min(buyModal.max_order||999, buyModal.amount)}
+                max={Math.min(buyModal.max_order||99999, buyModal.amount)}
                 onChange={e => setBuyAmount(e.target.value)}
                 style={{width:"100%", background:inputBg, border:`1.5px solid ${inputBd}`,
-                  borderRadius:10, padding:"12px", fontSize:18, fontWeight:800,
+                  borderRadius:10, padding:"12px", fontSize:24, fontWeight:900,
                   outline:"none", boxSizing:"border-box",
-                  fontFamily:"Nunito,sans-serif", color:txt}}/>
-              {buyAmount && (
-                <div style={{fontSize:13, fontWeight:800, color:accent, marginTop:6}}>
-                  Total a pagar: ${(parseFloat(buyModal.price_ars)*parseInt(buyAmount||0))
-                    .toLocaleString("es-AR")} ARS
+                  fontFamily:"Nunito,sans-serif", color:txt, textAlign:"center"}}/>
+              {buyAmount && parseInt(buyAmount) > 0 && (
+                <div style={{marginTop:10, background:accent+"12", borderRadius:10,
+                  padding:"10px 14px", border:`1px solid ${accent}33`}}>
+                  <div style={{display:"flex", justifyContent:"space-between"}}>
+                    <span style={{fontSize:12, color:sub}}>Vas a recibir</span>
+                    <span style={{fontSize:14, fontWeight:900, color:accent}}>
+                      🪙 {parseInt(buyAmount)} EduCoins
+                    </span>
+                  </div>
+                  <div style={{display:"flex", justifyContent:"space-between", marginTop:4}}>
+                    <span style={{fontSize:12, color:sub}}>Tenés que pagar</span>
+                    <span style={{fontSize:14, fontWeight:900, color:txt}}>
+                      ${(parseFloat(buyModal.price_ars)*parseInt(buyAmount||0))
+                        .toLocaleString("es-AR",{minimumFractionDigits:2})} ARS
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Aviso */}
+            <div style={{fontSize:11, color:sub, textAlign:"center",
+              marginBottom:14, lineHeight:1.5}}>
+              Al crear la orden tenés <strong style={{color:txt}}>30 minutos</strong> para
+              realizar el pago y subir el comprobante.
+            </div>
+
             <div style={{display:"flex", gap:8}}>
-              <button onClick={createOrder} disabled={submitting}
-                style={{flex:2, background:submitting ? "#ccc" : "#10b981",
+              <button onClick={createOrder} disabled={submitting || !buyAmount || parseInt(buyAmount) < 1}
+                style={{flex:2,
+                  background: (submitting || !buyAmount || parseInt(buyAmount) < 1)
+                    ? (dark ? "#333" : "#ccc") : "#10b981",
                   border:"none", borderRadius:50, color:"white", padding:"13px",
                   fontWeight:800, fontSize:14, cursor:"pointer",
                   fontFamily:"Nunito,sans-serif"}}>
-                {submitting ? "Creando orden..." : "✅ Crear orden"}
+                {submitting ? "Creando..." : "✅ Confirmar y crear orden"}
               </button>
               <button onClick={() => setBuyModal(null)}
                 style={{flex:1, background:inputBg, border:`1px solid ${navBord}`,
@@ -946,7 +1119,230 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
           </div>
         </div>
       )}
-      {/* ── Modal: Confirmación propia (reemplaza window.confirm) ── */}
+      {/* ── Modal: Orden activa ────────────────────────────── */}
+      {orderModal && (
+        <div onClick={e => { if (e.target===e.currentTarget) setOrderModal(null); }}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.55)",
+            zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center"}}>
+          <div style={{background:cardBg, borderRadius:"20px 20px 0 0",
+            padding:20, width:"100%", maxWidth:480, maxHeight:"92vh",
+            overflowY:"auto", fontFamily:"Nunito,sans-serif"}}>
+
+            {/* ── Header de la orden ── */}
+            {(() => {
+              const o         = orderModal;
+              const isBuyer   = o.buyer_id  === me.id;
+              const isSeller  = o.seller_id === me.id;
+              const statusCol = STATUS_COLOR[o.status] || "#888";
+              return (
+                <>
+                  {/* Título + status */}
+                  <div style={{display:"flex", justifyContent:"space-between",
+                    alignItems:"center", marginBottom:14}}>
+                    <div>
+                      <div style={{fontSize:18, fontWeight:900, color:txt}}>
+                        🪙 {o.amount} EduCoins
+                      </div>
+                      <div style={{fontSize:11, color:sub, marginTop:2}}>
+                        = ${parseFloat(o.total_ars).toLocaleString("es-AR")} ARS
+                      </div>
+                    </div>
+                    <span style={{fontSize:11, fontWeight:800,
+                      background:statusCol+"22", color:statusCol,
+                      borderRadius:99, padding:"5px 12px"}}>
+                      {STATUS_LABEL[o.status]}
+                    </span>
+                  </div>
+
+                  {/* Countdown si está pendiente */}
+                  {o.status==="pending_payment" && o.payment_deadline && (
+                    <div style={{background:inputBg, borderRadius:10, padding:"10px 14px",
+                      marginBottom:14, border:`1px solid #f59e0b44`,
+                      display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+                      <span style={{fontSize:12, color:sub}}>Tiempo para pagar</span>
+                      <Countdown deadline={o.payment_deadline}/>
+                    </div>
+                  )}
+
+                  {/* Info de la contraparte */}
+                  <div style={{background:inputBg, borderRadius:12, padding:14,
+                    marginBottom:14, border:`1px solid ${navBord}`}}>
+                    <div style={{fontSize:10, fontWeight:800, color:sub,
+                      letterSpacing:1, marginBottom:8}}>
+                      {isBuyer ? "VENDEDOR" : "COMPRADOR"}
+                    </div>
+                    <div style={{display:"flex", alignItems:"center", gap:10}}>
+                      <Av user={{
+                        nombre: isBuyer ? o.seller_nombre : o.buyer_nombre,
+                        apodo:  isBuyer ? o.seller_apodo  : o.buyer_apodo,
+                        skin:   isBuyer ? o.seller_skin   : o.buyer_skin,
+                        border: isBuyer ? o.seller_border : o.buyer_border,
+                      }} sz={38}
+                        avatarBg={isBuyer ? o.seller_avatar_bg : o.buyer_avatar_bg}/>
+                      <div>
+                        <div style={{fontWeight:800, fontSize:13, color:txt}}>
+                          {isBuyer
+                            ? (o.seller_apodo || o.seller_nombre)
+                            : (o.buyer_apodo  || o.buyer_nombre)}
+                        </div>
+                        {isBuyer && (
+                          <div style={{fontSize:10, color:sub}}>
+                            ⭐ {o.seller_rating || "5.0"} · {o.seller_trades || 0} operaciones
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Datos de pago — solo para el comprador */}
+                  {isBuyer && o.status==="pending_payment" && (
+                    <div style={{background:inputBg, borderRadius:12, padding:14,
+                      marginBottom:14, border:`1px solid ${accent}44`}}>
+                      <div style={{fontSize:10, fontWeight:800, color:sub,
+                        letterSpacing:1, marginBottom:8}}>DATOS DE PAGO</div>
+                      <div style={{fontSize:13, color:txt, lineHeight:1.7,
+                        whiteSpace:"pre-wrap"}}>
+                        {o.seller_instructions || "Contactá al vendedor por el chat."}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Comprobante enviado (comprador) */}
+                  {isBuyer && o.status==="payment_sent" && (
+                    <div style={{background:inputBg, borderRadius:12, padding:14,
+                      marginBottom:14, border:`1px solid #10b98133`}}>
+                      <div style={{fontSize:12, fontWeight:800, color:"#10b981", marginBottom:6}}>
+                        ✅ Pago enviado — esperando confirmación
+                      </div>
+                      {o.comprobante_url && (
+                        <img src={o.comprobante_url} alt="comprobante"
+                          style={{width:"100%", borderRadius:8, maxHeight:200,
+                            objectFit:"contain", marginTop:4}}/>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Vendedor: comprobante recibido */}
+                  {isSeller && o.status==="payment_sent" && (
+                    <div style={{background:inputBg, borderRadius:12, padding:14,
+                      marginBottom:14, border:`1px solid ${accent}44`}}>
+                      <div style={{fontSize:12, fontWeight:800, color:accent, marginBottom:4}}>
+                        💰 El comprador marcó el pago como enviado
+                      </div>
+                      <div style={{fontSize:11, color:sub, marginBottom:8}}>
+                        Verificá en tu cuenta antes de liberar las monedas.
+                      </div>
+                      {o.comprobante_url && (
+                        <img src={o.comprobante_url} alt="comprobante"
+                          style={{width:"100%", borderRadius:8, maxHeight:200,
+                            objectFit:"contain"}}/>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Orden completada */}
+                  {o.status==="completed" && (
+                    <div style={{background:"#10b98112", borderRadius:12, padding:14,
+                      marginBottom:14, border:`1px solid #10b98133`,
+                      textAlign:"center"}}>
+                      <div style={{fontSize:28, marginBottom:4}}>🎉</div>
+                      <div style={{fontSize:14, fontWeight:800, color:"#10b981"}}>
+                        Operación completada
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Orden cancelada */}
+                  {(o.status==="cancelled" || o.status==="refunded") && (
+                    <div style={{background:inputBg, borderRadius:12, padding:14,
+                      marginBottom:14, border:`1px solid #94a3b833`,
+                      textAlign:"center"}}>
+                      <div style={{fontSize:13, color:sub}}>
+                        {o.status==="cancelled" ? "Orden cancelada" : "Orden reembolsada"}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Acciones ── */}
+                  <div style={{display:"flex", flexDirection:"column", gap:8}}>
+                    {/* Comprador: marcar pago */}
+                    {isBuyer && o.status==="pending_payment" && (
+                      <>
+                        <button onClick={() => fileRef.current?.click()}
+                          style={{width:"100%", background:accent, border:"none",
+                            borderRadius:50, color:"white", padding:"13px",
+                            fontWeight:800, fontSize:14, cursor:"pointer",
+                            fontFamily:"Nunito,sans-serif"}}>
+                          📤 Ya pagué — subir comprobante
+                        </button>
+                        <input ref={fileRef} type="file" accept="image/*"
+                          style={{display:"none"}}
+                          onChange={async e => {
+                            const file = e.target.files?.[0]; if (!file) return;
+                            if (file.size > 1000000) { showToast("Max 1MB","error"); return; }
+                            const r = new FileReader();
+                            r.onload = async ev => {
+                              await markPaymentSent(o.id, ev.target.result);
+                              setOrderModal(prev => prev
+                                ? {...prev, status:"payment_sent",
+                                    comprobante_url:ev.target.result}
+                                : null);
+                            };
+                            r.readAsDataURL(file);
+                          }}/>
+                        <button onClick={() => {
+                          openDispute(o.id, "El vendedor no responde");
+                          setOrderModal(prev => prev ? {...prev, status:"disputed"} : null);
+                        }} style={{width:"100%", background:inputBg,
+                          border:`1px solid #ef444466`, borderRadius:50,
+                          color:"#ef4444", padding:"11px", fontWeight:700,
+                          fontSize:13, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                          ⚠️ Abrir disputa
+                        </button>
+                      </>
+                    )}
+
+                    {/* Vendedor: liberar */}
+                    {isSeller && o.status==="payment_sent" && (
+                      <>
+                        <button onClick={async () => {
+                          await release(o.id);
+                          setOrderModal(null);
+                        }} disabled={submitting}
+                          style={{width:"100%", background:"#10b981", border:"none",
+                            borderRadius:50, color:"white", padding:"13px",
+                            fontWeight:800, fontSize:14, cursor:"pointer",
+                            fontFamily:"Nunito,sans-serif"}}>
+                          ✅ Confirmar recepción y liberar EduCoins
+                        </button>
+                        <button onClick={() => {
+                          openDispute(o.id, "El pago no llegó");
+                          setOrderModal(prev => prev ? {...prev, status:"disputed"} : null);
+                        }} style={{width:"100%", background:inputBg,
+                          border:`1px solid #ef444466`, borderRadius:50,
+                          color:"#ef4444", padding:"11px", fontWeight:700,
+                          fontSize:13, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                          ⚠️ No recibí el pago — disputa
+                        </button>
+                      </>
+                    )}
+
+                    <button onClick={() => setOrderModal(null)}
+                      style={{width:"100%", background:inputBg,
+                        border:`1px solid ${navBord}`, borderRadius:50, color:sub,
+                        padding:"11px", fontWeight:700, fontSize:13,
+                        cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                      Cerrar
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+            {/* ── Modal: Confirmación propia (reemplaza window.confirm) ── */}
       {confirmModal && (
         <div onClick={() => setConfirmModal(null)}
           style={{position:"fixed", inset:0, background:"rgba(0,0,0,.55)",
