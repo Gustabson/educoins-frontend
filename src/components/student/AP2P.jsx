@@ -49,6 +49,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
   const [buyModal,    setBuyModal]   = useState(null); // oferta a comprar
   const [buyAmount,   setBuyAmount]  = useState("");
   const [submitting,  setSubmitting] = useState(false);
+  const [market,      setMarket]     = useState(null);
   const fileRef = useRef();
 
   const card = { background:cardBg, borderRadius:16, boxShadow:dark?"0 2px 12px rgba(0,0,0,.25)":"0 2px 12px rgba(0,0,0,.06)" };
@@ -56,13 +57,15 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
   const load = useCallback(async()=>{
     setLoading(true);
     try{
-      const [cfg, off, myOff, ord] = await Promise.all([
-        api.p2pConfig(), api.p2pOffers(), api.p2pMyOffers(), api.p2pOrders()
+      const [cfg, off, myOff, ord, mkt] = await Promise.all([
+        api.p2pConfig(), api.p2pOffers(), api.p2pMyOffers(), api.p2pOrders(),
+        api.p2pMarket().catch(()=>null)
       ]);
       setConfig(cfg.data||cfg);
       setOffers(Array.isArray(off.data||off)?off.data||off:[]);
       setMyOffers(Array.isArray(myOff.data||myOff)?myOff.data||myOff:[]);
       setOrders(Array.isArray(ord.data||ord)?ord.data||ord:[]);
+      if(mkt) setMarket(mkt.data||mkt);
     }catch(e){ showToast("Error al cargar","error"); }
     finally{ setLoading(false); }
   },[]);
@@ -342,7 +345,136 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
         {/* ── Mercado ─────────────────────────────────────────── */}
         {!loading&&tab==="mercado"&&(
           <>
-            <div style={{...card, padding:"12px 16px", marginBottom:12}}>
+            {/* ── TICKER / PRECIO ─────────────────────────────── */}
+            <div style={{...card, padding:"14px 16px", marginBottom:10,
+              background: dark
+                ? "linear-gradient(135deg,#1a1f2e 0%,#0f1420 100%)"
+                : "linear-gradient(135deg,#0f172a 0%,#1e293b 100%)",
+              border:`1px solid ${accent}33`}}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start"}}>
+                <div>
+                  <div style={{fontSize:10, color:"rgba(255,255,255,.5)", fontWeight:700, letterSpacing:2, marginBottom:2}}>
+                    EDU / ARS
+                  </div>
+                  <div style={{display:"flex", alignItems:"baseline", gap:8}}>
+                    <span style={{fontSize:28, fontWeight:900, color:"white", letterSpacing:-1}}>
+                      {market?.last_price != null
+                        ? `$${parseFloat(market.last_price).toLocaleString("es-AR",{minimumFractionDigits:2})}`
+                        : <span style={{fontSize:16, color:"rgba(255,255,255,.4)"}}>Sin datos</span>}
+                    </span>
+                    {market?.last_price != null && (
+                      <span style={{fontSize:12, fontWeight:800, padding:"2px 8px", borderRadius:99,
+                        background: market.change_24h >= 0 ? "#10b98133" : "#ef444433",
+                        color:       market.change_24h >= 0 ? "#34d399"   : "#f87171"}}>
+                        {market.change_24h >= 0 ? "▲" : "▼"} {Math.abs(market.change_24h)}%
+                      </span>
+                    )}
+                  </div>
+                  <div style={{fontSize:10, color:"rgba(255,255,255,.4)", marginTop:2}}>Último precio negociado</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:10, color:"rgba(255,255,255,.4)", fontWeight:700, letterSpacing:1}}>VOL 24H</div>
+                  <div style={{fontSize:16, fontWeight:900, color:"rgba(255,255,255,.85)"}}>
+                    🪙 {(market?.volume_24h_edu||0).toLocaleString("es-AR")}
+                  </div>
+                  <div style={{fontSize:10, color:"rgba(255,255,255,.4)"}}>
+                    {market?.trade_count_24h||0} operaciones
+                  </div>
+                </div>
+              </div>
+              {/* Stats row */}
+              <div style={{display:"flex", gap:8, marginTop:12}}>
+                {[
+                  ["Mejor oferta", market?.best_offer_price ? `$${parseFloat(market.best_offer_price).toLocaleString("es-AR",{minimumFractionDigits:2})}` : "—"],
+                  ["Disponible",   market?.edu_disponibles ? `🪙 ${market.edu_disponibles.toLocaleString("es-AR")}` : "—"],
+                  ["Ofertas",      `${market?.active_offers||0} activas`],
+                ].map(([label,val])=>(
+                  <div key={label} style={{flex:1, background:"rgba(255,255,255,.06)", borderRadius:10,
+                    padding:"8px 6px", textAlign:"center"}}>
+                    <div style={{fontSize:9, color:"rgba(255,255,255,.4)", fontWeight:700, marginBottom:2}}>{label}</div>
+                    <div style={{fontSize:11, fontWeight:800, color:"rgba(255,255,255,.85)"}}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── GRÁFICO SPARKLINE SVG ─────────────────────── */}
+            {market?.price_history?.length > 1 && (
+              <div style={{...card, padding:"14px 16px", marginBottom:10}}>
+                <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8}}>
+                  <span style={{fontSize:11, fontWeight:800, color:txt}}>Precio — últimas 24h</span>
+                  <span style={{fontSize:9, color:sub, fontWeight:700}}>EDU/ARS</span>
+                </div>
+                {(()=>{
+                  const pts = market.price_history;
+                  const prices = pts.map(p=>p.precio);
+                  const min = Math.min(...prices);
+                  const max = Math.max(...prices);
+                  const W=320, H=72, pad=4;
+                  const xScale = i => pad + (i/(pts.length-1))*(W-pad*2);
+                  const yScale = p => H-pad - ((p-min)/(max-min||1))*(H-pad*2);
+                  const polyline = pts.map((p,i)=>`${xScale(i)},${yScale(p.precio)}`).join(" ");
+                  const area = `${pad},${H-pad} ${pts.map((p,i)=>`${xScale(i)},${yScale(p.precio)}`).join(" ")} ${W-pad},${H-pad}`;
+                  const isUp = prices[prices.length-1] >= prices[0];
+                  const lineColor = isUp ? "#10b981" : "#ef4444";
+                  const last = pts[pts.length-1];
+                  return(
+                    <div style={{position:"relative"}}>
+                      <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:72,display:"block"}}>
+                        <defs>
+                          <linearGradient id="p2pGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={lineColor} stopOpacity="0.25"/>
+                            <stop offset="100%" stopColor={lineColor} stopOpacity="0.02"/>
+                          </linearGradient>
+                        </defs>
+                        <polygon points={area} fill="url(#p2pGrad)"/>
+                        <polyline points={polyline} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+                        {/* Punto final */}
+                        <circle cx={xScale(pts.length-1)} cy={yScale(last.precio)} r="3.5" fill={lineColor}/>
+                      </svg>
+                      <div style={{display:"flex", justifyContent:"space-between", fontSize:9, color:sub, marginTop:2}}>
+                        <span>{new Date(pts[0].hora).getHours()}:00</span>
+                        <span>{new Date(pts[Math.floor(pts.length/2)].hora).getHours()}:00</span>
+                        <span>Ahora</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* ── TRADES RECIENTES ─────────────────────────── */}
+            {market?.recent_trades?.length > 0 && (
+              <div style={{...card, padding:"14px 16px", marginBottom:10}}>
+                <div style={{fontSize:11, fontWeight:800, color:txt, marginBottom:10}}>
+                  Operaciones recientes
+                </div>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:0}}>
+                  <div style={{fontSize:9, fontWeight:800, color:sub, paddingBottom:6, borderBottom:`1px solid ${navBord}`}}>PRECIO</div>
+                  <div style={{fontSize:9, fontWeight:800, color:sub, textAlign:"center", paddingBottom:6, borderBottom:`1px solid ${navBord}`}}>CANTIDAD</div>
+                  <div style={{fontSize:9, fontWeight:800, color:sub, textAlign:"right", paddingBottom:6, borderBottom:`1px solid ${navBord}`}}>HORA</div>
+                  {market.recent_trades.slice(0,8).map((t,i)=>(
+                    <>
+                      <div key={`p${i}`} style={{fontSize:11, fontWeight:800, color:"#10b981",
+                        padding:"5px 0", borderBottom:`1px solid ${navBord}33`}}>
+                        ${parseFloat(t.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})}
+                      </div>
+                      <div key={`a${i}`} style={{fontSize:11, color:txt, textAlign:"center",
+                        padding:"5px 0", borderBottom:`1px solid ${navBord}33`}}>
+                        🪙 {t.amount}
+                      </div>
+                      <div key={`h${i}`} style={{fontSize:10, color:sub, textAlign:"right",
+                        padding:"5px 0", borderBottom:`1px solid ${navBord}33`}}>
+                        {new Date(t.executed_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                      </div>
+                    </>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── OFERTAS DISPONIBLES ──────────────────────── */}
+            <div style={{...card, padding:"12px 16px", marginBottom:10}}>
               <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
                 <div>
                   <div style={{fontSize:11, color:sub}}>Tu saldo</div>
@@ -352,9 +484,12 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                   style={{background:accent, border:"none", borderRadius:50,
                     color:"white", padding:"10px 18px", fontWeight:800, fontSize:12,
                     cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
-                  + Publicar oferta
+                  + Vender
                 </button>
               </div>
+            </div>
+            <div style={{fontSize:11, fontWeight:800, color:sub, marginBottom:8, paddingLeft:2}}>
+              OFERTAS DISPONIBLES
             </div>
             {offers.length===0
               ? <div style={{textAlign:"center",padding:32,color:sub}}>

@@ -94,6 +94,7 @@ const api = {
   p2pResolve:       (id,data)    => apiFetch(`/p2p/orders/${id}/resolve`,     { method:"PATCH", body:data }),
   p2pRate:          (id,data)    => apiFetch(`/p2p/orders/${id}/rate`,        { method:"POST",  body:data }),
   p2pAdminOrders:   (status)     => apiFetch(`/p2p/admin/orders${status?`?status=${status}`:""}`),
+  p2pMarket:        ()           => apiFetch("/p2p/market"),
   // Prizes
   prizeSets:      ()                      => apiFetch("/prizes/sets"),
   prizeAddItem:   (setId, data)           => apiFetch(`/prizes/sets/${setId}/items`, { method:"POST", body:data }),
