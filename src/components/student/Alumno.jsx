@@ -17,6 +17,7 @@ import ANotificaciones from "./ANotificaciones";
 import AChat from "./AChat";
 import AAmigos from "./AAmigos";
 import AMisPremios from "./AMisPremios";
+import AP2P from "./AP2P";
 import ANoticias from "./ANoticias";
 import AVotaciones from "./AVotaciones";
 import AReportes from "./AReportes";
@@ -219,7 +220,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     return()=>clearTimeout(t);
   },[balance]);
 
-  const hideNav = ["chat","amigos","mispremios","noticias","votaciones","reportes","notificaciones"].includes(tab);
+  const hideNav = ["chat","amigos","mispremios","p2p","noticias","votaciones","reportes","notificaciones"].includes(tab);
 
   // ── Socket notificaciones ────────────────────────────────────
   useEffect(()=>{
@@ -285,6 +286,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           currentMode={sm}/>}
         {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig} onOpenPerfil={setPerfilUserId}/>}
         {tab==="mispremios" && <AMisPremios me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
+        {tab==="p2p"        && <AP2P me={me} balance={balance} showToast={showToast} onBack={()=>navTo("home")} refreshBalance={refreshBalance}/>}
         {tab==="amigos"     && <AAmigos     me={me} showToast={showToast} onBack={()=>navTo("home")} onOpenPerfil={setPerfilUserId} onOpenChat={(friend)=>{navTo("chat");}}/>}
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}

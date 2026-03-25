@@ -5,6 +5,13 @@ import { Av, Inp, OBtn, OHdr, OHdrA, PBtn, Pill, Sheet, Toast, WCard, displayNam
 
 
 
+const RARITIES_OPTS = [
+  {id:"common",    label:"Común",     color:"#94a3b8"},
+  {id:"rare",      label:"Raro",      color:"#3b82f6"},
+  {id:"epic",      label:"Épico",     color:"#8b5cf6"},
+  {id:"legendary", label:"Legendario",color:"#f59e0b"},
+];
+
 function AdminUsuarios({showToast}){
   const [users,setUsers]=useState([]);
   const [form,setForm]=useState(false);

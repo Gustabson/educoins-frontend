@@ -129,6 +129,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
           ["💬","Chat",          "Personal · Aula · Global",    "#3b82f6","chat",         badges.chat],
           ["👥","Amigos",        "Social · Solicitudes · Grupos","#8b5cf6","amigos",       badges.amigos||0],
           ["🏆","Mis Premios",    "Títulos · Items · Colores",    "#f59e0b","mispremios",   0],
+          ["💱","Exchange P2P",   "Compra y venta de EduCoins",   "#10b981","p2p",          0],
           ["📰","Noticias",      "Novedades de la escuela",     "#10b981","noticias",     0],
           ["🗳️","Votaciones",    "Participá en encuestas",      "#8b5cf6","votaciones",   0],
           ["🎨","Personalizar",  "Temas, emojis y más",         "#f59e0b","personalizar", 0],
