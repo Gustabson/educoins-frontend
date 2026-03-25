@@ -465,7 +465,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
         {/* ── 4. SKINS ──────────────────────────────────────── */}
         <div style={{fontWeight:800,color:txt,fontSize:13,margin:"20px 0 8px"}}>🎨 Skins</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>
-          {SKINS.map(s=>{
+          {SKINS.filter(s=>!s.exclusive).map(s=>{
             const owned   = unlockedSkins.includes(s.id);
             const equipped = me.skin===s.id;
             const canBuy  = !owned&&balance>=s.price;

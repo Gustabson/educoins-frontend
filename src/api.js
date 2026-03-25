@@ -75,7 +75,7 @@ const api = {
   earnedTitles:   ()                      => apiFetch("/profile/earned-titles"),
   grantTitle:     (data)                  => apiFetch("/profile/earned-titles",      { method:"POST",  body:data }),
   revokeTitle:    (id)                    => apiFetch(`/profile/earned-titles/${id}`, { method:"DELETE" }),
-  earnedTitlesOf: (userId)                => apiFetch(`/profile/earned-titles/${userId}`),
+  earnedTitlesOf: (userId)                => apiFetch(`/profile/earned-titles/${userId}/all`),
   revokeLoan:     (id)                    => apiFetch(`/profile/loaned-items/${id}`,  { method:"DELETE" }),
   loanedItemsOf:  (userId)                => apiFetch(`/profile/loaned-items/${userId}`),
   // Prizes

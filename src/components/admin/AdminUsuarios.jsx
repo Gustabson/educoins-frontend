@@ -19,6 +19,8 @@ function AdminUsuarios({showToast}){
   const [grantForm,setGrantForm]=useState({name:"",rarity:"common",color:"#8b5cf6",glow_color:"",emoji:"",note:""});
   const [loanForm,setLoanForm]=useState({itemName:"Marco Dorado",type:"frame",value:"3px solid #f59e0b",glow:"#f59e0b44",note:"",days:""});
   const [granting,setGranting]=useState(false);
+  const [search,setSearch]=useState("");
+  const [userTitles,setUserTitles]=useState([]);
 
   useEffect(()=>{
     api.adminUsers().then(setUsers).finally(()=>setLoading(false));
@@ -105,7 +107,11 @@ function AdminUsuarios({showToast}){
             {/* Tabs */}
             <div style={{display:"flex",gap:6,marginBottom:14}}>
               {[["title","🏅 Título"],["loan","🖼️ Marco prestado"],["revocar","🗑️ Revocar"]].map(([id,lbl])=>(
-                <button key={id} onClick={()=>setGrantTab(id)}
+                <button key={id} onClick={()=>{
+                  setGrantTab(id);
+                  if(id==="revocar"&&grantModal)
+                    api.earnedTitlesOf(grantModal.id).then(d=>setUserTitles(Array.isArray(d)?d:(d?.data||[]))).catch(()=>{});
+                }}
                   style={{flex:1,background:grantTab===id?"#f59e0b22":"#f7f7f7",
                     border:`1.5px solid ${grantTab===id?"#f59e0b":"#eee"}`,
                     borderRadius:8,padding:"8px",fontSize:12,fontWeight:800,
@@ -204,6 +210,10 @@ function AdminUsuarios({showToast}){
                               <div style={{fontSize:10,color:"#888"}}>
                                 {t.rarity} · {new Date(t.created_at).toLocaleDateString("es-AR")}
                                 {t.expires_at&&` · Vence ${new Date(t.expires_at).toLocaleDateString("es-AR")}`}
+                              </div>
+                              <div style={{fontSize:9,fontWeight:700,
+                                color:t.status==="expired"?"#ef4444":t.status==="permanent"?"#10b981":"#f59e0b"}}>
+                                {t.status==="expired"?"● Expirado":t.status==="permanent"?"● Permanente":"● Activo"}
                               </div>
                             </div>
                             <button onClick={async()=>{
