@@ -34,151 +34,230 @@ function Countdown({ deadline }) {
   return <span style={{color:expired?"#ef4444":"#f59e0b",fontWeight:800,fontSize:12}}>⏱ {left}</span>;
 }
 
+// Gráfico sparkline — respeta el tema completamente, sin hardcodes de color
+function Sparkline({ history, accent, cardBg, txt, sub, navBord, isDark }) {
+  if (!history || history.length < 2) return null;
+  const prices   = history.map(p => p.precio);
+  const min      = Math.min(...prices);
+  const max      = Math.max(...prices);
+  const W=320, H=80, padX=4, padY=8;
+  const xScale   = i => padX + (i / (history.length - 1)) * (W - padX * 2);
+  const yScale   = p => H - padY - ((p - min) / (max - min || 1)) * (H - padY * 2);
+  const polyline = history.map((p,i) => `${xScale(i)},${yScale(p.precio)}`).join(" ");
+  const area     = `${padX},${H-padY} ${history.map((p,i) => `${xScale(i)},${yScale(p.precio)}`).join(" ")} ${W-padX},${H-padY}`;
+  const isUp     = prices[prices.length-1] >= prices[0];
+  const lineColor = isUp ? "#10b981" : "#ef4444";
+  const last     = history[history.length-1];
+  const mid      = Math.floor(history.length / 2);
+
+  return (
+    <div style={{background:cardBg, borderRadius:14, padding:"12px 14px",
+      border:`1px solid ${navBord}`, marginBottom:10}}>
+      <div style={{display:"flex", justifyContent:"space-between",
+        alignItems:"center", marginBottom:8}}>
+        <span style={{fontSize:11, fontWeight:800, color:txt}}>Precio últimas 24h</span>
+        <span style={{fontSize:10, fontWeight:700,
+          color: isUp ? "#10b981" : "#ef4444"}}>
+          {isUp ? "▲" : "▼"} EDU/ARS
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`}
+        style={{width:"100%", height:80, display:"block", overflow:"visible"}}>
+        <defs>
+          <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor={lineColor} stopOpacity={isDark ? "0.28" : "0.16"}/>
+            <stop offset="100%" stopColor={lineColor} stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <polygon points={area} fill="url(#sparkGrad)"/>
+        <polyline points={polyline} fill="none" stroke={lineColor}
+          strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+        <circle cx={xScale(history.length-1)} cy={yScale(last.precio)}
+          r="4" fill={lineColor}/>
+        <circle cx={xScale(history.length-1)} cy={yScale(last.precio)}
+          r="7" fill={lineColor} opacity="0.18"/>
+      </svg>
+      <div style={{display:"flex", justifyContent:"space-between",
+        fontSize:9, color:sub, marginTop:2}}>
+        <span>{new Date(history[0].hora).getHours()}:00</span>
+        <span>{new Date(history[mid].hora).getHours()}:00</span>
+        <span>Ahora</span>
+      </div>
+    </div>
+  );
+}
+
 function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
-  const { primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd, navBord } = useTheme();
+  const {
+    primary:accent, isDark:dark, txt, sub,
+    cardBg, pageBg:bg, inputBg, inputBd, navBord,
+  } = useTheme();
 
   const [tab,         setTab]        = useState("mercado");
+  const [bookSide,    setBookSide]   = useState("comprar"); // "comprar" | "vender"
   const [config,      setConfig]     = useState(null);
   const [offers,      setOffers]     = useState([]);
   const [myOffers,    setMyOffers]   = useState([]);
   const [orders,      setOrders]     = useState([]);
+  const [market,      setMarket]     = useState(null);
   const [loading,     setLoading]    = useState(true);
-  const [activeOrder, setActiveOrder]= useState(null); // orden abierta
+  const [activeOrder, setActiveOrder]= useState(null);
   const [newOffer,    setNewOffer]   = useState(false);
-  const [offerForm,   setOfferForm]  = useState({amount:"",price_ars:"",min_order:"",instructions:"",payment_methods:["transferencia"]});
-  const [buyModal,    setBuyModal]   = useState(null); // oferta a comprar
+  const [offerForm,   setOfferForm]  = useState({
+    amount:"", price_ars:"", min_order:"",
+    instructions:"", payment_methods:["transferencia"],
+  });
+  const [buyModal,    setBuyModal]   = useState(null);
   const [buyAmount,   setBuyAmount]  = useState("");
   const [submitting,  setSubmitting] = useState(false);
-  const [market,      setMarket]     = useState(null);
   const fileRef = useRef();
 
-  const card = { background:cardBg, borderRadius:16, boxShadow:dark?"0 2px 12px rgba(0,0,0,.25)":"0 2px 12px rgba(0,0,0,.06)" };
+  const card = {
+    background:  cardBg,
+    borderRadius: 14,
+    border:      `1px solid ${navBord}`,
+    boxShadow:   dark
+      ? "0 2px 12px rgba(0,0,0,.20)"
+      : "0 1px 6px rgba(0,0,0,.06)",
+  };
 
-  const load = useCallback(async()=>{
+  const load = useCallback(async () => {
     setLoading(true);
-    try{
+    try {
       const [cfg, off, myOff, ord, mkt] = await Promise.all([
-        api.p2pConfig(), api.p2pOffers(), api.p2pMyOffers(), api.p2pOrders(),
-        api.p2pMarket().catch(()=>null)
+        api.p2pConfig(),
+        api.p2pOffers(),
+        api.p2pMyOffers(),
+        api.p2pOrders(),
+        api.p2pMarket().catch(() => null),
       ]);
-      setConfig(cfg.data||cfg);
-      setOffers(Array.isArray(off.data||off)?off.data||off:[]);
-      setMyOffers(Array.isArray(myOff.data||myOff)?myOff.data||myOff:[]);
-      setOrders(Array.isArray(ord.data||ord)?ord.data||ord:[]);
-      if(mkt) setMarket(mkt.data||mkt);
-    }catch(e){ showToast("Error al cargar","error"); }
-    finally{ setLoading(false); }
-  },[]);
+      setConfig(cfg.data || cfg);
+      setOffers(Array.isArray(off.data || off) ? off.data || off : []);
+      setMyOffers(Array.isArray(myOff.data || myOff) ? myOff.data || myOff : []);
+      setOrders(Array.isArray(ord.data || ord) ? ord.data || ord : []);
+      if (mkt) setMarket(mkt.data || mkt);
+    } catch(e) { showToast("Error al cargar", "error"); }
+    finally { setLoading(false); }
+  }, []);
 
-  useEffect(()=>{ load(); },[load]);
+  useEffect(() => { load(); }, [load]);
 
-  // ── Crear oferta ───────────────────────────────────────────
-  const createOffer = async()=>{
-    if(!offerForm.amount||!offerForm.price_ars) return showToast("Completá los campos","error");
+  // ── Crear oferta ─────────────────────────────────────────
+  const createOffer = async () => {
+    if (!offerForm.amount || !offerForm.price_ars)
+      return showToast("Completá los campos", "error");
     setSubmitting(true);
-    try{
+    try {
       await api.p2pCreateOffer({
-        amount:parseInt(offerForm.amount),
-        price_ars:parseFloat(offerForm.price_ars),
-        min_order:parseInt(offerForm.min_order)||1,
-        instructions:offerForm.instructions,
-        payment_methods:offerForm.payment_methods,
+        amount:          parseInt(offerForm.amount),
+        price_ars:       parseFloat(offerForm.price_ars),
+        min_order:       parseInt(offerForm.min_order) || 1,
+        instructions:    offerForm.instructions,
+        payment_methods: offerForm.payment_methods,
       });
       showToast("✅ Oferta publicada");
       setNewOffer(false);
       setOfferForm({amount:"",price_ars:"",min_order:"",instructions:"",payment_methods:["transferencia"]});
-      load(); if(refreshBalance) refreshBalance();
-    }catch(e){ showToast(e.message||"Error","error"); }
-    finally{ setSubmitting(false); }
+      load(); if (refreshBalance) refreshBalance();
+    } catch(e) { showToast(e.message || "Error", "error"); }
+    finally { setSubmitting(false); }
   };
 
-  // ── Comprar (crear orden) ──────────────────────────────────
-  const createOrder = async()=>{
-    if(!buyAmount) return showToast("Ingresá la cantidad","error");
+  // ── Crear orden (comprar) ────────────────────────────────
+  const createOrder = async () => {
+    if (!buyAmount) return showToast("Ingresá la cantidad", "error");
     setSubmitting(true);
-    try{
-      const r = await api.p2pCreateOrder(buyModal.id, {amount:parseInt(buyAmount)});
-      const order = r.data||r;
+    try {
+      const r = await api.p2pCreateOrder(buyModal.id, {amount: parseInt(buyAmount)});
+      const order = r.data || r;
       showToast("✅ Orden creada. Tenés 30 min para pagar.");
       setBuyModal(null); setBuyAmount("");
-      setActiveOrder(order);
-      load();
-    }catch(e){ showToast(e.message||"Error","error"); }
-    finally{ setSubmitting(false); }
+      setActiveOrder(order); load();
+    } catch(e) { showToast(e.message || "Error", "error"); }
+    finally { setSubmitting(false); }
   };
 
-  // ── Pago enviado ───────────────────────────────────────────
-  const markPaymentSent = async(orderId, comprobanteUrl=null)=>{
+  // ── Pago enviado ─────────────────────────────────────────
+  const markPaymentSent = async (orderId, comprobanteUrl=null) => {
     setSubmitting(true);
-    try{
-      await api.p2pPaymentSent(orderId, {comprobante_url:comprobanteUrl});
+    try {
+      await api.p2pPaymentSent(orderId, {comprobante_url: comprobanteUrl});
       showToast("📤 Pago marcado como enviado");
       load();
-      setActiveOrder(prev=>prev?{...prev,status:"payment_sent",comprobante_url:comprobanteUrl}:null);
-    }catch(e){ showToast(e.message||"Error","error"); }
-    finally{ setSubmitting(false); }
+      setActiveOrder(prev => prev
+        ? {...prev, status:"payment_sent", comprobante_url:comprobanteUrl}
+        : null);
+    } catch(e) { showToast(e.message || "Error", "error"); }
+    finally { setSubmitting(false); }
   };
 
-  // ── Liberar monedas ────────────────────────────────────────
-  const release = async(orderId)=>{
+  // ── Liberar monedas ──────────────────────────────────────
+  const release = async (orderId) => {
     setSubmitting(true);
-    try{
+    try {
       await api.p2pRelease(orderId);
       showToast("✅ Monedas liberadas al comprador");
       load(); setActiveOrder(null);
-      if(refreshBalance) refreshBalance();
-    }catch(e){ showToast(e.message||"Error","error"); }
-    finally{ setSubmitting(false); }
+      if (refreshBalance) refreshBalance();
+    } catch(e) { showToast(e.message || "Error", "error"); }
+    finally { setSubmitting(false); }
   };
 
-  // ── Disputa ────────────────────────────────────────────────
-  const openDispute = async(orderId, reason)=>{
-    try{
-      await api.p2pDispute(orderId,{reason});
+  // ── Disputa ──────────────────────────────────────────────
+  const openDispute = async (orderId, reason) => {
+    try {
+      await api.p2pDispute(orderId, {reason});
       showToast("⚠️ Disputa abierta. Un moderador revisará.");
       load();
-    }catch(e){ showToast(e.message||"Error","error"); }
+    } catch(e) { showToast(e.message || "Error", "error"); }
   };
 
-  const myActiveOrders = orders.filter(o=>["pending_payment","payment_sent","disputed"].includes(o.status));
+  const myActiveOrders = orders.filter(o =>
+    ["pending_payment","payment_sent","disputed"].includes(o.status));
 
-  // ── Render oferta en mercado ───────────────────────────────
+  // ── Render oferta en book ────────────────────────────────
   const renderOffer = (offer) => {
-    const seller = { nombre:offer.seller_nombre, apodo:offer.seller_apodo, skin:offer.seller_skin, border:offer.seller_border, avatar_bg:offer.seller_avatar_bg };
-    const total = parseFloat(offer.price_ars) * parseInt(buyAmount||offer.min_order||1);
-    return(
-      <div key={offer.id} style={{...card, padding:"14px 16px", marginBottom:10}}>
-        <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:10}}>
-          <Av user={seller} sz={38} avatarBg={offer.seller_avatar_bg}/>
+    const seller = {
+      nombre:offer.seller_nombre, apodo:offer.seller_apodo,
+      skin:offer.seller_skin, border:offer.seller_border,
+      avatar_bg:offer.seller_avatar_bg,
+    };
+    return (
+      <div key={offer.id} style={{...card, padding:"12px 14px", marginBottom:8}}>
+        <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:8}}>
+          <Av user={seller} sz={34} avatarBg={offer.seller_avatar_bg}/>
           <div style={{flex:1}}>
-            <div style={{fontWeight:800, fontSize:13, color:txt}}>{displayName(seller)}</div>
+            <div style={{fontWeight:800, fontSize:12, color:txt}}>{displayName(seller)}</div>
             <div style={{fontSize:10, color:sub}}>
               ⭐ {offer.seller_rating||"5.0"} · {offer.seller_trades||0} operaciones
             </div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:20, fontWeight:900, color:accent}}>
-              ${parseFloat(offer.price_ars).toLocaleString("es-AR")}
+            <div style={{fontSize:18, fontWeight:900, color:accent}}>
+              ${parseFloat(offer.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})}
             </div>
-            <div style={{fontSize:10, color:sub}}>por EduCoin</div>
+            <div style={{fontSize:9, color:sub}}>por EduCoin</div>
           </div>
         </div>
-        <div style={{display:"flex", justifyContent:"space-between", fontSize:11, color:sub, marginBottom:10}}>
-          <span>💰 Disponible: <strong style={{color:txt}}>{offer.amount} 🪙</strong></span>
-          <span>Min: {offer.min_order} · Max: {offer.max_order}</span>
+        <div style={{display:"flex", justifyContent:"space-between",
+          fontSize:10, color:sub, marginBottom:8}}>
+          <span>Disponible: <strong style={{color:txt}}>🪙 {offer.amount}</strong></span>
+          <span>Mín {offer.min_order} · Máx {offer.max_order}</span>
         </div>
-        {offer.payment_methods?.length>0&&(
-          <div style={{display:"flex", gap:6, flexWrap:"wrap", marginBottom:10}}>
-            {offer.payment_methods.map(m=>(
-              <span key={m} style={{background:inputBg, borderRadius:99, padding:"2px 10px", fontSize:10, fontWeight:700, color:sub}}>
-                {m==="transferencia"?"🏦 Transferencia":m==="efectivo"?"💵 Efectivo":m}
+        {offer.payment_methods?.length > 0 && (
+          <div style={{display:"flex", gap:5, flexWrap:"wrap", marginBottom:8}}>
+            {offer.payment_methods.map(m => (
+              <span key={m} style={{background:inputBg, borderRadius:99,
+                padding:"2px 8px", fontSize:9, fontWeight:700,
+                color:sub, border:`1px solid ${navBord}`}}>
+                {m==="transferencia" ? "🏦 Transfer" : m==="efectivo" ? "💵 Efectivo" : "💙 MercadoPago"}
               </span>
             ))}
           </div>
         )}
-        <button onClick={()=>{setBuyModal(offer); setBuyAmount(String(offer.min_order));}}
+        <button onClick={() => { setBuyModal(offer); setBuyAmount(String(offer.min_order)); }}
           style={{width:"100%", background:accent, border:"none", borderRadius:50,
-            color:"white", padding:"11px", fontWeight:800, fontSize:13,
+            color:"white", padding:"10px", fontWeight:800, fontSize:12,
             cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
           Comprar EduCoins
         </button>
@@ -186,18 +265,19 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
     );
   };
 
-  // ── Render orden activa ────────────────────────────────────
+  // ── Render orden ─────────────────────────────────────────
   const renderOrder = (order, compact=false) => {
     const isBuyer  = order.buyer_id  === me.id;
     const isSeller = order.seller_id === me.id;
-    const statusCol = STATUS_COLOR[order.status]||"#888";
-    return(
-      <div key={order.id} style={{...card, padding:"14px 16px", marginBottom:10,
-        border:`1.5px solid ${statusCol}33`}}
-        onClick={compact?()=>setActiveOrder(order):undefined}
-        style={{...card, padding:"14px 16px", marginBottom:10, cursor:compact?"pointer":"default",
-          border:`1.5px solid ${statusCol}33`}}>
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8}}>
+    const statusCol = STATUS_COLOR[order.status] || "#888";
+    return (
+      <div key={order.id}
+        onClick={compact ? () => setActiveOrder(order) : undefined}
+        style={{...card, padding:"14px 16px", marginBottom:10,
+          cursor:compact ? "pointer" : "default",
+          borderLeft:`3px solid ${statusCol}`}}>
+        <div style={{display:"flex", justifyContent:"space-between",
+          alignItems:"center", marginBottom:8}}>
           <div>
             <span style={{fontWeight:900, fontSize:16, color:txt}}>🪙 {order.amount}</span>
             <span style={{fontSize:11, color:sub, marginLeft:6}}>
@@ -210,85 +290,89 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
           </span>
         </div>
         <div style={{fontSize:11, color:sub, marginBottom:8}}>
-          {isBuyer  ? `Vendedor: ${order.seller_nombre}` : `Comprador: ${order.buyer_nombre}`}
+          {isBuyer ? `Vendedor: ${order.seller_nombre}` : `Comprador: ${order.buyer_nombre}`}
         </div>
-        {order.status==="pending_payment"&&order.payment_deadline&&(
-          <div style={{marginBottom:8}}><Countdown deadline={order.payment_deadline}/></div>
+        {order.status==="pending_payment" && order.payment_deadline && (
+          <div style={{marginBottom:8}}>
+            <Countdown deadline={order.payment_deadline}/>
+          </div>
         )}
-        {!compact&&(
+        {!compact && (
           <>
-            {/* Comprador: debe pagar */}
-            {isBuyer&&order.status==="pending_payment"&&(
+            {isBuyer && order.status==="pending_payment" && (
               <div>
-                <div style={{background:inputBg, borderRadius:12, padding:12, marginBottom:10, fontSize:12, color:txt}}>
+                <div style={{background:inputBg, borderRadius:12, padding:12,
+                  marginBottom:10, fontSize:12, color:txt, border:`1px solid ${navBord}`}}>
                   <div style={{fontWeight:800, marginBottom:4}}>📋 Instrucciones de pago:</div>
-                  <div style={{color:sub}}>{order.seller_instructions||"Contactá al vendedor por el chat."}</div>
+                  <div style={{color:sub}}>
+                    {order.seller_instructions || "Contactá al vendedor por el chat."}
+                  </div>
                 </div>
                 <div style={{display:"flex", gap:8}}>
-                  <button onClick={()=>fileRef.current?.click()}
+                  <button onClick={() => fileRef.current?.click()}
                     style={{flex:2, background:accent, border:"none", borderRadius:50,
                       color:"white", padding:"11px", fontWeight:800, fontSize:12,
                       cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
                     📤 Marcar pago enviado
                   </button>
-                  <button onClick={()=>openDispute(order.id,"El vendedor no responde")}
-                    style={{flex:1, background:"#fee2e2", border:"none", borderRadius:50,
-                      color:"#ef4444", padding:"11px", fontWeight:800, fontSize:12,
-                      cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                  <button onClick={() => openDispute(order.id, "El vendedor no responde")}
+                    style={{flex:1, background:inputBg, border:`1px solid #ef444466`,
+                      borderRadius:50, color:"#ef4444", padding:"11px", fontWeight:800,
+                      fontSize:12, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
                     ⚠️ Disputa
                   </button>
                 </div>
                 <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}}
-                  onChange={async e=>{
-                    const file=e.target.files?.[0]; if(!file) return;
-                    if(file.size>1000000){showToast("Max 1MB","error");return;}
-                    const r=new FileReader();
-                    r.onload=async ev=>{ await markPaymentSent(order.id, ev.target.result); };
+                  onChange={async e => {
+                    const file = e.target.files?.[0]; if (!file) return;
+                    if (file.size > 1000000) { showToast("Max 1MB","error"); return; }
+                    const r = new FileReader();
+                    r.onload = async ev => { await markPaymentSent(order.id, ev.target.result); };
                     r.readAsDataURL(file);
                   }}/>
               </div>
             )}
-            {/* Comprobante enviado */}
-            {isBuyer&&order.status==="payment_sent"&&(
-              <div style={{background:"#f0fdf4", borderRadius:12, padding:12, fontSize:12, color:"#065f46"}}>
-                ✅ Pago enviado. Esperando que el vendedor confirme.
-                {order.comprobante_url&&(
+            {isBuyer && order.status==="payment_sent" && (
+              <div style={{background:inputBg, borderRadius:12, padding:12,
+                fontSize:12, color:txt, border:`1px solid ${navBord}`}}>
+                ✅ Pago enviado. Esperando confirmación del vendedor.
+                {order.comprobante_url && (
                   <img src={order.comprobante_url} alt="comprobante"
-                    style={{width:"100%", borderRadius:8, marginTop:8, maxHeight:200, objectFit:"contain"}}/>
+                    style={{width:"100%",borderRadius:8,marginTop:8,
+                      maxHeight:200,objectFit:"contain"}}/>
                 )}
               </div>
             )}
-            {/* Vendedor: confirmar pago */}
-            {isSeller&&order.status==="payment_sent"&&(
+            {isSeller && order.status==="payment_sent" && (
               <div>
-                <div style={{background:"#fffbeb", borderRadius:12, padding:12, marginBottom:10, fontSize:12}}>
-                  <div style={{fontWeight:800, color:"#b45309", marginBottom:4}}>💰 El comprador marcó el pago como enviado</div>
-                  <div style={{color:"#92400e"}}>Verificá en tu cuenta bancaria antes de liberar las monedas.</div>
-                  {order.comprobante_url&&(
+                <div style={{background:inputBg, borderRadius:12, padding:12,
+                  marginBottom:10, fontSize:12, color:txt, border:`1px solid ${navBord}`}}>
+                  <div style={{fontWeight:800, color:accent, marginBottom:4}}>
+                    💰 El comprador marcó el pago como enviado
+                  </div>
+                  <div style={{color:sub}}>
+                    Verificá en tu cuenta antes de liberar las monedas.
+                  </div>
+                  {order.comprobante_url && (
                     <img src={order.comprobante_url} alt="comprobante"
-                      style={{width:"100%", borderRadius:8, marginTop:8, maxHeight:200, objectFit:"contain"}}/>
+                      style={{width:"100%",borderRadius:8,marginTop:8,
+                        maxHeight:200,objectFit:"contain"}}/>
                   )}
                 </div>
                 <div style={{display:"flex", gap:8}}>
-                  <button onClick={()=>release(order.id)} disabled={submitting}
+                  <button onClick={() => release(order.id)} disabled={submitting}
                     style={{flex:2, background:"#10b981", border:"none", borderRadius:50,
                       color:"white", padding:"11px", fontWeight:800, fontSize:12,
                       cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
                     ✅ Confirmar y liberar EduCoins
                   </button>
-                  <button onClick={()=>openDispute(order.id,"El pago no llegó")}
-                    style={{flex:1, background:"#fee2e2", border:"none", borderRadius:50,
-                      color:"#ef4444", padding:"11px", fontWeight:800, fontSize:12,
-                      cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                  <button onClick={() => openDispute(order.id, "El pago no llegó")}
+                    style={{flex:1, background:inputBg, border:`1px solid #ef444466`,
+                      borderRadius:50, color:"#ef4444", padding:"11px", fontWeight:800,
+                      fontSize:12, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
                     ⚠️ Disputa
                   </button>
                 </div>
-              </div>
-            )}
-            {/* Completada */}
-            {order.status==="completed"&&(
-              <div style={{background:"#f0fdf4", borderRadius:12, padding:12, fontSize:12, color:"#065f46", fontWeight:700}}>
-                ✅ Operación completada
               </div>
             )}
           </>
@@ -297,28 +381,34 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
     );
   };
 
-  if(!config) return <div style={{background:bg,minHeight:"100vh"}}><OHdrA title="💱 Exchange P2P" onBack={onBack}/></div>;
+  // ── Guards ───────────────────────────────────────────────
+  if (!config) return (
+    <div style={{background:bg, minHeight:"100vh"}}>
+      <OHdrA title="💱 Exchange P2P" onBack={onBack}/>
+    </div>
+  );
 
-  if(!config.activo) return(
+  if (!config.activo) return (
     <div style={{background:bg, minHeight:"100vh", fontFamily:"Nunito,sans-serif"}}>
       <OHdrA title="💱 Exchange P2P" onBack={onBack}/>
       <div style={{textAlign:"center", padding:"60px 24px", color:sub}}>
         <div style={{fontSize:52, marginBottom:16}}>🔜</div>
         <div style={{fontWeight:900, fontSize:20, color:txt, marginBottom:8}}>Próximamente</div>
-        <div style={{fontSize:14, lineHeight:1.6}}>El exchange P2P está en preparación y se lanzará próximamente.</div>
+        <div style={{fontSize:14, lineHeight:1.6}}>El exchange P2P está en preparación.</div>
       </div>
     </div>
   );
 
-  return(
-    <div style={{background:bg, minHeight:"100vh", fontFamily:"Nunito,sans-serif", paddingBottom:32}}>
+  return (
+    <div style={{background:bg, minHeight:"100vh",
+      fontFamily:"Nunito,sans-serif", paddingBottom:32}}>
       <OHdrA title="💱 Exchange P2P" onBack={onBack}/>
 
-      {/* Banner de órdenes activas */}
-      {myActiveOrders.length>0&&(
-        <div style={{background:accent+"22", borderBottom:`1px solid ${accent}44`,
+      {/* ── Banner órdenes activas ───────────────────────── */}
+      {myActiveOrders.length > 0 && (
+        <div style={{background:accent+"18", borderBottom:`1px solid ${accent}33`,
           padding:"10px 14px", display:"flex", alignItems:"center", gap:8}}
-          onClick={()=>setTab("ordenes")}>
+          onClick={() => setTab("ordenes")}>
           <span style={{fontSize:16}}>🔔</span>
           <span style={{fontSize:12, fontWeight:700, color:accent, flex:1}}>
             Tenés {myActiveOrders.length} orden{myActiveOrders.length>1?"es":""} activa{myActiveOrders.length>1?"s":""}
@@ -327,331 +417,458 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={{display:"flex", borderBottom:`1px solid ${navBord}`, background:cardBg, padding:"0 4px"}}>
-        {[["mercado","🏪 Mercado"],["mis-ofertas","📋 Mis Ofertas"],["ordenes",`📦 Órdenes${myActiveOrders.length>0?" ("+myActiveOrders.length+")":""}`]].map(([id,lbl])=>(
-          <button key={id} onClick={()=>setTab(id)}
+      {/* ── Tabs ────────────────────────────────────────── */}
+      <div style={{display:"flex", borderBottom:`1px solid ${navBord}`,
+        background:cardBg, padding:"0 4px"}}>
+        {[
+          ["mercado",     "🏪 Mercado"],
+          ["mis-ofertas", "📋 Mis Ofertas"],
+          ["ordenes",     `📦 Órdenes${myActiveOrders.length > 0 ? " ("+myActiveOrders.length+")" : ""}`],
+        ].map(([id, lbl]) => (
+          <button key={id} onClick={() => setTab(id)}
             style={{flex:1, padding:"11px 4px", background:"none", border:"none",
-              fontWeight:800, fontSize:10, cursor:"pointer", fontFamily:"Nunito,sans-serif",
-              color:tab===id?accent:sub, borderBottom:`2.5px solid ${tab===id?accent:"transparent"}`}}>
+              fontWeight:800, fontSize:10, cursor:"pointer",
+              fontFamily:"Nunito,sans-serif",
+              color: tab===id ? accent : sub,
+              borderBottom: `2.5px solid ${tab===id ? accent : "transparent"}`}}>
             {lbl}
           </button>
         ))}
       </div>
 
       <div style={{padding:"12px 14px"}}>
-        {loading&&<div style={{textAlign:"center",color:sub,padding:32}}>Cargando...</div>}
+        {loading && (
+          <div style={{textAlign:"center", color:sub, padding:32}}>Cargando...</div>
+        )}
 
-        {/* ── Mercado ─────────────────────────────────────────── */}
-        {!loading&&tab==="mercado"&&(
+        {/* ══════════════════════════════════════════════════
+            TAB MERCADO
+            ══════════════════════════════════════════════════ */}
+        {!loading && tab==="mercado" && (
           <>
-            {/* ── TICKER / PRECIO ─────────────────────────────── */}
-            <div style={{...card, padding:"14px 16px", marginBottom:10,
-              background: dark
-                ? "linear-gradient(135deg,#1a1f2e 0%,#0f1420 100%)"
-                : "linear-gradient(135deg,#0f172a 0%,#1e293b 100%)",
-              border:`1px solid ${accent}33`}}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start"}}>
+            {/* ── Ticker EDU/ARS ────────────────────────── */}
+            <div style={{...card, padding:"14px 16px", marginBottom:10}}>
+              {/* Saldo del usuario — siempre visible arriba */}
+              <div style={{display:"flex", justifyContent:"space-between",
+                alignItems:"center", marginBottom:12, paddingBottom:10,
+                borderBottom:`1px solid ${navBord}`}}>
                 <div>
-                  <div style={{fontSize:10, color:"rgba(255,255,255,.5)", fontWeight:700, letterSpacing:2, marginBottom:2}}>
+                  <div style={{fontSize:10, color:sub, fontWeight:700, marginBottom:1}}>
+                    Tu saldo
+                  </div>
+                  <div style={{fontSize:20, fontWeight:900, color:accent}}>
+                    🪙 {balance.toLocaleString("es-AR")}
+                  </div>
+                </div>
+                <button onClick={() => setNewOffer(true)}
+                  style={{background:accent, border:"none", borderRadius:50,
+                    color:"white", padding:"9px 16px", fontWeight:800, fontSize:12,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                  + Vender
+                </button>
+              </div>
+
+              {/* Precio */}
+              <div style={{display:"flex", justifyContent:"space-between",
+                alignItems:"flex-end"}}>
+                <div>
+                  <div style={{fontSize:9, color:sub, fontWeight:700,
+                    letterSpacing:1.5, marginBottom:2}}>
                     EDU / ARS
                   </div>
                   <div style={{display:"flex", alignItems:"baseline", gap:8}}>
-                    <span style={{fontSize:28, fontWeight:900, color:"white", letterSpacing:-1}}>
+                    <span style={{fontSize:26, fontWeight:900, color:txt, letterSpacing:-1}}>
                       {market?.last_price != null
                         ? `$${parseFloat(market.last_price).toLocaleString("es-AR",{minimumFractionDigits:2})}`
-                        : <span style={{fontSize:16, color:"rgba(255,255,255,.4)"}}>Sin datos</span>}
+                        : <span style={{fontSize:16, color:sub}}>Sin datos aún</span>
+                      }
                     </span>
                     {market?.last_price != null && (
-                      <span style={{fontSize:12, fontWeight:800, padding:"2px 8px", borderRadius:99,
-                        background: market.change_24h >= 0 ? "#10b98133" : "#ef444433",
-                        color:       market.change_24h >= 0 ? "#34d399"   : "#f87171"}}>
+                      <span style={{fontSize:11, fontWeight:800, padding:"2px 7px",
+                        borderRadius:99,
+                        background: market.change_24h >= 0 ? "#10b98120" : "#ef444420",
+                        color:       market.change_24h >= 0 ? "#10b981"   : "#ef4444"}}>
                         {market.change_24h >= 0 ? "▲" : "▼"} {Math.abs(market.change_24h)}%
                       </span>
                     )}
                   </div>
-                  <div style={{fontSize:10, color:"rgba(255,255,255,.4)", marginTop:2}}>Último precio negociado</div>
+                  <div style={{fontSize:9, color:sub, marginTop:1}}>
+                    Último precio negociado
+                  </div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:10, color:"rgba(255,255,255,.4)", fontWeight:700, letterSpacing:1}}>VOL 24H</div>
-                  <div style={{fontSize:16, fontWeight:900, color:"rgba(255,255,255,.85)"}}>
-                    🪙 {(market?.volume_24h_edu||0).toLocaleString("es-AR")}
+                  <div style={{fontSize:9, color:sub, fontWeight:700,
+                    letterSpacing:1, marginBottom:1}}>
+                    VOLUMEN 24H
                   </div>
-                  <div style={{fontSize:10, color:"rgba(255,255,255,.4)"}}>
-                    {market?.trade_count_24h||0} operaciones
+                  <div style={{fontSize:14, fontWeight:800, color:txt}}>
+                    🪙 {(market?.volume_24h_edu || 0).toLocaleString("es-AR")}
+                  </div>
+                  <div style={{fontSize:9, color:sub}}>
+                    {market?.trade_count_24h || 0} operaciones
                   </div>
                 </div>
               </div>
-              {/* Stats row */}
-              <div style={{display:"flex", gap:8, marginTop:12}}>
+
+              {/* Stats rápidos */}
+              <div style={{display:"flex", gap:6, marginTop:12}}>
                 {[
-                  ["Mejor oferta", market?.best_offer_price ? `$${parseFloat(market.best_offer_price).toLocaleString("es-AR",{minimumFractionDigits:2})}` : "—"],
-                  ["Disponible",   market?.edu_disponibles ? `🪙 ${market.edu_disponibles.toLocaleString("es-AR")}` : "—"],
-                  ["Ofertas",      `${market?.active_offers||0} activas`],
-                ].map(([label,val])=>(
-                  <div key={label} style={{flex:1, background:"rgba(255,255,255,.06)", borderRadius:10,
-                    padding:"8px 6px", textAlign:"center"}}>
-                    <div style={{fontSize:9, color:"rgba(255,255,255,.4)", fontWeight:700, marginBottom:2}}>{label}</div>
-                    <div style={{fontSize:11, fontWeight:800, color:"rgba(255,255,255,.85)"}}>{val}</div>
+                  ["Mejor precio", market?.best_offer_price
+                    ? `$${parseFloat(market.best_offer_price).toLocaleString("es-AR",{minimumFractionDigits:2})}`
+                    : "—"],
+                  ["Disponible", market?.edu_disponibles
+                    ? `🪙 ${market.edu_disponibles.toLocaleString("es-AR")}`
+                    : "—"],
+                  ["Ofertas", `${market?.active_offers || 0} activas`],
+                ].map(([label, val]) => (
+                  <div key={label} style={{flex:1, background:inputBg,
+                    borderRadius:10, padding:"7px 5px", textAlign:"center",
+                    border:`1px solid ${navBord}`}}>
+                    <div style={{fontSize:9, color:sub, fontWeight:700, marginBottom:2}}>
+                      {label}
+                    </div>
+                    <div style={{fontSize:11, fontWeight:800, color:txt}}>{val}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* ── GRÁFICO SPARKLINE SVG ─────────────────────── */}
-            {market?.price_history?.length > 1 && (
-              <div style={{...card, padding:"14px 16px", marginBottom:10}}>
-                <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8}}>
-                  <span style={{fontSize:11, fontWeight:800, color:txt}}>Precio — últimas 24h</span>
-                  <span style={{fontSize:9, color:sub, fontWeight:700}}>EDU/ARS</span>
-                </div>
-                {(()=>{
-                  const pts = market.price_history;
-                  const prices = pts.map(p=>p.precio);
-                  const min = Math.min(...prices);
-                  const max = Math.max(...prices);
-                  const W=320, H=72, pad=4;
-                  const xScale = i => pad + (i/(pts.length-1))*(W-pad*2);
-                  const yScale = p => H-pad - ((p-min)/(max-min||1))*(H-pad*2);
-                  const polyline = pts.map((p,i)=>`${xScale(i)},${yScale(p.precio)}`).join(" ");
-                  const area = `${pad},${H-pad} ${pts.map((p,i)=>`${xScale(i)},${yScale(p.precio)}`).join(" ")} ${W-pad},${H-pad}`;
-                  const isUp = prices[prices.length-1] >= prices[0];
-                  const lineColor = isUp ? "#10b981" : "#ef4444";
-                  const last = pts[pts.length-1];
-                  return(
-                    <div style={{position:"relative"}}>
-                      <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:72,display:"block"}}>
-                        <defs>
-                          <linearGradient id="p2pGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={lineColor} stopOpacity="0.25"/>
-                            <stop offset="100%" stopColor={lineColor} stopOpacity="0.02"/>
-                          </linearGradient>
-                        </defs>
-                        <polygon points={area} fill="url(#p2pGrad)"/>
-                        <polyline points={polyline} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
-                        {/* Punto final */}
-                        <circle cx={xScale(pts.length-1)} cy={yScale(last.precio)} r="3.5" fill={lineColor}/>
-                      </svg>
-                      <div style={{display:"flex", justifyContent:"space-between", fontSize:9, color:sub, marginTop:2}}>
-                        <span>{new Date(pts[0].hora).getHours()}:00</span>
-                        <span>{new Date(pts[Math.floor(pts.length/2)].hora).getHours()}:00</span>
-                        <span>Ahora</span>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+            {/* ── Gráfico — usa variables del tema ─────────── */}
+            <Sparkline
+              history={market?.price_history}
+              accent={accent} cardBg={cardBg} txt={txt}
+              sub={sub} navBord={navBord} isDark={dark}
+            />
 
-            {/* ── TRADES RECIENTES ─────────────────────────── */}
+            {/* ── Trades recientes ─────────────────────────── */}
             {market?.recent_trades?.length > 0 && (
-              <div style={{...card, padding:"14px 16px", marginBottom:10}}>
+              <div style={{...card, padding:"12px 14px", marginBottom:10}}>
                 <div style={{fontSize:11, fontWeight:800, color:txt, marginBottom:10}}>
                   Operaciones recientes
                 </div>
-                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:0}}>
-                  <div style={{fontSize:9, fontWeight:800, color:sub, paddingBottom:6, borderBottom:`1px solid ${navBord}`}}>PRECIO</div>
-                  <div style={{fontSize:9, fontWeight:800, color:sub, textAlign:"center", paddingBottom:6, borderBottom:`1px solid ${navBord}`}}>CANTIDAD</div>
-                  <div style={{fontSize:9, fontWeight:800, color:sub, textAlign:"right", paddingBottom:6, borderBottom:`1px solid ${navBord}`}}>HORA</div>
-                  {market.recent_trades.slice(0,8).map((t,i)=>(
-                    <>
-                      <div key={`p${i}`} style={{fontSize:11, fontWeight:800, color:"#10b981",
-                        padding:"5px 0", borderBottom:`1px solid ${navBord}33`}}>
-                        ${parseFloat(t.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})}
-                      </div>
-                      <div key={`a${i}`} style={{fontSize:11, color:txt, textAlign:"center",
-                        padding:"5px 0", borderBottom:`1px solid ${navBord}33`}}>
-                        🪙 {t.amount}
-                      </div>
-                      <div key={`h${i}`} style={{fontSize:10, color:sub, textAlign:"right",
-                        padding:"5px 0", borderBottom:`1px solid ${navBord}33`}}>
-                        {new Date(t.executed_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
-                      </div>
-                    </>
-                  ))}
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
+                  paddingBottom:6, marginBottom:2, borderBottom:`1px solid ${navBord}`}}>
+                  <span style={{fontSize:9, fontWeight:800, color:sub}}>PRECIO</span>
+                  <span style={{fontSize:9, fontWeight:800, color:sub, textAlign:"center"}}>
+                    CANTIDAD
+                  </span>
+                  <span style={{fontSize:9, fontWeight:800, color:sub, textAlign:"right"}}>
+                    HORA
+                  </span>
                 </div>
+                {market.recent_trades.slice(0,8).map((t,i) => (
+                  <div key={i} style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
+                    padding:"5px 0", borderBottom:`1px solid ${navBord}22`}}>
+                    <span style={{fontSize:11, fontWeight:800, color:"#10b981"}}>
+                      ${parseFloat(t.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})}
+                    </span>
+                    <span style={{fontSize:11, color:txt, textAlign:"center"}}>
+                      🪙 {t.amount}
+                    </span>
+                    <span style={{fontSize:10, color:sub, textAlign:"right"}}>
+                      {new Date(t.executed_at).toLocaleTimeString("es-AR",{
+                        hour:"2-digit", minute:"2-digit",
+                      })}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* ── OFERTAS DISPONIBLES ──────────────────────── */}
-            <div style={{...card, padding:"12px 16px", marginBottom:10}}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-                <div>
-                  <div style={{fontSize:11, color:sub}}>Tu saldo</div>
-                  <div style={{fontSize:22, fontWeight:900, color:accent}}>🪙 {balance.toLocaleString("es-AR")}</div>
-                </div>
-                <button onClick={()=>setNewOffer(true)}
-                  style={{background:accent, border:"none", borderRadius:50,
-                    color:"white", padding:"10px 18px", fontWeight:800, fontSize:12,
-                    cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
-                  + Vender
-                </button>
+            {/* ── Book: selector Comprar / Vender ─────────── */}
+            <div style={{...card, padding:"12px 14px"}}>
+              {/* Toggle */}
+              <div style={{display:"flex", background:inputBg, borderRadius:50,
+                padding:3, marginBottom:12, border:`1px solid ${navBord}`}}>
+                {[["comprar","🟢 Comprar"],["vender","🔴 Vender"]].map(([side, lbl]) => (
+                  <button key={side} onClick={() => setBookSide(side)}
+                    style={{
+                      flex:1, padding:"8px", border:"none", borderRadius:50,
+                      fontWeight:800, fontSize:12, cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif", transition:"all .15s",
+                      background: bookSide===side
+                        ? (side==="comprar" ? "#10b981" : "#ef4444")
+                        : "transparent",
+                      color: bookSide===side ? "white" : sub,
+                    }}>
+                    {lbl}
+                  </button>
+                ))}
               </div>
+
+              {/* COMPRAR — ofertas de otros alumnos */}
+              {bookSide==="comprar" && (
+                offers.length === 0
+                  ? <div style={{textAlign:"center", padding:24, color:sub}}>
+                      <div style={{fontSize:32, marginBottom:6}}>📭</div>
+                      <div style={{fontWeight:700, fontSize:13}}>Sin ofertas disponibles</div>
+                      <div style={{fontSize:11, marginTop:4}}>Nadie está vendiendo por ahora</div>
+                    </div>
+                  : <>
+                      <div style={{fontSize:9, color:sub, fontWeight:700,
+                        letterSpacing:1, marginBottom:8}}>
+                        ALUMNOS VENDIENDO
+                      </div>
+                      {offers.map(renderOffer)}
+                    </>
+              )}
+
+              {/* VENDER — mis ofertas activas */}
+              {bookSide==="vender" && (
+                myOffers.filter(o => o.status==="active" || o.status==="paused").length === 0
+                  ? <div style={{textAlign:"center", padding:24, color:sub}}>
+                      <div style={{fontSize:32, marginBottom:6}}>📋</div>
+                      <div style={{fontWeight:700, fontSize:13}}>No tenés ofertas publicadas</div>
+                      <button onClick={() => setNewOffer(true)}
+                        style={{marginTop:12, background:accent, border:"none",
+                          borderRadius:50, color:"white", padding:"10px 20px",
+                          fontWeight:800, fontSize:12, cursor:"pointer",
+                          fontFamily:"Nunito,sans-serif"}}>
+                        + Publicar oferta
+                      </button>
+                    </div>
+                  : <>
+                      <div style={{fontSize:9, color:sub, fontWeight:700,
+                        letterSpacing:1, marginBottom:8}}>
+                        TUS OFERTAS ACTIVAS
+                      </div>
+                      {myOffers
+                        .filter(o => o.status==="active" || o.status==="paused")
+                        .map(offer => (
+                          <div key={offer.id} style={{...card, padding:"12px 14px", marginBottom:8}}>
+                            <div style={{display:"flex", justifyContent:"space-between", marginBottom:6}}>
+                              <div>
+                                <span style={{fontWeight:900, fontSize:15, color:txt}}>
+                                  🪙 {offer.amount}
+                                </span>
+                                <span style={{fontSize:10, color:sub, marginLeft:6}}>
+                                  @ ${parseFloat(offer.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})}/coin
+                                </span>
+                              </div>
+                              <span style={{fontSize:10, fontWeight:700,
+                                background: offer.status==="active" ? "#10b98120" : "#f59e0b20",
+                                color:       offer.status==="active" ? "#10b981"   : "#f59e0b",
+                                borderRadius:99, padding:"3px 10px"}}>
+                                {offer.status==="active" ? "● Activa" : "● Pausada"}
+                              </span>
+                            </div>
+                            <div style={{display:"flex", gap:8}}>
+                              <button onClick={async () => { await api.p2pPauseOffer(offer.id); load(); }}
+                                style={{flex:1, background:inputBg, border:`1px solid ${navBord}`,
+                                  borderRadius:50, color:sub, padding:"8px", fontWeight:700,
+                                  fontSize:11, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                                {offer.status==="active" ? "⏸ Pausar" : "▶ Activar"}
+                              </button>
+                              <button onClick={async () => {
+                                if (!window.confirm("¿Cancelar oferta y recuperar EduCoins?")) return;
+                                await api.p2pCancelOffer(offer.id);
+                                load(); if (refreshBalance) refreshBalance();
+                              }} style={{flex:1, background:inputBg, border:`1px solid #ef444466`,
+                                borderRadius:50, color:"#ef4444", padding:"8px", fontWeight:700,
+                                fontSize:11, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                                ✕ Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      }
+                      <button onClick={() => setNewOffer(true)}
+                        style={{width:"100%", background:"transparent",
+                          border:`1.5px dashed ${accent}`, borderRadius:50,
+                          color:accent, padding:"10px", fontWeight:800, fontSize:12,
+                          cursor:"pointer", fontFamily:"Nunito,sans-serif", marginTop:4}}>
+                        + Agregar otra oferta
+                      </button>
+                    </>
+              )}
             </div>
-            <div style={{fontSize:11, fontWeight:800, color:sub, marginBottom:8, paddingLeft:2}}>
-              OFERTAS DISPONIBLES
-            </div>
-            {offers.length===0
-              ? <div style={{textAlign:"center",padding:32,color:sub}}>
-                  <div style={{fontSize:36,marginBottom:8}}>📭</div>
-                  <div style={{fontWeight:700}}>Sin ofertas disponibles</div>
-                  <div style={{fontSize:12,marginTop:4}}>Sé el primero en publicar</div>
-                </div>
-              : offers.map(renderOffer)
-            }
           </>
         )}
 
-        {/* ── Mis Ofertas ─────────────────────────────────────── */}
-        {!loading&&tab==="mis-ofertas"&&(
+        {/* ══════════════════════════════════════════════════
+            TAB MIS OFERTAS — historial completo
+            ══════════════════════════════════════════════════ */}
+        {!loading && tab==="mis-ofertas" && (
           <>
-            {myOffers.length===0
-              ? <div style={{textAlign:"center",padding:32,color:sub}}>
-                  <div style={{fontSize:36,marginBottom:8}}>📋</div>
-                  <div style={{fontWeight:700}}>Sin ofertas publicadas</div>
-                  <button onClick={()=>{setTab("mercado");setNewOffer(true);}}
-                    style={{marginTop:12,background:accent,border:"none",borderRadius:50,
-                      color:"white",padding:"10px 20px",fontWeight:800,fontSize:12,
-                      cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                    + Publicar oferta
-                  </button>
+            <div style={{...card, padding:"12px 16px", marginBottom:10}}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:10, color:sub}}>Tu saldo</div>
+                  <div style={{fontSize:22, fontWeight:900, color:accent}}>
+                    🪙 {balance.toLocaleString("es-AR")}
+                  </div>
                 </div>
-              : myOffers.map(offer=>(
+                <button onClick={() => setNewOffer(true)}
+                  style={{background:accent, border:"none", borderRadius:50, color:"white",
+                    padding:"10px 18px", fontWeight:800, fontSize:12,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                  + Nueva oferta
+                </button>
+              </div>
+            </div>
+            {myOffers.length === 0
+              ? <div style={{textAlign:"center", padding:32, color:sub}}>
+                  <div style={{fontSize:36, marginBottom:8}}>📋</div>
+                  <div style={{fontWeight:700}}>Sin ofertas todavía</div>
+                </div>
+              : myOffers.map(offer => (
                   <div key={offer.id} style={{...card, padding:"14px 16px", marginBottom:10}}>
                     <div style={{display:"flex", justifyContent:"space-between", marginBottom:8}}>
                       <div>
-                        <span style={{fontWeight:900,fontSize:16,color:txt}}>🪙 {offer.amount}</span>
-                        <span style={{fontSize:11,color:sub,marginLeft:6}}>
-                          @ ${parseFloat(offer.price_ars).toLocaleString("es-AR")}/coin
+                        <span style={{fontWeight:900, fontSize:16, color:txt}}>
+                          🪙 {offer.amount}
+                        </span>
+                        <span style={{fontSize:11, color:sub, marginLeft:6}}>
+                          @ ${parseFloat(offer.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})}/coin
                         </span>
                       </div>
-                      <span style={{fontSize:10,fontWeight:700,background:
-                        offer.status==="active"?"#10b98122":"#f59e0b22",
-                        color:offer.status==="active"?"#10b981":"#f59e0b",
-                        borderRadius:99,padding:"3px 10px"}}>
-                        {offer.status==="active"?"● Activa":"● Pausada"}
+                      <span style={{fontSize:10, fontWeight:700,
+                        background: offer.status==="active" ? "#10b98120" : "#f59e0b20",
+                        color:       offer.status==="active" ? "#10b981"   : "#f59e0b",
+                        borderRadius:99, padding:"3px 10px"}}>
+                        {offer.status==="active" ? "● Activa" : "● Pausada"}
                       </span>
                     </div>
-                    <div style={{display:"flex",gap:8}}>
-                      <button onClick={async()=>{
-                        await api.p2pPauseOffer(offer.id); load();
-                      }} style={{flex:1,background:inputBg,border:"none",borderRadius:50,
-                        color:sub,padding:"9px",fontWeight:700,fontSize:11,
-                        cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                        {offer.status==="active"?"⏸ Pausar":"▶ Activar"}
-                      </button>
-                      <button onClick={async()=>{
-                        if(!window.confirm("¿Cancelar oferta y recuperar EduCoins?")) return;
-                        await api.p2pCancelOffer(offer.id); load(); if(refreshBalance) refreshBalance();
-                      }} style={{flex:1,background:"#fee2e2",border:"none",borderRadius:50,
-                        color:"#ef4444",padding:"9px",fontWeight:700,fontSize:11,
-                        cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                        ✕ Cancelar
-                      </button>
-                    </div>
+                    {(offer.status==="active" || offer.status==="paused") && (
+                      <div style={{display:"flex", gap:8}}>
+                        <button onClick={async () => { await api.p2pPauseOffer(offer.id); load(); }}
+                          style={{flex:1, background:inputBg, border:`1px solid ${navBord}`,
+                            borderRadius:50, color:sub, padding:"9px", fontWeight:700,
+                            fontSize:11, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                          {offer.status==="active" ? "⏸ Pausar" : "▶ Activar"}
+                        </button>
+                        <button onClick={async () => {
+                          if (!window.confirm("¿Cancelar oferta y recuperar EduCoins?")) return;
+                          await api.p2pCancelOffer(offer.id);
+                          load(); if (refreshBalance) refreshBalance();
+                        }} style={{flex:1, background:inputBg, border:`1px solid #ef444466`,
+                          borderRadius:50, color:"#ef4444", padding:"9px", fontWeight:700,
+                          fontSize:11, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                          ✕ Cancelar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))
             }
           </>
         )}
 
-        {/* ── Órdenes ─────────────────────────────────────────── */}
-        {!loading&&tab==="ordenes"&&(
+        {/* ══════════════════════════════════════════════════
+            TAB ÓRDENES
+            ══════════════════════════════════════════════════ */}
+        {!loading && tab==="ordenes" && (
           <>
             {activeOrder && renderOrder(activeOrder)}
-            {orders.filter(o=>o.id!==activeOrder?.id).length===0&&!activeOrder
-              ? <div style={{textAlign:"center",padding:32,color:sub}}>
-                  <div style={{fontSize:36,marginBottom:8}}>📦</div>
+            {orders.filter(o => o.id !== activeOrder?.id).length === 0 && !activeOrder
+              ? <div style={{textAlign:"center", padding:32, color:sub}}>
+                  <div style={{fontSize:36, marginBottom:8}}>📦</div>
                   <div style={{fontWeight:700}}>Sin órdenes todavía</div>
                 </div>
-              : orders.filter(o=>o.id!==activeOrder?.id).map(o=>renderOrder(o,true))
+              : orders
+                  .filter(o => o.id !== activeOrder?.id)
+                  .map(o => renderOrder(o, true))
             }
           </>
         )}
       </div>
 
-      {/* ── Modal: Nueva oferta ──────────────────────────────── */}
-      {newOffer&&(
-        <div onClick={e=>{if(e.target===e.currentTarget){setNewOffer(false);} }}
-          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
-            display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div style={{background:cardBg,borderRadius:"20px 20px 0 0",padding:20,
-            width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto",
-            fontFamily:"Nunito,sans-serif"}}>
-            <div style={{fontWeight:900,fontSize:18,color:txt,marginBottom:4}}>📤 Publicar oferta</div>
-            <div style={{fontSize:12,color:sub,marginBottom:16}}>
+      {/* ── Modal: Nueva oferta ───────────────────────────── */}
+      {newOffer && (
+        <div onClick={e => { if (e.target===e.currentTarget) setNewOffer(false); }}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.5)",
+            zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center"}}>
+          <div style={{background:cardBg, borderRadius:"20px 20px 0 0",
+            padding:20, width:"100%", maxWidth:480,
+            maxHeight:"90vh", overflowY:"auto", fontFamily:"Nunito,sans-serif"}}>
+            <div style={{fontWeight:900, fontSize:18, color:txt, marginBottom:4}}>
+              📤 Publicar oferta
+            </div>
+            <div style={{fontSize:12, color:sub, marginBottom:16}}>
               Tus EduCoins quedarán bloqueadas hasta cancelar o completar la venta.
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{display:"flex", flexDirection:"column", gap:12}}>
               <div>
-                <div style={{fontSize:12,fontWeight:700,color:sub,marginBottom:6}}>
+                <div style={{fontSize:12, fontWeight:700, color:sub, marginBottom:6}}>
                   Cantidad a vender (tu saldo: 🪙{balance})
                 </div>
                 <input type="number" value={offerForm.amount} min="1" max={balance}
-                  onChange={e=>setOfferForm(v=>({...v,amount:e.target.value}))}
+                  onChange={e => setOfferForm(v => ({...v, amount:e.target.value}))}
                   placeholder="Ej: 100"
-                  style={{width:"100%",background:inputBg,border:`1.5px solid ${inputBd}`,
-                    borderRadius:10,padding:"12px",fontSize:18,fontWeight:800,
-                    outline:"none",boxSizing:"border-box",fontFamily:"Nunito,sans-serif",color:txt}}/>
+                  style={{width:"100%", background:inputBg, border:`1.5px solid ${inputBd}`,
+                    borderRadius:10, padding:"12px", fontSize:18, fontWeight:800,
+                    outline:"none", boxSizing:"border-box",
+                    fontFamily:"Nunito,sans-serif", color:txt}}/>
               </div>
               <div>
-                <div style={{fontSize:12,fontWeight:700,color:sub,marginBottom:6}}>
+                <div style={{fontSize:12, fontWeight:700, color:sub, marginBottom:6}}>
                   Precio por EduCoin (en ARS $)
                 </div>
                 <input type="number" value={offerForm.price_ars} min="0.01" step="0.01"
-                  onChange={e=>setOfferForm(v=>({...v,price_ars:e.target.value}))}
+                  onChange={e => setOfferForm(v => ({...v, price_ars:e.target.value}))}
                   placeholder="Ej: 50.00"
-                  style={{width:"100%",background:inputBg,border:`1.5px solid ${inputBd}`,
-                    borderRadius:10,padding:"12px",fontSize:18,fontWeight:800,
-                    outline:"none",boxSizing:"border-box",fontFamily:"Nunito,sans-serif",color:txt}}/>
-                {offerForm.amount&&offerForm.price_ars&&(
-                  <div style={{fontSize:12,color:accent,fontWeight:700,marginTop:4}}>
-                    Total: ${(parseFloat(offerForm.price_ars)*parseInt(offerForm.amount)).toLocaleString("es-AR")} ARS
+                  style={{width:"100%", background:inputBg, border:`1.5px solid ${inputBd}`,
+                    borderRadius:10, padding:"12px", fontSize:18, fontWeight:800,
+                    outline:"none", boxSizing:"border-box",
+                    fontFamily:"Nunito,sans-serif", color:txt}}/>
+                {offerForm.amount && offerForm.price_ars && (
+                  <div style={{fontSize:12, color:accent, fontWeight:700, marginTop:4}}>
+                    Total: ${(parseFloat(offerForm.price_ars)*parseInt(offerForm.amount))
+                      .toLocaleString("es-AR")} ARS
                   </div>
                 )}
               </div>
               <div>
-                <div style={{fontSize:12,fontWeight:700,color:sub,marginBottom:6}}>Métodos de pago aceptados:</div>
-                <div style={{display:"flex",gap:8}}>
-                  {["transferencia","efectivo","mercadopago"].map(m=>{
-                    const sel=(offerForm.payment_methods||[]).includes(m);
-                    return(
-                      <button key={m} onClick={()=>setOfferForm(v=>{
-                        const cur=v.payment_methods||[];
-                        return {...v,payment_methods:sel?cur.filter(x=>x!==m):[...cur,m]};
-                      })} style={{flex:1,background:sel?accent+"22":inputBg,
-                        border:`1.5px solid ${sel?accent:inputBd}`,
-                        borderRadius:10,padding:"8px 4px",fontSize:10,fontWeight:700,
-                        cursor:"pointer",color:sel?accent:sub,fontFamily:"Nunito,sans-serif"}}>
-                        {m==="transferencia"?"🏦 Transfer":m==="efectivo"?"💵 Efectivo":"💙 MercadoPago"}
+                <div style={{fontSize:12, fontWeight:700, color:sub, marginBottom:6}}>
+                  Métodos de pago aceptados:
+                </div>
+                <div style={{display:"flex", gap:8}}>
+                  {["transferencia","efectivo","mercadopago"].map(m => {
+                    const sel = (offerForm.payment_methods||[]).includes(m);
+                    return (
+                      <button key={m} onClick={() => setOfferForm(v => {
+                        const cur = v.payment_methods || [];
+                        return {...v, payment_methods: sel
+                          ? cur.filter(x => x!==m)
+                          : [...cur, m]};
+                      })} style={{flex:1, background:sel ? accent+"22" : inputBg,
+                        border:`1.5px solid ${sel ? accent : inputBd}`,
+                        borderRadius:10, padding:"8px 4px", fontSize:10, fontWeight:700,
+                        cursor:"pointer", color:sel ? accent : sub,
+                        fontFamily:"Nunito,sans-serif"}}>
+                        {m==="transferencia" ? "🏦 Transfer"
+                          : m==="efectivo" ? "💵 Efectivo"
+                          : "💙 MercadoPago"}
                       </button>
                     );
                   })}
                 </div>
               </div>
               <div>
-                <div style={{fontSize:12,fontWeight:700,color:sub,marginBottom:6}}>
+                <div style={{fontSize:12, fontWeight:700, color:sub, marginBottom:6}}>
                   Instrucciones / datos de pago:
                 </div>
                 <textarea value={offerForm.instructions}
-                  onChange={e=>setOfferForm(v=>({...v,instructions:e.target.value}))}
+                  onChange={e => setOfferForm(v => ({...v, instructions:e.target.value}))}
                   placeholder="Ej: Alias: mi.alias.mp · CVU: 0000..."
                   rows={3}
-                  style={{width:"100%",background:inputBg,border:`1.5px solid ${inputBd}`,
-                    borderRadius:10,padding:"12px",fontSize:13,outline:"none",
-                    boxSizing:"border-box",fontFamily:"Nunito,sans-serif",color:txt,resize:"none"}}/>
+                  style={{width:"100%", background:inputBg, border:`1.5px solid ${inputBd}`,
+                    borderRadius:10, padding:"12px", fontSize:13, outline:"none",
+                    boxSizing:"border-box", fontFamily:"Nunito,sans-serif",
+                    color:txt, resize:"none"}}/>
               </div>
-              <div style={{display:"flex",gap:8}}>
+              <div style={{display:"flex", gap:8}}>
                 <button onClick={createOffer} disabled={submitting}
-                  style={{flex:2,background:submitting?"#ccc":accent,border:"none",borderRadius:50,
-                    color:"white",padding:"13px",fontWeight:800,fontSize:14,
-                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  {submitting?"Publicando...":"📤 Publicar y bloquear EduCoins"}
-                </button>
-                <button onClick={()=>setNewOffer(false)}
-                  style={{flex:1,background:inputBg,border:"none",borderRadius:50,
-                    color:sub,padding:"13px",fontWeight:700,cursor:"pointer",
+                  style={{flex:2, background:submitting ? "#ccc" : accent,
+                    border:"none", borderRadius:50, color:"white", padding:"13px",
+                    fontWeight:800, fontSize:14, cursor:"pointer",
                     fontFamily:"Nunito,sans-serif"}}>
+                  {submitting ? "Publicando..." : "📤 Publicar y bloquear EduCoins"}
+                </button>
+                <button onClick={() => setNewOffer(false)}
+                  style={{flex:1, background:inputBg, border:`1px solid ${navBord}`,
+                    borderRadius:50, color:sub, padding:"13px", fontWeight:700,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
                   Cancelar
                 </button>
               </div>
@@ -660,52 +877,59 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
         </div>
       )}
 
-      {/* ── Modal: Comprar ───────────────────────────────────── */}
-      {buyModal&&(
-        <div onClick={e=>{if(e.target===e.currentTarget){setBuyModal(null);} }}
-          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
-            display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div style={{background:cardBg,borderRadius:"20px 20px 0 0",padding:20,
-            width:"100%",maxWidth:480,fontFamily:"Nunito,sans-serif"}}>
-            <div style={{fontWeight:900,fontSize:18,color:txt,marginBottom:4}}>💱 Comprar EduCoins</div>
-            <div style={{fontSize:12,color:sub,marginBottom:14}}>
+      {/* ── Modal: Comprar ────────────────────────────────── */}
+      {buyModal && (
+        <div onClick={e => { if (e.target===e.currentTarget) setBuyModal(null); }}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.5)",
+            zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center"}}>
+          <div style={{background:cardBg, borderRadius:"20px 20px 0 0",
+            padding:20, width:"100%", maxWidth:480, fontFamily:"Nunito,sans-serif"}}>
+            <div style={{fontWeight:900, fontSize:18, color:txt, marginBottom:4}}>
+              💱 Comprar EduCoins
+            </div>
+            <div style={{fontSize:12, color:sub, marginBottom:14}}>
               Vendedor: <strong>{buyModal.seller_apodo||buyModal.seller_nombre}</strong>
             </div>
-            <div style={{...{background:inputBg,borderRadius:12,padding:12,marginBottom:14}}}>
-              <div style={{fontSize:13,fontWeight:700,color:txt,marginBottom:4}}>
-                💰 Precio: ${parseFloat(buyModal.price_ars).toLocaleString("es-AR")} por EduCoin
+            <div style={{background:inputBg, borderRadius:12, padding:12,
+              marginBottom:14, border:`1px solid ${navBord}`}}>
+              <div style={{fontSize:13, fontWeight:700, color:txt, marginBottom:4}}>
+                💰 Precio: ${parseFloat(buyModal.price_ars).toLocaleString("es-AR",{minimumFractionDigits:2})} por EduCoin
               </div>
-              {buyModal.instructions&&(
-                <div style={{fontSize:12,color:sub}}>📋 {buyModal.instructions}</div>
+              {buyModal.instructions && (
+                <div style={{fontSize:12, color:sub}}>📋 {buyModal.instructions}</div>
               )}
             </div>
             <div style={{marginBottom:14}}>
-              <div style={{fontSize:12,fontWeight:700,color:sub,marginBottom:6}}>
+              <div style={{fontSize:12, fontWeight:700, color:sub, marginBottom:6}}>
                 Cantidad (entre {buyModal.min_order} y {Math.min(buyModal.max_order||999,buyModal.amount)}):
               </div>
               <input type="number" value={buyAmount}
-                min={buyModal.min_order} max={Math.min(buyModal.max_order||999,buyModal.amount)}
-                onChange={e=>setBuyAmount(e.target.value)}
-                style={{width:"100%",background:inputBg,border:`1.5px solid ${inputBd}`,
-                  borderRadius:10,padding:"12px",fontSize:18,fontWeight:800,
-                  outline:"none",boxSizing:"border-box",fontFamily:"Nunito,sans-serif",color:txt}}/>
-              {buyAmount&&(
-                <div style={{fontSize:13,fontWeight:800,color:accent,marginTop:6}}>
-                  Total a pagar: ${(parseFloat(buyModal.price_ars)*parseInt(buyAmount||0)).toLocaleString("es-AR")} ARS
+                min={buyModal.min_order}
+                max={Math.min(buyModal.max_order||999, buyModal.amount)}
+                onChange={e => setBuyAmount(e.target.value)}
+                style={{width:"100%", background:inputBg, border:`1.5px solid ${inputBd}`,
+                  borderRadius:10, padding:"12px", fontSize:18, fontWeight:800,
+                  outline:"none", boxSizing:"border-box",
+                  fontFamily:"Nunito,sans-serif", color:txt}}/>
+              {buyAmount && (
+                <div style={{fontSize:13, fontWeight:800, color:accent, marginTop:6}}>
+                  Total a pagar: ${(parseFloat(buyModal.price_ars)*parseInt(buyAmount||0))
+                    .toLocaleString("es-AR")} ARS
                 </div>
               )}
             </div>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex", gap:8}}>
               <button onClick={createOrder} disabled={submitting}
-                style={{flex:2,background:submitting?"#ccc":"#10b981",border:"none",borderRadius:50,
-                  color:"white",padding:"13px",fontWeight:800,fontSize:14,
-                  cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                {submitting?"Creando orden...":"✅ Crear orden"}
-              </button>
-              <button onClick={()=>setBuyModal(null)}
-                style={{flex:1,background:inputBg,border:"none",borderRadius:50,
-                  color:sub,padding:"13px",fontWeight:700,cursor:"pointer",
+                style={{flex:2, background:submitting ? "#ccc" : "#10b981",
+                  border:"none", borderRadius:50, color:"white", padding:"13px",
+                  fontWeight:800, fontSize:14, cursor:"pointer",
                   fontFamily:"Nunito,sans-serif"}}>
+                {submitting ? "Creando orden..." : "✅ Crear orden"}
+              </button>
+              <button onClick={() => setBuyModal(null)}
+                style={{flex:1, background:inputBg, border:`1px solid ${navBord}`,
+                  borderRadius:50, color:sub, padding:"13px", fontWeight:700,
+                  cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
                 Cancelar
               </button>
             </div>
