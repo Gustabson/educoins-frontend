@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { api } from "../../api";
+import { api, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, displayName } from "../shared/index";
 
@@ -112,6 +112,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
   const [submitting,  setSubmitting] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null); // {msg, onOk}
   const [orderModal,   setOrderModal]   = useState(null); // orden abierta como modal
+  const [orderDetail,  setOrderDetail]  = useState(null); // detalle técnico para admin
   const fileRef = useRef();
 
   const card = {
@@ -144,6 +145,28 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Tiempo real: escuchar eventos P2P del socket ────────────
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handler = (payload) => {
+      // Recargar datos al recibir cualquier evento P2P
+      load();
+      // Si hay un orderModal abierto, actualizarlo también
+      if (payload.orderId) {
+        setOrderModal(prev => {
+          if (!prev || prev.id !== payload.orderId) return prev;
+          if (payload.type === 'payment_sent')  return { ...prev, status: 'payment_sent' };
+          if (payload.type === 'order_completed') return { ...prev, status: 'completed' };
+          if (payload.type === 'disputed')      return { ...prev, status: 'disputed' };
+          return prev;
+        });
+      }
+    };
+    socket.on('p2p_update', handler);
+    return () => socket.off('p2p_update', handler);
+  }, [load]);
+
   // ── Crear oferta ─────────────────────────────────────────
   const createOffer = async () => {
     if (!offerForm.amount || !offerForm.price_ars)
@@ -167,11 +190,11 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
 
   // ── Crear orden (comprar) ────────────────────────────────
   const createOrder = async () => {
-    if (!buyAmount) return showToast("Ingresá la cantidad", "error");
+    if (!buyAmount || parseInt(buyAmount) < 1) return showToast("Ingresá la cantidad", "error");
+    if (!buyModal?.id) return showToast("Error: oferta no válida", "error");
     setSubmitting(true);
     try {
-      const r = await api.p2pCreateOrder(buyModal.id, {amount: parseInt(buyAmount)});
-      const order = r.data || r;
+      const order = await api.p2pCreateOrder(buyModal.id, {amount: parseInt(buyAmount)});
       // Enriquecer la orden con datos del vendedor que ya tenemos en buyModal
       const enriched = {
         ...order,
@@ -187,7 +210,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
       setBuyModal(null); setBuyAmount("");
       setOrderModal(enriched); // abrir modal de orden inmediatamente
       load();
-    } catch(e) { showToast(e.message || "Error", "error"); }
+    } catch(e) { showToast(e.message || "No se pudo conectar al servidor", "error"); }
     finally { setSubmitting(false); }
   };
 
@@ -1327,7 +1350,92 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                       </>
                     )}
 
-                    <button onClick={() => setOrderModal(null)}
+                    {/* Detalle técnico — solo admin/teacher */}
+                    {(me.rol === 'admin' || me.rol === 'teacher') && (
+                      <button onClick={async () => {
+                        if (orderDetail?.order?.id === orderModal.id) {
+                          setOrderDetail(null); // toggle
+                        } else {
+                          try {
+                            const d = await api.p2pOrderDetail(orderModal.id);
+                            setOrderDetail(d);
+                          } catch(e) { showToast("Error al cargar detalle", "error"); }
+                        }
+                      }} style={{width:"100%", background:inputBg,
+                        border:`1px solid ${accent}66`, borderRadius:50, color:accent,
+                        padding:"11px", fontWeight:700, fontSize:12,
+                        cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                        {orderDetail?.order?.id === orderModal.id
+                          ? "▲ Ocultar detalle técnico"
+                          : "🔍 Ver detalle técnico"}
+                      </button>
+                    )}
+
+                    {/* Panel de detalle técnico */}
+                    {orderDetail?.order?.id === orderModal.id && (
+                      <div style={{background:inputBg, borderRadius:12, padding:14,
+                        border:`1px solid ${navBord}`, fontSize:11}}>
+                        <div style={{fontSize:10, fontWeight:800, color:sub,
+                          letterSpacing:1, marginBottom:10}}>DETALLE TÉCNICO</div>
+
+                        {[
+                          ["ID Orden",           orderDetail.order.id],
+                          ["ID Oferta",          orderDetail.order.offer_id],
+                          ["Comprador",          `${orderDetail.order.buyer_nombre} (${orderDetail.order.buyer_email})`],
+                          ["Cuenta comprador",   orderDetail.order.buyer_account_id],
+                          ["Vendedor",           `${orderDetail.order.seller_nombre} (${orderDetail.order.seller_email})`],
+                          ["Cuenta vendedor",    orderDetail.order.seller_account_id],
+                          ["Monto EduCoins",     orderDetail.order.amount],
+                          ["Precio ARS/coin",    `$${parseFloat(orderDetail.order.price_ars).toFixed(2)}`],
+                          ["Total ARS",          `$${parseFloat(orderDetail.order.total_ars).toFixed(2)}`],
+                          ["Estado",             orderDetail.order.status],
+                          ["TX Escrow",          orderDetail.order.escrow_tx_id || "—"],
+                          ["TX Liberación",      orderDetail.order.release_tx_id || "—"],
+                          ["Fecha TX lib.",      orderDetail.order.release_tx_date
+                            ? new Date(orderDetail.order.release_tx_date).toLocaleString("es-AR")
+                            : "—"],
+                          ["Creada",             new Date(orderDetail.order.created_at).toLocaleString("es-AR")],
+                          ["Actualizada",        new Date(orderDetail.order.updated_at).toLocaleString("es-AR")],
+                          ...(orderDetail.order.dispute_reason
+                            ? [["Motivo disputa", orderDetail.order.dispute_reason],
+                               ["Resuelto por",   orderDetail.order.resolved_by_nombre || "—"]]
+                            : []),
+                        ].map(([label, val]) => (
+                          <div key={label} style={{display:"flex", justifyContent:"space-between",
+                            padding:"4px 0", borderBottom:`1px solid ${navBord}33`,
+                            gap:8}}>
+                            <span style={{color:sub, flexShrink:0}}>{label}</span>
+                            <span style={{color:txt, fontWeight:700, textAlign:"right",
+                              wordBreak:"break-all", fontSize:10}}>{val}</span>
+                          </div>
+                        ))}
+
+                        {/* Ledger entries */}
+                        {orderDetail.ledger_entries?.length > 0 && (
+                          <>
+                            <div style={{fontSize:10, fontWeight:800, color:sub,
+                              letterSpacing:1, marginTop:10, marginBottom:6}}>
+                              MOVIMIENTOS LEDGER
+                            </div>
+                            {orderDetail.ledger_entries.map((e, i) => (
+                              <div key={i} style={{display:"flex",
+                                justifyContent:"space-between", padding:"3px 0",
+                                borderBottom:`1px solid ${navBord}22`}}>
+                                <span style={{color:sub, fontSize:10}}>
+                                  {e.account_type} · {e.account_owner || "treasury"}
+                                </span>
+                                <span style={{fontWeight:800, fontSize:11,
+                                  color: e.amount > 0 ? "#10b981" : "#ef4444"}}>
+                                  {e.amount > 0 ? "+" : ""}{e.amount} 🪙
+                                </span>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <button onClick={() => { setOrderModal(null); setOrderDetail(null); }}
                       style={{width:"100%", background:inputBg,
                         border:`1px solid ${navBord}`, borderRadius:50, color:sub,
                         padding:"11px", fontWeight:700, fontSize:13,
