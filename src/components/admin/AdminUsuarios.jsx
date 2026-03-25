@@ -56,7 +56,11 @@ function AdminUsuarios({showToast}){
           + Nuevo usuario
         </button>}/>
       <div style={{padding:"0 14px",marginTop:12}}>
-        {users.map(u=>(
+        <input placeholder="Buscar alumno..." onChange={e=>setSearch(e.target.value)}
+          style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:50,
+            padding:"10px 16px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",
+            marginBottom:10,boxSizing:"border-box"}}/>
+        {users.filter(u=>!search||u.nombre.toLowerCase().includes(search.toLowerCase())||u.email.toLowerCase().includes(search.toLowerCase())).map(u=>(
           <WCard key={u.id} style={{marginBottom:8,display:"flex",alignItems:"center",gap:12,opacity:u.activo?1:.5}}>
             <div style={{width:44,height:44,borderRadius:"50%",
               background:u.rol==="admin"?"#ef444418":u.rol==="teacher"?"#f59e0b18":"#6366f118",
@@ -75,6 +79,7 @@ function AdminUsuarios({showToast}){
               {u.rol==="student"&&(
                 <button onClick={async()=>{
                   setGrantModal(u);
+                  setGrantTab("revocar"); // default to revocar so old titles are visible
                   api.earnedTitlesOf(u.id).then(d=>setUserTitles(Array.isArray(d)?d:(d?.data||[]))).catch(()=>{});
                 }}
                   style={{background:"#f59e0b22",border:"none",borderRadius:8,
