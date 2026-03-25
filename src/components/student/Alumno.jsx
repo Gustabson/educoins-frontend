@@ -243,7 +243,19 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       if(["reward","transfer","checkin","gift"].includes(n.type)) refreshBalance();
     };
     s.on('notification',onNotif);
-    return()=>s.off('notification',onNotif);
+
+    // P2P: refrescar balance cuando se completa o cancela una orden
+    const onP2P = (payload) => {
+      if (['order_completed','new_order','payment_sent'].includes(payload.type)) {
+        refreshBalance();
+      }
+    };
+    s.on('p2p_update', onP2P);
+
+    return()=>{
+      s.off('notification',onNotif);
+      s.off('p2p_update',onP2P);
+    };
   },[]);
 
   const navTo=(dest)=>{
