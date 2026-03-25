@@ -66,8 +66,6 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   const [closingSec,setClosing]= useState(null);
   // Perfil section state
   const [perfilTab,setPerfilTab]= useState("items"); // items|titles|loans
-  const [grantUser,setGrantUser]= useState("");
-  const [grantForm,setGrantForm]= useState({name:"",rarity:"common",color:"#8b5cf6",glow_color:"#8b5cf6",emoji:"",note:""});
   const [loanUser,setLoanUser]  = useState("");
   const [loanFrame,setLoanFrame]= useState("Marco Dorado");
   const [loanNote,setLoanNote]  = useState("");
@@ -931,10 +929,10 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                   </div>
                 )}
 
-                {/* Marco */}
+                {/* Marco - multiple selection */}
                 {addingPremio.tipo==="marco"&&(
                   <div>
-                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Elegí el marco:</div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>Elegí los marcos:</div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                       {[
                         {name:"Marco Dorado", type:"frame",    value:"3px solid #f59e0b", glow:"#f59e0b66", preview:"#f59e0b"},
@@ -944,18 +942,28 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                         {name:"Aurora",       type:"gradient", value:"linear-gradient(135deg,#a855f7,#ec4899,#f59e0b)", glow:null, preview:"#a855f7"},
                         {name:"Océano",       type:"gradient", value:"linear-gradient(135deg,#0ea5e9,#06b6d4)", glow:null, preview:"#0ea5e9"},
                       ].map(f=>{
-                        const sel=premioForm.name===f.name;
+                        const sel=(premioForm.items_ids||[]).includes(f.name);
                         return(
-                          <button key={f.name} onClick={()=>setPremioForm(v=>({...v,...f}))}
+                          <button key={f.name} onClick={()=>setPremioForm(v=>{
+                            const cur=v.items_ids||[];
+                            const frames=v.frames_data||[];
+                            const next=sel?cur.filter(x=>x!==f.name):[...cur,f.name];
+                            const nextFrames=sel?frames.filter(x=>x.name!==f.name):[...frames,f];
+                            return {...v,items_ids:next,frames_data:nextFrames};
+                          })}
                             style={{background:sel?f.preview+"22":"#f7f7f7",
                               border:`2px solid ${sel?f.preview:"#eee"}`,
                               borderRadius:10,padding:"7px 12px",fontSize:11,fontWeight:700,
                               cursor:"pointer",color:sel?f.preview:"#333",
-                              fontFamily:"Nunito,sans-serif"}}>
+                              fontFamily:"Nunito,sans-serif",position:"relative"}}>
+                            {sel&&<span style={{position:"absolute",top:-4,right:-4,fontSize:10}}>✓</span>}
                             {f.name}
                           </button>
                         );
                       })}
+                    </div>
+                    <div style={{fontSize:10,color:"#aaa",marginTop:4}}>
+                      {(premioForm.items_ids||[]).length===0?"Seleccioná uno o más marcos":`Seleccionados: ${(premioForm.items_ids||[]).length}`}
                     </div>
                   </div>
                 )}
@@ -1030,11 +1038,13 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                 <div style={{display:"flex",gap:8}}>
                   <button onClick={async()=>{
                     const t = addingPremio.tipo;
-                    const multiTypes = ["borde","skin","name_color"];
+                    const multiTypes = ["borde","skin","name_color","marco"];
                     if(t==="monedas"&&!premioForm.cantidad) return showToast("Ingresá la cantidad","error");
                     if(t==="titulo"&&!premioForm.name) return showToast("Ingresá el nombre del título","error");
                     if(multiTypes.includes(t)&&!(premioForm.items_ids||[]).length) return showToast("Elegí al menos uno","error");
-                    if(t==="marco"&&!premioForm.name) return showToast("Elegí un marco","error");
+                    // Duración obligatoria para todo menos monedas
+                    if(t!=="monedas"&&premioForm.expires_days===undefined)
+                      return showToast("Elegí la duración del premio","error");
 
                     // Para tipos múltiples, crear un premio por cada item seleccionado
                     let premios = [];
@@ -1045,6 +1055,8 @@ function AdminEconomiaSec({sec, onBack, showToast}){
                       premios=(premioForm.items_ids||[]).map(id=>({tipo:"skin",valor:{item_id:id,expires_days:premioForm.expires_days,note:premioForm.note}}));
                     } else if(t==="name_color"){
                       premios=(premioForm.colors_data||[]).map(c=>({tipo:"name_color",valor:{...c,expires_days:premioForm.expires_days,note:premioForm.note}}));
+                    } else if(t==="marco"){
+                      premios=(premioForm.frames_data||[]).map(f=>({tipo:"marco",valor:{...f,expires_days:premioForm.expires_days,note:premioForm.note}}));
                     } else if(t==="monedas"){
                       premios=[{tipo:"monedas",valor:{cantidad:premioForm.cantidad,motivo:premioForm.note}}];
                     } else {
@@ -1126,7 +1138,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
         <div>
           {/* Tabs */}
           <div style={{display:"flex",gap:6,marginBottom:14}}>
-            {[["items","⚙️ Items"],["titles","🏅 Títulos"],["loans","🎁 Préstamos"]].map(([id,lbl])=>(
+            {[["items","⚙️ Items"],["loans","🎁 Préstamos"]].map(([id,lbl])=>(
               <button key={id} onClick={()=>setPerfilTab(id)}
                 style={{flex:1,background:perfilTab===id?"#f59e0b22":"white",
                   border:`1.5px solid ${perfilTab===id?"#f59e0b":"#eee"}`,
@@ -1186,129 +1198,6 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           )}
 
           {/* Otorgar títulos */}
-          {perfilTab==="titles"&&(
-            <>
-              <div style={{fontSize:11,color:"#888",marginBottom:12,lineHeight:1.5}}>
-                Otorgá títulos únicos a alumnos. Aparecen con efectos especiales según rareza.
-              </div>
-              <div style={{background:"white",borderRadius:14,padding:16,
-                boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-                {/* Buscar usuario */}
-                <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Alumno destinatario:</div>
-                <select value={grantUser} onChange={e=>{
-                  const uid=e.target.value; setGrantUser(uid);
-                  if(uid) api.earnedTitlesOf(uid).then(d=>{
-                    setPayouts(prev=>({...prev,[uid]:Array.isArray(d)?d:(d?.data||[])}));
-                  }).catch(()=>{});
-                }}
-                  style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",
-                    borderRadius:10,padding:"10px 12px",fontSize:13,outline:"none",
-                    fontFamily:"Nunito,sans-serif",marginBottom:12,boxSizing:"border-box"}}>
-                  <option value="">— Seleccioná un alumno —</option>
-                  {(config||[]).filter(u=>u.rol==="student").map(u=>(
-                    <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>
-                  ))}
-                </select>
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  <input value={grantForm.name} onChange={e=>setGrantForm(v=>({...v,name:e.target.value.slice(0,40)}))}
-                    placeholder="Nombre del título (ej: El Primero 🥇)"
-                    style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                      padding:"10px 12px",fontSize:13,fontWeight:700,outline:"none",
-                      fontFamily:"Nunito,sans-serif"}}/>
-                  <input value={grantForm.emoji} onChange={e=>setGrantForm(v=>({...v,emoji:e.target.value.slice(0,4)}))}
-                    placeholder="Emoji único (ej: 🏆)"
-                    style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                      padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
-                  <div style={{display:"flex",gap:6}}>
-                    {[
-                      {id:"common",label:"Común",color:"#94a3b8"},
-                      {id:"rare",label:"Raro",color:"#3b82f6"},
-                      {id:"epic",label:"Épico",color:"#8b5cf6"},
-                      {id:"legendary",label:"Legendario",color:"#f59e0b"},
-                    ].map(r=>(
-                      <button key={r.id} onClick={()=>setGrantForm(v=>({...v,rarity:r.id,color:r.color,glow_color:r.color}))}
-                        style={{flex:1,background:grantForm.rarity===r.id?r.color+"22":"#f7f7f7",
-                          border:`1.5px solid ${grantForm.rarity===r.id?r.color:"#eee"}`,
-                          borderRadius:8,padding:"7px 4px",fontSize:10,fontWeight:800,
-                          cursor:"pointer",color:r.color,fontFamily:"Nunito,sans-serif"}}>
-                        {r.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    <span style={{fontSize:12,color:"#555",fontWeight:700}}>Color:</span>
-                    <input type="color" value={grantForm.color}
-                      onChange={e=>setGrantForm(v=>({...v,color:e.target.value}))}
-                      style={{width:40,height:32,border:"none",borderRadius:8,cursor:"pointer"}}/>
-                    <span style={{fontSize:12,color:"#555",fontWeight:700}}>Glow:</span>
-                    <input type="color" value={grantForm.glow_color||"#8b5cf6"}
-                      onChange={e=>setGrantForm(v=>({...v,glow_color:e.target.value}))}
-                      style={{width:40,height:32,border:"none",borderRadius:8,cursor:"pointer"}}/>
-                  </div>
-                  <input value={grantForm.note} onChange={e=>setGrantForm(v=>({...v,note:e.target.value.slice(0,100)}))}
-                    placeholder="Motivo (visible al alumno, opcional)"
-                    style={{background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:10,
-                      padding:"10px 12px",fontSize:12,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
-                  <button
-                    onClick={async()=>{
-                      if(!grantUser||!grantForm.name.trim()){showToast("Completá todos los campos","error");return;}
-                      setGranting(true);
-                      try{
-                        await api.grantTitle({user_id:grantUser,...grantForm});
-                        showToast("🏅 Título otorgado!");
-                        setGrantForm({name:"",rarity:"common",color:"#8b5cf6",glow_color:"#8b5cf6",emoji:"",note:""});
-                        // Reload granted titles for selected user
-                        if(grantUser) {
-                          api.earnedTitlesOf(grantUser).then(d=>{
-                            setPayouts(prev=>({...prev,[grantUser]:Array.isArray(d)?d:(d?.data||[])}));
-                          }).catch(()=>{});
-                        }
-                        setGrantUser("");
-                      }catch(e){showToast(e.message||"Error","error");}
-                      finally{setGranting(false);}
-                    }}
-                    disabled={granting||!grantUser||!grantForm.name.trim()}
-                    style={{background:granting||!grantUser||!grantForm.name.trim()?"#ccc":"#f59e0b",
-                      border:"none",borderRadius:50,color:"white",padding:"12px",fontWeight:800,
-                      fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                    {granting?"Otorgando...":"🏅 Otorgar título"}
-                  </button>
-                  {/* Ver y revocar títulos del alumno seleccionado */}
-                  {grantUser&&payouts[grantUser]?.length>0&&(
-                    <div style={{marginTop:14}}>
-                      <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:8}}>
-                        Títulos otorgados a este alumno:
-                      </div>
-                      {payouts[grantUser].map(t=>(
-                        <div key={t.id} style={{background:"#f9f9f9",borderRadius:10,
-                          padding:"8px 12px",marginBottom:6,display:"flex",
-                          alignItems:"center",gap:8}}>
-                          <span style={{fontSize:16}}>{t.emoji||"🏅"}</span>
-                          <div style={{flex:1}}>
-                            <div style={{fontWeight:700,fontSize:12,color:t.color||"#333"}}>{t.name}</div>
-                            <div style={{fontSize:10,color:"#aaa"}}>{t.rarity} · {new Date(t.created_at).toLocaleDateString("es-AR")}</div>
-                          </div>
-                          <button onClick={async()=>{
-                            try{
-                              await api.revokeTitle(t.id);
-                              setPayouts(prev=>({...prev,[grantUser]:prev[grantUser].filter(x=>x.id!==t.id)}));
-                              showToast("Título revocado");
-                            }catch(e){showToast(e.message||"Error","error");}
-                          }} style={{background:"#fee2e2",border:"none",borderRadius:8,
-                            color:"#ef4444",padding:"4px 8px",fontSize:10,fontWeight:700,
-                            cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                            Revocar
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Préstamos de marcos */}
           {perfilTab==="loans"&&(
             <>
               <div style={{fontSize:11,color:"#888",marginBottom:12,lineHeight:1.5}}>
