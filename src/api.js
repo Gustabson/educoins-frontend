@@ -189,6 +189,7 @@ const api = {
   createGroup:       (body)         => apiFetch("/chat/groups",               { method:"POST", body }),
   myGroups:          ()             => apiFetch("/chat/groups"),
   groupMsgs:         (id)           => apiFetch(`/chat/groups/${id}/messages`),
+  groupMembers:      (id)           => apiFetch(`/chat/groups/${id}/members`),
   groupAddMember:    (id, user_id)  => apiFetch(`/chat/groups/${id}/members`, { method:"POST", body:{ user_id } }),
   groupSettings:     (id, body)     => apiFetch(`/chat/groups/${id}/settings`,{ method:"PATCH", body }),
   createReport:   (data)                  => apiFetch("/reports",          { method:"POST", body:data }),

@@ -377,11 +377,17 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
               <div style={{fontSize:11,opacity:.65}}>{activeGroup.total_miembros} miembros · {isAdmin?"Admin":"Miembro"}</div>
             </div>
             <button onClick={()=>{
-              setGroupPanel(o=>!o);
-              if (!groupPanel && canInvite) {
-                api.chatFriends().then(d=>{
-                  const all = (d.data||d||[]).filter(f=>f.estado==='accepted');
-                  setGroupFriends(all);
+              const opening = !groupPanel;
+              setGroupPanel(opening);
+              if (opening && canInvite) {
+                // Cargar amigos Y miembros actuales, luego filtrar los que ya están
+                Promise.all([
+                  api.chatFriends(),
+                  api.groupMembers(activeGroup.conversation_id),
+                ]).then(([friends, members]) => {
+                  const memberIds = new Set((members || []).map(m => m.user_id));
+                  const available = (friends || []).filter(f => !memberIds.has(f.user_id));
+                  setGroupFriends(available);
                 }).catch(()=>{});
               }
             }}
@@ -468,9 +474,44 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
           <div ref={bottomRef}/>
         </div>
 
-        {/* Input */}
+        {/* Input con emoji picker */}
         <div style={{flexShrink:0,padding:"6px 14px 20px",background:cardBg,borderTop:`1px solid ${inputBg}`}}>
+          {emojiOpen&&(
+            <div style={{marginBottom:8,background:inputBg,borderRadius:14,
+              padding:"10px 12px",maxHeight:160,overflowY:"auto"}}>
+              {emojiPacks.length===0?(
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:11,color:sub}}>No tenés packs desbloqueados</span>
+                  <button onClick={()=>showToast("Comprá packs en Personalización → 😄 Emojis")}
+                    style={{background:accent,border:"none",borderRadius:99,color:"white",
+                      padding:"4px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif",flexShrink:0}}>+ Ver packs</button>
+                </div>
+              ):(
+                emojiPacks.map(pack=>(
+                  <div key={pack.id} style={{marginBottom:8}}>
+                    <div style={{fontSize:9,color:sub,fontWeight:700,marginBottom:4}}>{pack.nombre}</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                      {pack.emojis.map((em,i)=>(
+                        <button key={i} onClick={()=>{setMsg(m=>m+em);setEmojiOpen(false);}}
+                          style={{fontSize:22,background:"none",border:"none",cursor:"pointer",padding:2,lineHeight:1}}>
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={()=>setEmojiOpen(o=>!o)}
+              style={{width:38,height:38,borderRadius:"50%",flexShrink:0,
+                background:emojiOpen?accent:inputBg,
+                border:"none",fontSize:20,cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center"}}>
+              😄
+            </button>
             <input value={msg} onChange={e=>{setMsg(e.target.value);emitTyping();}}
               onKeyDown={e=>e.key==="Enter"&&sendMsg()}
               placeholder="Escribi un mensaje..."
