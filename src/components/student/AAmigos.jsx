@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { api } from "../../api";
+import { api, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, displayName } from "../shared/index";
 
@@ -40,6 +40,21 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Escuchar eventos de amistad en tiempo real
+  useEffect(() => {
+    const s = getSocket();
+    if (!s) return;
+    const reload = () => load();
+    s.on("friend_request",  reload);
+    s.on("friend_accepted", reload);
+    s.on("friend_removed",  reload);
+    return () => {
+      s.off("friend_request",  reload);
+      s.off("friend_accepted", reload);
+      s.off("friend_removed",  reload);
+    };
+  }, [load]);
 
   // Búsqueda con debounce — backend busca por nombre O apodo
   useEffect(() => {
