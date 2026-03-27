@@ -68,10 +68,12 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
   const [emojiOpen,    setEmojiOpen]    = useState(false);
   const [optionsOpen,  setOptionsOpen]  = useState(false);
   const [searchQuery,  setSearchQuery]  = useState("");
-  const [addOpen,      setAddOpen]      = useState(false);
-  const [groups,       setGroups]       = useState([]);
-  const [activeGroup,  setActiveGroup]  = useState(null);
-  const [groupMsgs,    setGroupMsgs]    = useState([]);
+  const [addOpen,       setAddOpen]      = useState(false);
+  const [groups,        setGroups]       = useState([]);
+  const [activeGroup,   setActiveGroup]  = useState(null);
+  const [groupMsgs,     setGroupMsgs]    = useState([]);
+  const [groupPanel,    setGroupPanel]   = useState(false); // panel de admin/info
+  const [groupFriends,  setGroupFriends] = useState([]);    // mis amigos para invitar
   const groupConvIdRef = useRef(null);
   const [emojiPacks, setEmojiPacks]   = useState([]); // packs desbloqueados
   const bottomRef               = useRef(null);
@@ -137,8 +139,13 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
       if (cid) globalConvIdRef.current = cid;
     }).catch(()=>{});
 
-    // Cargar grupos
-    api.myGroups().then(d => setGroups(d.data || [])).catch(()=>{});
+    // Cargar grupos y joinear sus rooms de socket
+    api.myGroups().then(d => {
+      const gs = d.data || [];
+      setGroups(gs);
+      const s = getSocket();
+      if (s) gs.forEach(g => s.emit('join_group', g.conversation_id));
+    }).catch(()=>{});
   }, []);
 
   // Cargar mensajes del aula cuando se selecciona esa tab
@@ -165,11 +172,29 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
     }
   }, []); // eslint-disable-line
 
-  // Escuchar group_added para refrescar la lista
+  // Recargar grupos al entrar a la tab Grupos
+  useEffect(() => {
+    if (sec === 1) {
+      api.myGroups().then(d => {
+        const gs = d.data || [];
+        setGroups(gs);
+        const s = getSocket();
+        if (s) gs.forEach(g => s.emit('join_group', g.conversation_id));
+      }).catch(()=>{});
+    }
+  }, [sec]);
+
+  // Escuchar group_added para refrescar la lista en tiempo real
   useEffect(() => {
     const s = getSocket();
     if (!s) return;
-    const onGroupAdded = () => api.myGroups().then(d => setGroups(d.data || [])).catch(()=>{});
+    const onGroupAdded = (data) => {
+      api.myGroups().then(d => {
+        const gs = d.data || [];
+        setGroups(gs);
+        if (data?.conversation_id) s.emit('join_group', data.conversation_id);
+      }).catch(()=>{});
+    };
     s.on('group_added', onGroupAdded);
     return () => s.off('group_added', onGroupAdded);
   }, []);
@@ -312,65 +337,154 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
   };
 
   // ── Render chat grupal ───────────────────────────────────────
-  if (activeGroup) return(
-    <div style={{background:bg,height:"100%",display:"flex",flexDirection:"column"}}>
-      <div style={{background:accent,color:"white",flexShrink:0,
-        position:"sticky",top:0,zIndex:10,padding:"22px 16px 14px",
-        display:"flex",alignItems:"center",gap:10}}>
-        <button onClick={()=>{setActiveGroup(null);setGroupMsgs([]);groupConvIdRef.current=null;}}
-          style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
-            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,flexShrink:0,
-            display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontWeight:800,fontSize:15,
-            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-            {activeGroup.icono} {activeGroup.nombre}
+  if (activeGroup) {
+    const isAdmin = activeGroup.my_rol === 'owner';
+    const canInvite = isAdmin || activeGroup.allow_invites;
+
+    const inviteMember = async (friendId) => {
+      try {
+        await api.groupAddMember(activeGroup.conversation_id, friendId);
+        showToast("Miembro agregado 🎉");
+        setGroupFriends(prev => prev.filter(f => f.user_id !== friendId));
+        setActiveGroup(g => ({...g, total_miembros: g.total_miembros + 1}));
+        setGroups(gs => gs.map(g => g.conversation_id === activeGroup.conversation_id
+          ? {...g, total_miembros: g.total_miembros + 1} : g));
+      } catch(e) { showToast(e.message || "Error al agregar", "error"); }
+    };
+
+    const toggleInvites = async () => {
+      try {
+        const d = await api.groupSettings(activeGroup.conversation_id, { allow_invites: !activeGroup.allow_invites });
+        setActiveGroup(g => ({...g, allow_invites: d.data.allow_invites}));
+        setGroups(gs => gs.map(g => g.conversation_id === activeGroup.conversation_id
+          ? {...g, allow_invites: d.data.allow_invites} : g));
+      } catch(e) { showToast(e.message || "Error", "error"); }
+    };
+
+    return(
+      <div style={{background:bg,height:"100%",display:"flex",flexDirection:"column"}}>
+        {/* Header */}
+        <div style={{background:accent,color:"white",flexShrink:0,position:"sticky",top:0,zIndex:10}}>
+          <div style={{padding:"22px 16px 14px",display:"flex",alignItems:"center",gap:10}}>
+            <button onClick={()=>{setActiveGroup(null);setGroupMsgs([]);groupConvIdRef.current=null;setGroupPanel(false);setGroupFriends([]);}}
+              style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
+                color:"white",width:34,height:34,cursor:"pointer",fontSize:18,flexShrink:0,
+                display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:800,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {activeGroup.icono} {activeGroup.nombre}
+              </div>
+              <div style={{fontSize:11,opacity:.65}}>{activeGroup.total_miembros} miembros · {isAdmin?"Admin":"Miembro"}</div>
+            </div>
+            <button onClick={()=>{
+              setGroupPanel(o=>!o);
+              if (!groupPanel && canInvite) {
+                api.chatFriends().then(d=>{
+                  const all = (d.data||d||[]).filter(f=>f.estado==='accepted');
+                  setGroupFriends(all);
+                }).catch(()=>{});
+              }
+            }}
+              style={{background:groupPanel?"rgba(255,255,255,.35)":"rgba(255,255,255,.2)",
+                border:"none",borderRadius:50,color:"white",width:34,height:34,
+                cursor:"pointer",fontSize:18,flexShrink:0,
+                display:"flex",alignItems:"center",justifyContent:"center"}}>⋯</button>
           </div>
-          <div style={{fontSize:11,opacity:.65}}>{activeGroup.total_miembros} miembros</div>
+
+          {/* Panel de opciones del grupo */}
+          {groupPanel&&(
+            <div style={{background:"rgba(0,0,0,.25)",backdropFilter:"blur(8px)",
+              padding:"10px 14px 14px",borderTop:"1px solid rgba(255,255,255,.15)"}}>
+
+              {/* Admin: toggle invitaciones */}
+              {isAdmin&&(
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                  marginBottom:10,padding:"8px 12px",background:"rgba(255,255,255,.1)",
+                  borderRadius:12}}>
+                  <div>
+                    <div style={{fontWeight:800,fontSize:12}}>Permitir que miembros inviten</div>
+                    <div style={{fontSize:10,opacity:.7}}>Si está off, solo el admin puede agregar</div>
+                  </div>
+                  <button onClick={toggleInvites}
+                    style={{background: activeGroup.allow_invites?"#10b981":"rgba(255,255,255,.2)",
+                      border:"none",borderRadius:99,color:"white",
+                      padding:"5px 14px",fontWeight:800,fontSize:11,cursor:"pointer"}}>
+                    {activeGroup.allow_invites?"ON":"OFF"}
+                  </button>
+                </div>
+              )}
+
+              {/* Invitar amigos */}
+              {canInvite&&(
+                <div>
+                  <div style={{fontSize:10,fontWeight:800,opacity:.7,marginBottom:6}}>
+                    AGREGAR AMIGOS AL GRUPO
+                  </div>
+                  {groupFriends.length===0?(
+                    <div style={{fontSize:11,opacity:.6}}>No hay amigos para agregar</div>
+                  ):(
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {groupFriends.slice(0,8).map(f=>(
+                        <button key={f.friendship_id} onClick={()=>inviteMember(f.user_id)}
+                          style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:99,
+                            padding:"5px 12px",color:"white",fontSize:11,fontWeight:700,
+                            cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                          + {f.apodo||f.nombre}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </div>
-      <div style={{flex:1,padding:"12px 14px 12px",overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
-        {groupMsgs.length===0&&(
-          <div style={{textAlign:"center",color:sub,fontSize:13,marginTop:40}}>Empezá la conversación 💬</div>
-        )}
-        {groupMsgs.map((m,i)=>{
-          const isMe = m.sender_id===me.id;
-          return(
-            <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
-              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||"",avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
-              <div style={{maxWidth:"72%"}}>
-                {!isMe&&<div style={{fontSize:10,marginBottom:2,marginLeft:4,fontWeight:700,color:sub}}>{m.sender_nombre}</div>}
-                <div style={{padding:"9px 13px",
-                  borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
-                  background:isMe?accent:cardBg,color:isMe?"white":txt,
-                  fontSize:13,fontWeight:600,boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
-                  {m.texto}
-                  <div style={{fontSize:9,opacity:.6,marginTop:2,textAlign:"right"}}>
-                    {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+
+        {/* Mensajes */}
+        <div style={{flex:1,padding:"12px 14px 12px",overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
+          {groupMsgs.length===0&&(
+            <div style={{textAlign:"center",color:sub,fontSize:13,marginTop:40}}>Empezá la conversación 💬</div>
+          )}
+          {groupMsgs.map((m,i)=>{
+            const isMe = m.sender_id===me.id;
+            return(
+              <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
+                {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||"",avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
+                <div style={{maxWidth:"72%"}}>
+                  {!isMe&&<div style={{fontSize:10,marginBottom:2,marginLeft:4,fontWeight:700,color:sub}}>{m.sender_nombre}</div>}
+                  <div style={{padding:"9px 13px",
+                    borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                    background:isMe?accent:cardBg,color:isMe?"white":txt,
+                    fontSize:13,fontWeight:600,boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
+                    {m.texto}
+                    <div style={{fontSize:9,opacity:.6,marginTop:2,textAlign:"right"}}>
+                      {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-        <div ref={bottomRef}/>
-      </div>
-      <div style={{flexShrink:0,padding:"6px 14px 20px",
-        background:cardBg,borderTop:`1px solid ${inputBg}`}}>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <input value={msg} onChange={e=>{setMsg(e.target.value);emitTyping();}}
-            onKeyDown={e=>e.key==="Enter"&&sendMsg()}
-            placeholder="Escribi un mensaje..."
-            style={{flex:1,background:inputBg,border:`1.5px solid ${inputBord}`,borderRadius:50,
-              padding:"10px 16px",fontSize:13,outline:"none",color:txt,
-              fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
-          <button onClick={sendMsg} style={{width:42,height:42,borderRadius:"50%",background:accent,
-            border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
-            display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+            );
+          })}
+          <div ref={bottomRef}/>
+        </div>
+
+        {/* Input */}
+        <div style={{flexShrink:0,padding:"6px 14px 20px",background:cardBg,borderTop:`1px solid ${inputBg}`}}>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input value={msg} onChange={e=>{setMsg(e.target.value);emitTyping();}}
+              onKeyDown={e=>e.key==="Enter"&&sendMsg()}
+              placeholder="Escribi un mensaje..."
+              style={{flex:1,background:inputBg,border:`1.5px solid ${inputBord}`,borderRadius:50,
+                padding:"10px 16px",fontSize:13,outline:"none",color:txt,
+                fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
+            <button onClick={sendMsg} style={{width:42,height:42,borderRadius:"50%",background:accent,
+              border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
+              display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   // ── Render chat individual v2 ─────────────────────────────────
   if (friend) return(
