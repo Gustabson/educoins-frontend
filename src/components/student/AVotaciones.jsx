@@ -277,29 +277,40 @@ function AVotaciones({me,showToast,onBack}){
           </div>
         )}
         {polls.map(v=>{
-          const yaVote   = !!v.mi_voto;
-          const mostrar  = yaVote||!v.activa;
-          const isVoting = voting===v.id;
-          const opSel    = seleccion[v.id];
-          const esAdmin  = v.creador_rol==="admin";
-          const esTeacher= v.creador_rol==="teacher";
-          const jerarCol = esAdmin?accent:esTeacher?"#8b5cf6":"#94a3b8";
+          const yaVote    = !!v.mi_voto;
+          const mostrar   = yaVote||!v.activa;
+          const isVoting  = voting===v.id;
+          const opSel     = seleccion[v.id];
+          const esAdmin   = v.creador_rol==="admin";
+          const esTeacher = v.creador_rol==="teacher";
+          const jerarCol  = esAdmin?accent:esTeacher?"#8b5cf6":"#94a3b8";
+          const sinPoder  = v.weighted && !yaVote && (v.mi_poder??0) < 1;
 
           return(
             <div key={v.id} style={{background:cardBg,borderRadius:20,padding:"16px",marginBottom:12,
-              boxShadow:esAdmin?`0 2px 14px ${accent}33`:esTeacher?"0 2px 14px #8b5cf633":"0 1px 8px rgba(0,0,0,.06)",
-              border:`1.5px solid ${esAdmin||esTeacher?jerarCol+"44":inputBg}`,
+              boxShadow:esAdmin?`0 2px 14px ${accent}33`:esTeacher?"0 2px 14px #8b5cf633":v.weighted?"0 2px 14px #f59e0b33":"0 1px 8px rgba(0,0,0,.06)",
+              border:`1.5px solid ${v.weighted?"#f59e0b44":esAdmin||esTeacher?jerarCol+"44":inputBg}`,
               transition:"all .2s"}}>
 
-              {/* Badge jerarquía */}
-              {(esAdmin||esTeacher)&&(
-                <div style={{display:"inline-flex",alignItems:"center",gap:4,
-                  background:jerarCol+"18",borderRadius:99,padding:"2px 8px",marginBottom:6}}>
-                  <span style={{fontSize:9,fontWeight:800,color:jerarCol}}>
-                    {esAdmin?"⭐ Admin":"👩‍🏫 Docente"} · {v.creador_nombre}
-                  </span>
-                </div>
-              )}
+              {/* Badges: jerarquía + DAO */}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+                {(esAdmin||esTeacher)&&(
+                  <div style={{display:"inline-flex",alignItems:"center",gap:4,
+                    background:jerarCol+"18",borderRadius:99,padding:"2px 8px"}}>
+                    <span style={{fontSize:9,fontWeight:800,color:jerarCol}}>
+                      {esAdmin?"⭐ Admin":"👩‍🏫 Docente"} · {v.creador_nombre}
+                    </span>
+                  </div>
+                )}
+                {v.weighted&&(
+                  <div style={{display:"inline-flex",alignItems:"center",gap:4,
+                    background:"#f59e0b18",borderRadius:99,padding:"2px 8px"}}>
+                    <span style={{fontSize:9,fontWeight:800,color:"#f59e0b"}}>
+                      🏛️ DAO · Poder = Monedas
+                    </span>
+                  </div>
+                )}
+              </div>
 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:12}}>
                 <div style={{fontWeight:800,fontSize:14,color:txt,flex:1,lineHeight:1.3}}>{v.titulo}</div>
@@ -310,31 +321,70 @@ function AVotaciones({me,showToast,onBack}){
                 </span>
               </div>
 
+              {/* Poder de voto DAO (antes de votar) */}
+              {v.weighted&&v.activa&&!yaVote&&(
+                <div style={{background:sinPoder?"#ef444418":"#f59e0b18",borderRadius:12,
+                  padding:"8px 12px",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:18}}>🏛️</span>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:800,color:sinPoder?"#ef4444":"#f59e0b"}}>
+                      Tu poder de voto: {v.mi_poder??0} monedas
+                    </div>
+                    {sinPoder&&(
+                      <div style={{fontSize:10,color:"#ef4444",marginTop:2}}>
+                        Necesitás al menos 1 moneda para participar en esta propuesta DAO
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Monedas usadas al votar */}
+              {v.weighted&&yaVote&&v.mi_peso!=null&&(
+                <div style={{background:"#f59e0b18",borderRadius:12,padding:"6px 12px",
+                  marginBottom:10,fontSize:11,fontWeight:700,color:"#f59e0b",display:"flex",alignItems:"center",gap:6}}>
+                  🏛️ Votaste con {v.mi_peso} monedas de poder
+                </div>
+              )}
+
               {/* Opciones */}
               {v.opciones.map(op=>{
-                const pct      = v.total_votos>0?Math.round(op.votos/v.total_votos*100):0;
+                const pesoPct  = v.weighted&&v.total_peso>0?Math.round(parseFloat(op.peso_total)/v.total_peso*100):0;
+                const contPct  = v.total_votos>0?Math.round(op.votos/v.total_votos*100):0;
+                const pct      = mostrar?(v.weighted?pesoPct:contPct):0;
                 const esMiVoto = v.mi_voto===op.id;
                 const esSel    = opSel===op.id;
-                const esGanador= !v.activa&&op.votos===Math.max(...v.opciones.map(o=>o.votos));
+                const esGanador= !v.activa&&(v.weighted
+                  ? parseFloat(op.peso_total)===Math.max(...v.opciones.map(o=>parseFloat(o.peso_total)))
+                  : op.votos===Math.max(...v.opciones.map(o=>o.votos)));
                 return(
                   <div key={op.id}
-                    onClick={()=>v.activa&&!yaVote&&!isVoting&&setSel(s=>({...s,[v.id]:op.id}))}
-                    style={{marginBottom:8,cursor:v.activa&&!yaVote?"pointer":"default",
+                    onClick={()=>v.activa&&!yaVote&&!isVoting&&!sinPoder&&setSel(s=>({...s,[v.id]:op.id}))}
+                    style={{marginBottom:8,cursor:v.activa&&!yaVote&&!sinPoder?"pointer":"default",
                       borderRadius:12,padding:"8px 10px",transition:"all .15s",
                       background:esSel?accent+"22":esMiVoto?accent+"11":"transparent",
                       border:`1.5px solid ${esSel?accent:esMiVoto?accent+"66":"transparent"}`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:mostrar?4:0}}>
                       <span style={{fontSize:13,fontWeight:esMiVoto||esSel?800:600,
-                        color:esMiVoto?accent:esSel?accent:txt}}>
+                        color:esMiVoto?accent:esSel?accent:txt,flex:1}}>
                         {esGanador?"🏆 ":""}{esSel?"→ ":""}{op.texto}
                         {esMiVoto&&<span style={{fontSize:10,marginLeft:6,opacity:.7}}>✓ Tu voto</span>}
                       </span>
-                      {mostrar&&<span style={{fontSize:11,fontWeight:700,color:sub,flexShrink:0}}>{pct}%</span>}
+                      {mostrar&&(
+                        <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
+                          <span style={{fontSize:11,fontWeight:700,color:sub}}>{pct}%</span>
+                          {v.weighted&&(
+                            <span style={{fontSize:9,color:sub,display:"block",opacity:.7}}>
+                              {parseFloat(op.peso_total).toFixed(0)} mon · {op.votos} voto{op.votos!==1?"s":""}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {mostrar&&(
                       <div style={{background:inputBg,borderRadius:99,height:6,overflow:"hidden"}}>
                         <div style={{width:pct+"%",height:"100%",borderRadius:99,
-                          background:esMiVoto?accent:"#3b82f6",transition:"width .6s ease"}}/>
+                          background:esMiVoto?accent:v.weighted?"#f59e0b":"#3b82f6",transition:"width .6s ease"}}/>
                       </div>
                     )}
                   </div>
@@ -342,16 +392,17 @@ function AVotaciones({me,showToast,onBack}){
               })}
 
               {/* Confirmar voto */}
-              {v.activa&&!yaVote&&opSel&&(
+              {v.activa&&!yaVote&&opSel&&!sinPoder&&(
                 <button onClick={()=>confirmarVoto(v.id)} disabled={isVoting}
                   style={{width:"100%",marginTop:8,background:isVoting?"#ccc":accent,
                     border:"none",borderRadius:50,color:"white",padding:"11px",
                     fontWeight:800,fontSize:13,cursor:isVoting?"not-allowed":"pointer",
                     fontFamily:"Nunito,sans-serif",boxShadow:`0 4px 14px ${accent}44`}}>
                   {isVoting?"Registrando...":"Confirmar voto"}
+                  {v.weighted&&!isVoting&&<span style={{fontSize:11,opacity:.8}}> · {v.mi_poder??0} monedas</span>}
                 </button>
               )}
-              {v.activa&&!yaVote&&!opSel&&(
+              {v.activa&&!yaVote&&!opSel&&!sinPoder&&(
                 <div style={{marginTop:6,fontSize:11,color:sub,textAlign:"center"}}>
                   Toca una opcion para seleccionar
                 </div>
@@ -361,7 +412,8 @@ function AVotaciones({me,showToast,onBack}){
               <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12,
                 paddingTop:10,borderTop:`1px solid ${inputBg}`}}>
                 <span style={{fontSize:10,color:sub,flex:1}}>
-                  {v.total_votos} votos
+                  {v.total_votos} voto{v.total_votos!==1?"s":""}
+                  {v.weighted&&v.total_peso>0&&` · ${parseFloat(v.total_peso).toFixed(0)} monedas`}
                   {v.fin&&` · Cierra ${new Date(v.fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`}
                 </span>
                 {/* Like/Dislike */}
