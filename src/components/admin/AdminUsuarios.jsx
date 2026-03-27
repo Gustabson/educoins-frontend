@@ -28,9 +28,14 @@ function AdminUsuarios({showToast}){
   const [granting,setGranting]=useState(false);
   const [search,setSearch]=useState("");
   const [userTitles,setUserTitles]=useState([]);
+  // Parent link state
+  const [linkModal,setLinkModal]=useState(null); // parent user
+  const [allLinks,setAllLinks]=useState([]);      // {parent_id, student_id, student_nombre}
+  const [linkSearch,setLinkSearch]=useState("");
 
   useEffect(()=>{
     api.adminUsers().then(setUsers).finally(()=>setLoading(false));
+    api.adminParentLinks().then(d=>setAllLinks(Array.isArray(d)?d:[])).catch(()=>{});
   },[]);
 
   const crear=async()=>{
@@ -72,14 +77,22 @@ function AdminUsuarios({showToast}){
         {users.filter(u=>!search||u.nombre.toLowerCase().includes(search.toLowerCase())||u.email.toLowerCase().includes(search.toLowerCase())).map(u=>(
           <WCard key={u.id} style={{marginBottom:8,display:"flex",alignItems:"center",gap:12,opacity:u.activo?1:.5}}>
             <div style={{width:44,height:44,borderRadius:"50%",
-              background:u.rol==="admin"?"#ef444418":u.rol==="teacher"?"#f59e0b18":"#6366f118",
+              background:u.rol==="admin"?"#ef444418":u.rol==="teacher"?"#f59e0b18":u.rol==="parent"?"#10b98118":"#6366f118",
               display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>
-              {u.rol==="admin"?"⚙️":u.rol==="teacher"?"👩‍🏫":"🧑‍🎓"}
+              {u.rol==="admin"?"⚙️":u.rol==="teacher"?"👩‍🏫":u.rol==="parent"?"👨‍👩‍👧":"🧑‍🎓"}
             </div>
             <div style={{flex:1}}>
               <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{u.nombre}</div>
               <div style={{fontSize:11,color:"#aaa"}}>{u.email}</div>
-              <Pill text={u.rol} col={u.rol==="admin"?"#ef4444":u.rol==="teacher"?"#f59e0b":"#6366f1"}/>
+              <Pill text={u.rol} col={u.rol==="admin"?"#ef4444":u.rol==="teacher"?"#f59e0b":u.rol==="parent"?"#10b981":"#6366f1"}/>
+              {u.rol==="parent"&&(()=>{
+                const links=allLinks.filter(l=>l.parent_id===u.id);
+                return links.length>0&&(
+                  <div style={{fontSize:10,color:"#10b981",fontWeight:700,marginTop:2}}>
+                    👧 {links.map(l=>l.student_nombre).join(", ")}
+                  </div>
+                );
+              })()}
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:4}}>
               {u.activo&&u.rol!=="admin"&&(
@@ -88,13 +101,21 @@ function AdminUsuarios({showToast}){
               {u.rol==="student"&&(
                 <button onClick={async()=>{
                   setGrantModal(u);
-                  setGrantTab("revocar"); // default to revocar so old titles are visible
+                  setGrantTab("revocar");
                   api.earnedTitlesOf(u.id).then(d=>setUserTitles(Array.isArray(d)?d:(d?.data||[]))).catch(()=>{});
                 }}
                   style={{background:"#f59e0b22",border:"none",borderRadius:8,
                     color:"#b45309",padding:"5px 8px",fontSize:10,fontWeight:800,
                     cursor:"pointer",fontFamily:"Nunito,sans-serif",whiteSpace:"nowrap"}}>
                   🏅 Título
+                </button>
+              )}
+              {u.rol==="parent"&&(
+                <button onClick={()=>{ setLinkModal(u); setLinkSearch(""); }}
+                  style={{background:"#10b98122",border:"none",borderRadius:8,
+                    color:"#059669",padding:"5px 8px",fontSize:10,fontWeight:800,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif",whiteSpace:"nowrap"}}>
+                  🔗 Vincular
                 </button>
               )}
             </div>
@@ -262,6 +283,67 @@ function AdminUsuarios({showToast}){
           </div>
         </div>
       )}
+      {/* Modal vincular padre-alumno */}
+      {linkModal&&(
+        <div onClick={e=>{if(e.target===e.currentTarget)setLinkModal(null);}}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,
+            display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div style={{background:"white",borderRadius:"20px 20px 0 0",padding:20,
+            width:"100%",maxWidth:480,maxHeight:"80vh",overflowY:"auto"}}>
+            <div style={{fontWeight:800,fontSize:16,marginBottom:4}}>
+              🔗 Vincular a {linkModal.nombre}
+            </div>
+            <div style={{fontSize:12,color:"#aaa",marginBottom:12}}>
+              Seleccioná los alumnos que son hijos/as de este padre
+            </div>
+            <input placeholder="Buscar alumno..." value={linkSearch}
+              onChange={e=>setLinkSearch(e.target.value)}
+              style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",borderRadius:50,
+                padding:"10px 16px",fontSize:12,outline:"none",fontFamily:"Nunito,sans-serif",
+                marginBottom:10,boxSizing:"border-box"}}/>
+            <div style={{maxHeight:300,overflowY:"auto"}}>
+              {users.filter(u=>u.rol==="student"&&(!linkSearch||u.nombre.toLowerCase().includes(linkSearch.toLowerCase()))).map(s=>{
+                const linked=allLinks.some(l=>l.parent_id===linkModal.id&&l.student_id===s.id);
+                return(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,
+                    padding:"10px 12px",borderRadius:12,marginBottom:4,
+                    background:linked?"#10b98108":"transparent",
+                    border:`1.5px solid ${linked?"#10b98133":"#f0f0f0"}`}}>
+                    <Av user={s} sz={32}/>
+                    <div style={{flex:1,fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{s.nombre}</div>
+                    <button
+                      onClick={async()=>{
+                        try{
+                          if(linked){
+                            await api.adminParentUnlink(linkModal.id,s.id);
+                            setAllLinks(prev=>prev.filter(l=>!(l.parent_id===linkModal.id&&l.student_id===s.id)));
+                            showToast(`Desvinculado de ${s.nombre}`);
+                          } else {
+                            await api.adminParentLink(linkModal.id,s.id);
+                            setAllLinks(prev=>[...prev,{parent_id:linkModal.id,parent_nombre:linkModal.nombre,student_id:s.id,student_nombre:s.nombre}]);
+                            showToast(`Vinculado a ${s.nombre} ✅`);
+                          }
+                        }catch(e){showToast(e.message||"Error","error");}
+                      }}
+                      style={{background:linked?"#fee2e2":"#dcfce7",border:"none",borderRadius:8,
+                        color:linked?"#ef4444":"#059669",padding:"6px 12px",fontSize:11,fontWeight:800,
+                        cursor:"pointer",fontFamily:"Nunito,sans-serif",whiteSpace:"nowrap"}}>
+                      {linked?"✕ Desvincular":"+ Vincular"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={()=>setLinkModal(null)}
+              style={{width:"100%",background:"#f0f0f0",border:"none",borderRadius:50,
+                color:"#555",padding:"12px",fontWeight:800,fontSize:14,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif",marginTop:14}}>
+              Listo
+            </button>
+          </div>
+        </div>
+      )}
+
       {form&&(
         <Sheet title="+ Nuevo usuario" onClose={()=>setForm(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -273,6 +355,7 @@ function AdminUsuarios({showToast}){
                 color:"#1a1a1a",padding:"12px 14px",fontSize:14,outline:"none",fontWeight:700}}>
               <option value="student">🧑‍🎓 Alumno</option>
               <option value="teacher">👩‍🏫 Docente</option>
+              <option value="parent">👨‍👩‍👧 Padre / Madre</option>
             </select>
             {rol==="teacher"&&(
               <Inp val={budget} set={setBudget} ph="Presupuesto mensual (monedas)" type="number" icon="🪙"/>

@@ -5,7 +5,8 @@ import { GS } from './constants';
 import { Inp, PBtn } from './components/shared/index';
 import Alumno from './components/student/Alumno';
 import Maestra from './components/teacher/Maestra';
-import Admin from './components/admin/Admin';
+import Admin   from './components/admin/Admin';
+import Padre   from './components/parent/Padre';
 
 export default function App(){
   const [me,setMe]         = useState(null);
@@ -92,5 +93,6 @@ export default function App(){
   if(me.rol==="student") return <Alumno me={me} balance={balance} refreshBalance={refreshBalance} logout={logout} setMe={setMe}/>;
   if(me.rol==="teacher") return <Maestra me={me} logout={logout}/>;
   if(me.rol==="admin")   return <Admin   me={me} logout={logout}/>;
+  if(me.rol==="parent")  return <Padre   me={me} balance={balance} refreshBalance={refreshBalance} logout={logout} setMe={setMe}/>;
   return <div style={{padding:40,fontFamily:"Nunito",textAlign:"center"}}>Rol desconocido: {me.rol}</div>;
 }

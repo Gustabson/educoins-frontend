@@ -192,6 +192,12 @@ const api = {
   groupMembers:      (id)           => apiFetch(`/chat/groups/${id}/members`),
   groupAddMember:    (id, user_id)  => apiFetch(`/chat/groups/${id}/members`, { method:"POST", body:{ user_id } }),
   groupSettings:     (id, body)     => apiFetch(`/chat/groups/${id}/settings`,{ method:"PATCH", body }),
+  // ── Padres ────────────────────────────────────────────────
+  parentChildren:  ()                         => apiFetch("/parent/children"),
+  parentTransfer:  (student_id, amount, description) => apiFetch("/parent/transfer-to-child", { method:"POST", body:{student_id, amount, description} }),
+  adminParentLink: (parent_id, student_id)    => apiFetch("/admin/parent-link",  { method:"POST",   body:{parent_id, student_id} }),
+  adminParentUnlink:(parent_id, student_id)   => apiFetch("/admin/parent-link",  { method:"DELETE", body:{parent_id, student_id} }),
+  adminParentLinks: ()                        => apiFetch("/admin/parent-links"),
   createReport:   (data)                  => apiFetch("/reports",          { method:"POST", body:data }),
   myReports:      ()                      => apiFetch("/reports/mine"),
   allReports:     (q="")                  => apiFetch(`/reports${q}`),

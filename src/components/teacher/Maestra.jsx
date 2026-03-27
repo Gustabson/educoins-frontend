@@ -15,19 +15,21 @@ function Maestra({me,logout}){
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:90,animation:"fadeIn .18s ease"}}>
-        {tab==="home"     && <MHome     me={me} onNav={setTab}/>}
-        {tab==="misiones" && <MMisiones me={me} showToast={showToast}/>}
-        {tab==="aprobar"  && <MAprobar  me={me} showToast={showToast}/>}
-        {tab==="perfil"   && <MPerfilSimple me={me} logout={logout}/>}
+        {tab==="home"       && <MHome       me={me} onNav={setTab}/>}
+        {tab==="misiones"   && <MMisiones   me={me} showToast={showToast}/>}
+        {tab==="aprobar"    && <MAprobar    me={me} showToast={showToast}/>}
+        {tab==="votaciones" && <MVotaciones me={me} showToast={showToast}/>}
+        {tab==="perfil"     && <MPerfilSimple me={me} logout={logout}/>}
       </div>
       <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
         borderTop:"1px solid #EFEFEF",padding:"6px 4px 20px",display:"flex",
         justifyContent:"space-around",boxShadow:"0 -2px 16px rgba(0,0,0,.07)"}}>
         {[
-          {id:"home",    icon:"🏠",label:"Inicio"},
-          {id:"misiones",icon:"⚡",label:"Misiones"},
-          {id:"aprobar", icon:"📬",label:"Entregas"},
-          {id:"perfil",  icon:"👤",label:"Perfil"},
+          {id:"home",       icon:"🏠",label:"Inicio"},
+          {id:"misiones",   icon:"⚡",label:"Misiones"},
+          {id:"aprobar",    icon:"📬",label:"Entregas"},
+          {id:"votaciones", icon:"🗳️",label:"Votar"},
+          {id:"perfil",     icon:"👤",label:"Perfil"},
         ].map(item=>{
           const on=tab===item.id;
           return(
@@ -438,6 +440,258 @@ function MPerfilSimple({me,logout}){
           padding:"14px",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
           Cerrar sesión
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// TEACHER — VOTACIONES
+// ════════════════════════════════════════════════════════════
+
+function MVotaciones({me, showToast}){
+  const [polls,setPolls]       = useState([]);
+  const [loading,setLoading]   = useState(true);
+  const [classroom,setClassroom]= useState(null);
+  const [form,setForm]         = useState(false);
+  const [titulo,setTitulo]     = useState("");
+  const [opciones,setOpciones] = useState(["",""]);
+  const [durValor,setDurValor] = useState("24");
+  const [durUnidad,setDurUnidad]= useState("horas");
+  const [weighted,setWeighted] = useState(false);
+  const [saving,setSaving]     = useState(false);
+
+  const DUR_MAX={minutos:1440,horas:480,dias:20};
+  const JERARQUIA_COLOR={admin:"#00c1fc",teacher:"#8b5cf6"};
+
+  useEffect(()=>{
+    api.chatClassroomInfo()
+      .then(d=>{ setClassroom(d); loadPolls(d?.id); })
+      .catch(()=>setLoading(false));
+  },[]);
+
+  const loadPolls=(cid)=>{
+    if(!cid){ setLoading(false); return; }
+    api.polls("aula", cid)
+      .then(d=>setPolls(Array.isArray(d)?d:[]))
+      .catch(()=>setPolls([]))
+      .finally(()=>setLoading(false));
+  };
+
+  const calcFinISO=()=>{
+    const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
+    const d=new Date();
+    if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
+    else if(durUnidad==="horas") d.setHours(d.getHours()+val);
+    else d.setDate(d.getDate()+val);
+    return d.toISOString();
+  };
+
+  const crear=async()=>{
+    if(!titulo.trim()){showToast("Escribi un titulo","error");return;}
+    const ops=opciones.filter(o=>o.trim());
+    if(ops.length<2){showToast("Necesitas al menos 2 opciones","error");return;}
+    if(!classroom?.id){showToast("No tenés aula asignada","error");return;}
+    setSaving(true);
+    try{
+      await api.createPoll({
+        titulo:titulo.trim(), opciones:ops, fin:calcFinISO(),
+        weighted, scope:"aula", classroom_id:classroom.id,
+      });
+      showToast(weighted?"Propuesta DAO creada 🏛️":"Votacion creada");
+      setForm(false);setTitulo("");setOpciones(["",""]);setDurValor("24");setDurUnidad("horas");setWeighted(false);
+      loadPolls(classroom.id);
+    }catch(e){showToast(e.message||"Error al crear","error");}
+    finally{setSaving(false);}
+  };
+
+  const toggleActiva=async(poll)=>{
+    try{
+      await api.updatePoll(poll.id,{activa:!poll.activa});
+      showToast(poll.activa?"Votacion cerrada":"Votacion reabierta");
+      loadPolls(classroom?.id);
+    }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  const previewFin=(()=>{
+    const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
+    const d=new Date();
+    if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
+    else if(durUnidad==="horas") d.setHours(d.getHours()+val);
+    else d.setDate(d.getDate()+val);
+    return d.toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  })();
+
+  return(
+    <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
+      <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px",
+        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{flex:1,fontWeight:900,fontSize:18}}>Votaciones del Aula</div>
+          {classroom&&(
+            <button onClick={()=>setForm(f=>!f)}
+              style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:99,
+                color:"white",padding:"7px 14px",fontWeight:800,fontSize:12,cursor:"pointer"}}>
+              {form?"Cerrar":"+ Nueva"}
+            </button>
+          )}
+        </div>
+        {classroom&&<div style={{fontSize:11,opacity:.75,marginTop:4}}>🏫 {classroom.nombre}</div>}
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
+        {!classroom&&!loading&&(
+          <WCard style={{textAlign:"center",padding:32}}>
+            <div style={{fontSize:32}}>🏫</div>
+            <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a",marginTop:8}}>Sin aula asignada</div>
+            <div style={{color:"#aaa",fontSize:12,marginTop:4}}>Pedile al admin que te asigne a un aula</div>
+          </WCard>
+        )}
+
+        {/* Formulario de creación */}
+        {form&&classroom&&(
+          <div style={{background:"white",borderRadius:20,padding:16,marginBottom:12,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a",marginBottom:10}}>Nueva votacion</div>
+            <input value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="Pregunta..."
+              style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:12,
+                padding:"10px 14px",fontSize:13,marginBottom:8,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Opciones</div>
+            {opciones.map((op,i)=>(
+              <div key={i} style={{display:"flex",gap:6,marginBottom:6}}>
+                <input value={op} onChange={e=>{const n=[...opciones];n[i]=e.target.value;setOpciones(n);}}
+                  placeholder={"Opcion "+(i+1)}
+                  style={{flex:1,border:"1.5px solid #e8e8e8",borderRadius:12,padding:"8px 12px",
+                    fontSize:12,outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+                {opciones.length>2&&(
+                  <button onClick={()=>setOpciones(o=>o.filter((_,j)=>j!==i))}
+                    style={{background:"#fee2e2",border:"none",borderRadius:8,color:"#ef4444",width:32,cursor:"pointer",fontWeight:800}}>x</button>
+                )}
+              </div>
+            ))}
+            {opciones.length<8&&(
+              <button onClick={()=>setOpciones(o=>[...o,""])}
+                style={{width:"100%",background:"#f0f0f0",border:"none",borderRadius:12,
+                  padding:"8px",fontSize:12,fontWeight:800,color:"#666",cursor:"pointer",
+                  marginBottom:10,fontFamily:"Nunito,sans-serif"}}>+ Agregar opcion</button>
+            )}
+            {/* DAO toggle */}
+            <button onClick={()=>setWeighted(w=>!w)}
+              style={{width:"100%",background:weighted?"#f59e0b18":"#f7f7f7",
+                border:`1.5px solid ${weighted?"#f59e0b":"#e8e8e8"}`,borderRadius:12,
+                padding:"10px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif",marginBottom:10,display:"flex",alignItems:"center",gap:8,
+                color:weighted?"#b45309":"#666",textAlign:"left"}}>
+              <span style={{fontSize:16}}>🏛️</span>
+              <div style={{flex:1}}>DAO: Poder = Monedas {weighted?"✓":""}</div>
+              <div style={{width:20,height:20,borderRadius:"50%",
+                background:weighted?"#f59e0b":"#ddd",color:"white",fontSize:11,
+                display:"flex",alignItems:"center",justifyContent:"center"}}>{weighted?"✓":"○"}</div>
+            </button>
+            {/* Duración */}
+            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Duracion</div>
+            <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
+              <input type="number" value={durValor}
+                onChange={e=>{const v=Math.min(Math.max(1,parseInt(e.target.value)||1),DUR_MAX[durUnidad]);setDurValor(String(v));}}
+                min="1" max={DUR_MAX[durUnidad]}
+                style={{width:70,border:"1.5px solid #e8e8e8",borderRadius:12,padding:"10px 12px",
+                  fontSize:16,fontWeight:800,outline:"none",textAlign:"center",color:"#00c1fc",fontFamily:"Nunito,sans-serif"}}/>
+              <div style={{display:"flex",gap:6,flex:1}}>
+                {["minutos","horas","dias"].map(u=>(
+                  <button key={u} onClick={()=>{setDurUnidad(u);setDurValor(v=>String(Math.min(parseInt(v)||1,DUR_MAX[u])));}}
+                    style={{flex:1,background:durUnidad===u?"#00c1fc":"#f0f0f0",color:durUnidad===u?"white":"#555",
+                      border:"none",borderRadius:10,padding:"8px 4px",fontWeight:800,fontSize:10,cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif"}}>{u}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{fontSize:11,color:"#aaa",marginBottom:12,textAlign:"center"}}>Cierra el {previewFin}</div>
+            <button onClick={crear} disabled={saving}
+              style={{width:"100%",background:saving?"#ccc":"#00c1fc",border:"none",borderRadius:50,
+                color:"white",padding:"12px",fontWeight:800,fontSize:14,cursor:saving?"not-allowed":"pointer",
+                fontFamily:"Nunito,sans-serif"}}>
+              {saving?"Creando...":"Crear votacion"}
+            </button>
+          </div>
+        )}
+
+        {loading&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Cargando...</div>}
+        {!loading&&classroom&&polls.length===0&&(
+          <WCard style={{textAlign:"center",padding:32}}>
+            <div style={{fontSize:32}}>🗳️</div>
+            <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a",marginTop:8}}>Sin votaciones en tu aula</div>
+          </WCard>
+        )}
+
+        {polls.map(v=>{
+          const esTeacher=v.creador_rol==="teacher";
+          const jerarCol=JERARQUIA_COLOR[v.creador_rol]||"#94a3b8";
+          return(
+            <div key={v.id} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:8,
+              boxShadow:`0 2px 12px ${jerarCol}22`,
+              border:`1.5px solid ${jerarCol}44`}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:10}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",gap:4,marginBottom:4,flexWrap:"wrap"}}>
+                    <div style={{display:"inline-flex",alignItems:"center",gap:4,
+                      background:jerarCol+"18",borderRadius:99,padding:"2px 8px"}}>
+                      <span style={{fontSize:9,fontWeight:800,color:jerarCol}}>
+                        {v.creador_rol==="admin"?"ADMIN":"DOCENTE"} · {v.creador_nombre}
+                      </span>
+                    </div>
+                    {v.weighted&&(
+                      <div style={{display:"inline-flex",alignItems:"center",background:"#f59e0b18",
+                        borderRadius:99,padding:"2px 8px"}}>
+                        <span style={{fontSize:9,fontWeight:800,color:"#b45309"}}>🏛️ DAO</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{v.titulo}</div>
+                  {v.fin&&<div style={{fontSize:10,color:"#aaa",marginTop:2}}>
+                    Cierra {new Date(v.fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                  </div>}
+                </div>
+                <span style={{background:v.activa?"#10b98122":"#94a3b822",
+                  color:v.activa?"#10b981":"#94a3b8",borderRadius:99,padding:"3px 9px",
+                  fontSize:10,fontWeight:800,flexShrink:0}}>{v.activa?"Activa":"Cerrada"}</span>
+              </div>
+              {v.opciones?.map(op=>{
+                const pesoPct=v.weighted&&v.total_peso>0?Math.round(parseFloat(op.peso_total||0)/v.total_peso*100):0;
+                const contPct=v.total_votos>0?Math.round(op.votos/v.total_votos*100):0;
+                const pct=v.weighted?pesoPct:contPct;
+                return(
+                  <div key={op.id} style={{marginBottom:6}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,color:"#555",marginBottom:2}}>
+                      <span>{op.texto}</span>
+                      <span>
+                        {v.weighted
+                          ? <>{pct}% <span style={{fontSize:10,color:"#f59e0b"}}>({parseFloat(op.peso_total||0).toFixed(0)}🪙)</span></>
+                          : `${op.votos} (${pct}%)`}
+                      </span>
+                    </div>
+                    <div style={{background:"#f0f0f0",borderRadius:99,height:6}}>
+                      <div style={{width:pct+"%",height:"100%",borderRadius:99,
+                        background:v.weighted?"#f59e0b":jerarCol,transition:"width .4s"}}/>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
+                <span style={{fontSize:11,color:"#aaa"}}>
+                  {v.total_votos} voto{v.total_votos!==1?"s":""}
+                  {v.weighted&&v.total_peso>0&&` · ${parseFloat(v.total_peso).toFixed(0)}🪙`}
+                </span>
+                {v.creador_rol===me.rol&&(
+                  <button onClick={()=>toggleActiva(v)}
+                    style={{background:v.activa?"#fee2e2":"#dcfce7",border:"none",
+                      borderRadius:99,color:v.activa?"#ef4444":"#10b981",padding:"5px 14px",
+                      fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    {v.activa?"Cerrar":"Reabrir"}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

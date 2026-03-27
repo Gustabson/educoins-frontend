@@ -13,6 +13,10 @@ function AdminVotaciones({showToast, onBack}){
   const [opciones,setOpciones]=useState(["",""]);
   const [durUnidad,setDurUnidad]=useState("horas");
   const [durValor,setDurValor]=useState("24");
+  const [weighted,setWeighted]=useState(false);
+  const [scope,setScope]=useState("global");
+  const [classroomId,setClassroomId]=useState("");
+  const [classrooms,setClassrooms]=useState([]);
   const [saving,setSaving]=useState(false);
 
   const DUR_MAX={minutos:1440,horas:480,dias:20};
@@ -26,6 +30,10 @@ function AdminVotaciones({showToast, onBack}){
       .finally(()=>setLoading(false));
   };
   useEffect(()=>{ load(); },[]);
+  useEffect(()=>{
+    if(scope==="aula"&&classrooms.length===0)
+      api.adminClassrooms().then(d=>setClassrooms(Array.isArray(d)?d:[])).catch(()=>{});
+  },[scope]);
 
   const calcFinISO=()=>{
     const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
@@ -42,11 +50,16 @@ function AdminVotaciones({showToast, onBack}){
     if(ops.length<2){showToast("Necesitas al menos 2 opciones","error");return;}
     const val=parseInt(durValor)||0;
     if(val<1){showToast("La duracion debe ser mayor a 0","error");return;}
+    if(scope==="aula"&&!classroomId){showToast("Seleccioná un aula","error");return;}
     setSaving(true);
     try{
-      await api.createPoll({titulo:titulo.trim(),opciones:ops,fin:calcFinISO()});
-      showToast("Votacion creada");
+      await api.createPoll({
+        titulo:titulo.trim(), opciones:ops, fin:calcFinISO(),
+        weighted, scope, classroom_id: scope==="aula"?classroomId:null,
+      });
+      showToast(weighted?"Propuesta DAO creada 🏛️":"Votacion creada");
       setForm(false);setTitulo("");setOpciones(["",""]);setDurValor("24");setDurUnidad("horas");
+      setWeighted(false);setScope("global");setClassroomId("");
       load();
     }catch(e){showToast(e.message||"Error al crear","error");}
     finally{setSaving(false);}
@@ -117,6 +130,44 @@ function AdminVotaciones({showToast, onBack}){
                   padding:"8px",fontSize:12,fontWeight:800,color:"#666",cursor:"pointer",
                   marginBottom:10,fontFamily:"Nunito,sans-serif"}}>+ Agregar opcion</button>
             )}
+            {/* Scope */}
+            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Alcance</div>
+            <div style={{display:"flex",gap:8,marginBottom:10}}>
+              {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setScope(v)}
+                  style={{flex:1,background:scope===v?"#00c1fc":"#f0f0f0",color:scope===v?"white":"#555",
+                    border:"none",borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:12,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
+              ))}
+            </div>
+            {scope==="aula"&&(
+              <select value={classroomId} onChange={e=>setClassroomId(e.target.value)}
+                style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #e8e8e8",borderRadius:12,
+                  padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",marginBottom:10}}>
+                <option value="">-- Seleccioná un aula --</option>
+                {classrooms.map(c=>(
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
+            )}
+
+            {/* DAO Weighted */}
+            <button onClick={()=>setWeighted(w=>!w)}
+              style={{width:"100%",background:weighted?"#f59e0b18":"#f7f7f7",
+                border:`1.5px solid ${weighted?"#f59e0b":"#e8e8e8"}`,borderRadius:12,
+                padding:"10px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif",marginBottom:10,display:"flex",alignItems:"center",gap:8,
+                color:weighted?"#b45309":"#666",textAlign:"left"}}>
+              <span style={{fontSize:16}}>🏛️</span>
+              <div style={{flex:1}}>
+                <div>DAO: Poder de voto por monedas {weighted?"✓ Activado":""}</div>
+                {weighted&&<div style={{fontSize:10,fontWeight:600,opacity:.7}}>El peso de cada voto = balance del votante</div>}
+              </div>
+              <div style={{width:22,height:22,borderRadius:"50%",
+                background:weighted?"#f59e0b":"#ddd",display:"flex",alignItems:"center",justifyContent:"center",
+                color:"white",fontSize:12,flexShrink:0}}>{weighted?"✓":"○"}</div>
+            </button>
+
             <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Duracion (max 20 dias)</div>
             <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
               <input type="number" value={durValor}
@@ -154,14 +205,28 @@ function AdminVotaciones({showToast, onBack}){
               border:"1.5px solid "+(esAdmin||esTeacher?jerarCol+"44":"#f0f0f0")}}>
               <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:10}}>
                 <div style={{flex:1}}>
-                  {(esAdmin||esTeacher)&&(
-                    <div style={{display:"inline-flex",alignItems:"center",gap:4,
-                      background:jerarCol+"18",borderRadius:99,padding:"2px 8px",marginBottom:4}}>
-                      <span style={{fontSize:9,fontWeight:800,color:jerarCol}}>
-                        {esAdmin?"ADMIN":"DOCENTE"}
-                      </span>
-                    </div>
-                  )}
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:4}}>
+                    {(esAdmin||esTeacher)&&(
+                      <div style={{display:"inline-flex",alignItems:"center",gap:4,
+                        background:jerarCol+"18",borderRadius:99,padding:"2px 8px"}}>
+                        <span style={{fontSize:9,fontWeight:800,color:jerarCol}}>
+                          {esAdmin?"ADMIN":"DOCENTE"}
+                        </span>
+                      </div>
+                    )}
+                    {v.weighted&&(
+                      <div style={{display:"inline-flex",alignItems:"center",gap:3,
+                        background:"#f59e0b18",borderRadius:99,padding:"2px 8px"}}>
+                        <span style={{fontSize:9,fontWeight:800,color:"#b45309"}}>🏛️ DAO</span>
+                      </div>
+                    )}
+                    {v.scope==="aula"&&(
+                      <div style={{display:"inline-flex",alignItems:"center",gap:3,
+                        background:"#6366f118",borderRadius:99,padding:"2px 8px"}}>
+                        <span style={{fontSize:9,fontWeight:800,color:"#6366f1"}}>🏫 Aula</span>
+                      </div>
+                    )}
+                  </div>
                   <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{v.titulo}</div>
                   <div style={{fontSize:10,color:"#aaa",marginTop:2}}>
                     por {v.creador_nombre}
@@ -173,20 +238,32 @@ function AdminVotaciones({showToast, onBack}){
                   fontSize:10,fontWeight:800,flexShrink:0}}>{v.activa?"Activa":"Cerrada"}</span>
               </div>
               {v.opciones?.map(op=>{
-                const pct=v.total_votos>0?Math.round(op.votos/v.total_votos*100):0;
+                const contPct=v.total_votos>0?Math.round(op.votos/v.total_votos*100):0;
+                const pesoPct=v.weighted&&v.total_peso>0?Math.round(parseFloat(op.peso_total||0)/v.total_peso*100):0;
+                const pct=v.weighted?pesoPct:contPct;
+                const barCol=v.weighted?"#f59e0b":jerarCol;
                 return(
                   <div key={op.id} style={{marginBottom:6}}>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,color:"#555",marginBottom:2}}>
-                      <span>{op.texto}</span><span>{op.votos} votos ({pct}%)</span>
+                      <span>{op.texto}</span>
+                      <span style={{textAlign:"right"}}>
+                        {v.weighted
+                          ? <>{pct}% <span style={{fontSize:10,color:"#f59e0b"}}>({parseFloat(op.peso_total||0).toFixed(0)} mon)</span></>
+                          : <>{op.votos} votos ({pct}%)</>
+                        }
+                      </span>
                     </div>
                     <div style={{background:"#f0f0f0",borderRadius:99,height:6}}>
-                      <div style={{width:pct+"%",height:"100%",borderRadius:99,background:jerarCol,transition:"width .4s"}}/>
+                      <div style={{width:pct+"%",height:"100%",borderRadius:99,background:barCol,transition:"width .4s"}}/>
                     </div>
                   </div>
                 );
               })}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-                <span style={{fontSize:11,color:"#aaa"}}>{v.total_votos} votos totales</span>
+                <span style={{fontSize:11,color:"#aaa"}}>
+                  {v.total_votos} voto{v.total_votos!==1?"s":""}
+                  {v.weighted&&v.total_peso>0&&` · ${parseFloat(v.total_peso).toFixed(0)} monedas`}
+                </span>
                 <button onClick={()=>toggleActiva(v)} style={{background:v.activa?"#fee2e2":"#dcfce7",border:"none",
                   borderRadius:99,color:v.activa?"#ef4444":"#10b981",padding:"5px 14px",
                   fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
