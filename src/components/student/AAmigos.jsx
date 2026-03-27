@@ -19,6 +19,12 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
   const [loading,     setLoading]   = useState(true);
   const [toqueTarget,  setToqueTarget]  = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);
+  const [groupModal,   setGroupModal]   = useState(false);
+  const [groupName,    setGroupName]    = useState("");
+  const [groupIcon,    setGroupIcon]    = useState("👥");
+  const [groupSelected,setGroupSelected]= useState(new Set());
+
+  const GROUP_ICONS = ["👥","🎮","📚","🏀","⚽","🎵","🎨","🍕","🎲","🔥","⭐","💡","🎯","🏆","💬","🎉","🚀","🌟"];
 
   const card = {
     background:   cardBg,
@@ -119,6 +125,21 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
       showToast(e.message || "Error al eliminar amigo", "error");
     } finally {
       setRemoveTarget(null);
+    }
+  };
+
+  const createGroup = async () => {
+    if (groupName.trim().length < 2) { showToast("El nombre debe tener al menos 2 caracteres", "error"); return; }
+    if (groupSelected.size === 0)    { showToast("Seleccioná al menos un amigo", "error"); return; }
+    try {
+      await api.createGroup({ nombre: groupName.trim(), icono: groupIcon, member_ids: [...groupSelected] });
+      showToast(`Grupo "${groupName.trim()}" creado 🎉`);
+      setGroupModal(false);
+      setGroupName("");
+      setGroupIcon("👥");
+      setGroupSelected(new Set());
+    } catch(e) {
+      showToast(e.message || "Error al crear grupo", "error");
     }
   };
 
@@ -248,6 +269,16 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
             {loading && (
               <div style={{textAlign:"center", color:sub, padding:24}}>
                 Cargando...
+              </div>
+            )}
+            {!loading && friends.length > 0 && (
+              <div style={{display:"flex", justifyContent:"flex-end", marginBottom:8}}>
+                <button onClick={() => setGroupModal(true)}
+                  style={{background:accent, border:"none", borderRadius:99,
+                    color:"white", padding:"7px 14px", fontSize:12, fontWeight:800,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                  👥 Crear grupo
+                </button>
               </div>
             )}
             {!loading && friends.length === 0 && (
@@ -405,6 +436,102 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
                   fontWeight:800, fontSize:14, cursor:"pointer",
                   fontFamily:"Nunito,sans-serif"}}>
                 🗑️ Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Crear grupo ───────────────────────────── */}
+      {groupModal && (
+        <div onClick={e => { if (e.target === e.currentTarget) setGroupModal(false); }}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.5)",
+            zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center"}}>
+          <div style={{background:cardBg, borderRadius:"20px 20px 0 0",
+            padding:24, width:"100%", maxWidth:480, fontFamily:"Nunito,sans-serif",
+            maxHeight:"85vh", overflowY:"auto"}}>
+
+            <div style={{fontWeight:900, fontSize:17, color:txt, marginBottom:16}}>
+              👥 Crear grupo
+            </div>
+
+            {/* Icono */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11, fontWeight:800, color:sub, marginBottom:8}}>ÍCONO</div>
+              <div style={{display:"flex", flexWrap:"wrap", gap:8}}>
+                {GROUP_ICONS.map(ic => (
+                  <button key={ic} onClick={() => setGroupIcon(ic)}
+                    style={{fontSize:22, background: groupIcon===ic ? accent+"33" : inputBg,
+                      border: `2px solid ${groupIcon===ic ? accent : "transparent"}`,
+                      borderRadius:10, width:44, height:44, cursor:"pointer"}}>
+                    {ic}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Nombre */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11, fontWeight:800, color:sub, marginBottom:8}}>NOMBRE</div>
+              <input
+                value={groupName}
+                onChange={e => setGroupName(e.target.value.slice(0,40))}
+                placeholder="Nombre del grupo..."
+                style={{width:"100%", background:inputBg, border:`1.5px solid ${navBord}`,
+                  borderRadius:12, padding:"10px 14px", fontSize:14, fontWeight:700,
+                  color:txt, outline:"none", fontFamily:"Nunito,sans-serif",
+                  boxSizing:"border-box"}}/>
+            </div>
+
+            {/* Seleccionar amigos */}
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:11, fontWeight:800, color:sub, marginBottom:8}}>
+                MIEMBROS ({groupSelected.size}/29)
+              </div>
+              {friends.map(f => {
+                const sel = groupSelected.has(f.user_id);
+                return (
+                  <div key={f.friendship_id}
+                    onClick={() => {
+                      setGroupSelected(prev => {
+                        const next = new Set(prev);
+                        if (sel) next.delete(f.user_id);
+                        else if (next.size < 29) next.add(f.user_id);
+                        return next;
+                      });
+                    }}
+                    style={{display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
+                      background: sel ? accent+"15" : inputBg,
+                      border: `1.5px solid ${sel ? accent : "transparent"}`,
+                      borderRadius:12, marginBottom:6, cursor:"pointer"}}>
+                    <Av user={f} sz={36} avatarBg={f.avatar_bg}/>
+                    <div style={{flex:1, fontWeight:700, fontSize:13, color:txt}}>
+                      {displayName(f)}
+                    </div>
+                    <div style={{width:22, height:22, borderRadius:"50%",
+                      background: sel ? accent : navBord,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      fontSize:13, color:"white", flexShrink:0}}>
+                      {sel ? "✓" : ""}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{display:"flex", gap:10}}>
+              <button onClick={() => { setGroupModal(false); setGroupName(""); setGroupIcon("👥"); setGroupSelected(new Set()); }}
+                style={{flex:1, background:inputBg, border:`1px solid ${navBord}`,
+                  borderRadius:50, color:sub, padding:"13px", fontWeight:800,
+                  fontSize:14, cursor:"pointer", fontFamily:"Nunito,sans-serif"}}>
+                Cancelar
+              </button>
+              <button onClick={createGroup}
+                style={{flex:1, background:accent, border:"none",
+                  borderRadius:50, color:"white", padding:"13px",
+                  fontWeight:800, fontSize:14, cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                Crear grupo
               </button>
             </div>
           </div>

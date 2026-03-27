@@ -184,7 +184,7 @@ const ESTADO_COL={recibido:"#f59e0b",en_revision:"#3b82f6",resuelto:"#10b981",de
 const ESTADO_LABEL2={recibido:"Recibido",en_revision:"En revisión",resuelto:"Resuelto",descartado:"Descartado"};
 const TIPO_ICON={bullying:"😰",accidente:"🚑",perdido:"🔍",sugerencia:"💡",otro:"📋"};
 
-const CHAT_SECTIONS = ["Personal","Aula","Global"];
+const CHAT_SECTIONS = ["Personal","Grupos","Aula","Global"];
 
 const GS = `
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');

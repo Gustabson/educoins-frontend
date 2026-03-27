@@ -30,6 +30,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [notifs,setNotifs]=useState([]);
   const [badges,setBadges]=useState({chat:0,notifs:0});
   const [perfilUserId,setPerfilUserId]=useState(null); // perfil modal global
+  const [chatInitialFriend,setChatInitialFriend]=useState(null);
 
   // ── Sistema de tema unificado ────────────────────────────────
   // activeMode: objeto con todos los colores del modo activo (claro/oscuro/sepia/etc)
@@ -296,10 +297,10 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           currentModeId={activeModeId} isDark={theme.isDark}
           currentPrimary={activePrimary||theme.primary}
           currentMode={sm}/>}
-        {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig} onOpenPerfil={setPerfilUserId}/>}
+        {tab==="chat"       && <AChat       me={me} showToast={showToast} onBack={()=>navTo("home")} nameColorConfig={nameColorConfig} onOpenPerfil={setPerfilUserId} initialFriend={chatInitialFriend} onChatOpened={()=>setChatInitialFriend(null)}/>}
         {tab==="mispremios" && <AMisPremios me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="p2p"        && <AP2P me={me} balance={balance} showToast={showToast} onBack={()=>navTo("home")} refreshBalance={refreshBalance}/>}
-        {tab==="amigos"     && <AAmigos     me={me} showToast={showToast} onBack={()=>navTo("home")} onOpenPerfil={setPerfilUserId} onOpenChat={(friend)=>{navTo("chat");}}/>}
+        {tab==="amigos"     && <AAmigos     me={me} showToast={showToast} onBack={()=>navTo("home")} onOpenPerfil={setPerfilUserId} onOpenChat={(friend)=>{ setChatInitialFriend(friend); navTo("chat"); }}/>}
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="reportes"   && <AReportes   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}

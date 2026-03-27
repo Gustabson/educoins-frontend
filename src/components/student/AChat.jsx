@@ -44,7 +44,7 @@ function useChatSocket(token, onMessage, onTyping) {
   return socketRef;
 }
 
-function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
+function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFriend, onChatOpened}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg, inputBg, inputBd, navBord, navInact} = useTheme();
   const [sec, setSec]           = useState(0);
   const [friend, setFriend]     = useState(null);
@@ -65,9 +65,14 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   const [loading, setLoading]   = useState(true);
   // perfilUserId manejado en Alumno via onOpenPerfil prop
   // Emoji picker
-  const [emojiOpen, setEmojiOpen]     = useState(false);
-  const [optionsOpen, setOptionsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [emojiOpen,    setEmojiOpen]    = useState(false);
+  const [optionsOpen,  setOptionsOpen]  = useState(false);
+  const [searchQuery,  setSearchQuery]  = useState("");
+  const [addOpen,      setAddOpen]      = useState(false);
+  const [groups,       setGroups]       = useState([]);
+  const [activeGroup,  setActiveGroup]  = useState(null);
+  const [groupMsgs,    setGroupMsgs]    = useState([]);
+  const groupConvIdRef = useRef(null);
   const [emojiPacks, setEmojiPacks]   = useState([]); // packs desbloqueados
   const bottomRef               = useRef(null);
   const typingTimer             = useRef(null);
@@ -97,6 +102,8 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
       setClass_(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m]);
     } else if (personalConvIdRef.current === m.conversation_id) {
       setPerson(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m]);
+    } else if (groupConvIdRef.current === m.conversation_id) {
+      setGroupMsgs(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m]);
     }
   }, []); // sin dependencias — nunca se re-registra
 
@@ -129,11 +136,14 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
       const cid = d.conversation_id || d.data?.conversation_id;
       if (cid) globalConvIdRef.current = cid;
     }).catch(()=>{});
+
+    // Cargar grupos
+    api.myGroups().then(d => setGroups(d.data || [])).catch(()=>{});
   }, []);
 
   // Cargar mensajes del aula cuando se selecciona esa tab
   useEffect(() => {
-    if (sec === 1 && classInfo && classMsgs.length === 0) {
+    if (sec === 2 && classInfo && classMsgs.length === 0) {
       api.chatClassroomMsgs().then(d => {
         setClass_((d.data||d||[]).map(m=>({...m,conversation_id:classInfo.conversation_id})));
         const s = getSocket();
@@ -146,6 +156,23 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   useEffect(() => {
     bottomRef.current?.scrollIntoView({behavior:"smooth"});
   }, [globalMsgs, classMsgs, personMsgs, sec, friend]);
+
+  // Abrir directamente con initialFriend si viene de AAmigos
+  useEffect(() => {
+    if (initialFriend) {
+      openFriend(initialFriend);
+      onChatOpened?.();
+    }
+  }, []); // eslint-disable-line
+
+  // Escuchar group_added para refrescar la lista
+  useEffect(() => {
+    const s = getSocket();
+    if (!s) return;
+    const onGroupAdded = () => api.myGroups().then(d => setGroups(d.data || [])).catch(()=>{});
+    s.on('group_added', onGroupAdded);
+    return () => s.off('group_added', onGroupAdded);
+  }, []);
 
   // Abrir chat personal con un amigo
   const openFriend = async (f) => {
@@ -171,6 +198,23 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
     }
   };
 
+  const openGroup = async (g) => {
+    setActiveGroup(g);
+    setGroupMsgs([]);
+    groupConvIdRef.current = null;
+    try {
+      const d = await api.groupMsgs(g.conversation_id);
+      const data = d.data || d;
+      const msgs = data.messages || [];
+      setGroupMsgs(msgs);
+      groupConvIdRef.current = g.conversation_id;
+      const s = getSocket();
+      if (s) s.emit('join_group', g.conversation_id);
+    } catch(e) {
+      showToast("Error al cargar el grupo","error");
+    }
+  };
+
   const sendMsg = () => {
     const s = getSocket();
     const textoClean = msg.trim();
@@ -180,7 +224,10 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
     if (friend) {
       type = 'personal';
       conversation_id = convId;
-    } else if (sec === 1) {
+    } else if (activeGroup) {
+      type = 'group';
+      conversation_id = activeGroup.conversation_id;
+    } else if (sec === 2) {
       type = 'classroom';
       conversation_id = classInfo?.conversation_id;
     } else {
@@ -203,8 +250,11 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
   const emitTyping = () => {
     const s = getSocket();
     if (!s) return;
-    let type = friend ? 'personal' : sec===1 ? 'classroom' : 'global';
-    let cid  = friend ? convId : sec===1 ? classInfo?.conversation_id : null;
+    let type, cid;
+    if (friend)       { type='personal';  cid=convId; }
+    else if(activeGroup){ type='group';   cid=activeGroup.conversation_id; }
+    else if(sec===2)  { type='classroom'; cid=classInfo?.conversation_id; }
+    else              { type='global';    cid=null; }
     s.emit('typing', { conversation_id: cid, type });
   };
 
@@ -260,6 +310,67 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
       showToast(e.message||"Error","error");
     }
   };
+
+  // ── Render chat grupal ───────────────────────────────────────
+  if (activeGroup) return(
+    <div style={{background:bg,height:"100%",display:"flex",flexDirection:"column"}}>
+      <div style={{background:accent,color:"white",flexShrink:0,
+        position:"sticky",top:0,zIndex:10,padding:"22px 16px 14px",
+        display:"flex",alignItems:"center",gap:10}}>
+        <button onClick={()=>{setActiveGroup(null);setGroupMsgs([]);groupConvIdRef.current=null;}}
+          style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:50,
+            color:"white",width:34,height:34,cursor:"pointer",fontSize:18,flexShrink:0,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:800,fontSize:15,
+            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+            {activeGroup.icono} {activeGroup.nombre}
+          </div>
+          <div style={{fontSize:11,opacity:.65}}>{activeGroup.total_miembros} miembros</div>
+        </div>
+      </div>
+      <div style={{flex:1,padding:"12px 14px 12px",overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
+        {groupMsgs.length===0&&(
+          <div style={{textAlign:"center",color:sub,fontSize:13,marginTop:40}}>Empezá la conversación 💬</div>
+        )}
+        {groupMsgs.map((m,i)=>{
+          const isMe = m.sender_id===me.id;
+          return(
+            <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
+              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||"",avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
+              <div style={{maxWidth:"72%"}}>
+                {!isMe&&<div style={{fontSize:10,marginBottom:2,marginLeft:4,fontWeight:700,color:sub}}>{m.sender_nombre}</div>}
+                <div style={{padding:"9px 13px",
+                  borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                  background:isMe?accent:cardBg,color:isMe?"white":txt,
+                  fontSize:13,fontWeight:600,boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
+                  {m.texto}
+                  <div style={{fontSize:9,opacity:.6,marginTop:2,textAlign:"right"}}>
+                    {new Date(m.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef}/>
+      </div>
+      <div style={{flexShrink:0,padding:"6px 14px 20px",
+        background:cardBg,borderTop:`1px solid ${inputBg}`}}>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <input value={msg} onChange={e=>{setMsg(e.target.value);emitTyping();}}
+            onKeyDown={e=>e.key==="Enter"&&sendMsg()}
+            placeholder="Escribi un mensaje..."
+            style={{flex:1,background:inputBg,border:`1.5px solid ${inputBord}`,borderRadius:50,
+              padding:"10px 16px",fontSize:13,outline:"none",color:txt,
+              fontFamily:"Nunito,sans-serif",fontWeight:600}}/>
+          <button onClick={sendMsg} style={{width:42,height:42,borderRadius:"50%",background:accent,
+            border:"none",color:"white",fontSize:18,cursor:"pointer",flexShrink:0,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+        </div>
+      </div>
+    </div>
+  );
 
   // ── Render chat individual v2 ─────────────────────────────────
   if (friend) return(
@@ -657,8 +768,38 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
         </div>
       )}
 
-      {/* AULA */}
+      {/* GRUPOS */}
       {sec===1&&(
+        <div style={{padding:"10px 14px"}}>
+          {groups.length===0&&(
+            <div style={{textAlign:"center",color:sub,padding:32,fontSize:13}}>
+              <div style={{fontSize:36,marginBottom:8}}>👥</div>
+              <div style={{fontWeight:700}}>No tenés grupos todavía</div>
+              <div style={{fontSize:12,marginTop:4}}>Creá uno desde la pantalla de Amigos</div>
+            </div>
+          )}
+          {groups.map(g=>(
+            <div key={g.conversation_id} onClick={()=>openGroup(g)}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer",
+                background:cardBg,borderRadius:16,marginBottom:8,
+                boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{width:42,height:42,borderRadius:"50%",background:accent+"22",
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+                {g.icono}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:800,fontSize:13,color:txt,
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.nombre}</div>
+                <div style={{fontSize:11,color:sub}}>{g.total_miembros} miembros · {g.my_rol==='owner'?'Admin':'Miembro'}</div>
+              </div>
+              <span style={{color:sub,fontSize:16}}>›</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* AULA */}
+      {sec===2&&(
         <div>
           {!classInfo?(
             <div style={{padding:32,textAlign:"center",color:sub,fontSize:13}}>
@@ -680,7 +821,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
       )}
 
       {/* GLOBAL */}
-      {sec===2&&(
+      {sec===3&&(
         <div>
           <div style={{padding:"8px 14px 0"}}>
             <div style={{fontSize:11,color:sub}}>Toda la escuela puede leer y escribir</div>
@@ -688,9 +829,6 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil}){
           {renderMessages(globalMsgs, 'global')}
         </div>
       )}
-
-      {/* Sheet agregar amigo */}
-      }
 
     </div>
   );
