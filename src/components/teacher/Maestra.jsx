@@ -460,6 +460,7 @@ function MVotaciones({me, showToast}){
   const [durUnidad,setDurUnidad]= useState("horas");
   const [weighted,setWeighted] = useState(false);
   const [saving,setSaving]     = useState(false);
+  const [now,setNow]           = useState(()=>new Date());
 
   const DUR_MAX={minutos:1440,horas:480,dias:20};
   const JERARQUIA_COLOR={admin:"#00c1fc",teacher:"#8b5cf6"};
@@ -468,6 +469,8 @@ function MVotaciones({me, showToast}){
     api.chatClassroomInfo()
       .then(d=>{ setClassroom(d); loadPolls(d?.id); })
       .catch(()=>setLoading(false));
+    const id=setInterval(()=>setNow(new Date()),30000);
+    return ()=>clearInterval(id);
   },[]);
 
   const loadPolls=(cid)=>{
@@ -514,8 +517,9 @@ function MVotaciones({me, showToast}){
   };
 
   const previewFin=(()=>{
+    // Usa `now` actualizado cada 30s para que no se desactualice con el formulario abierto
     const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
-    const d=new Date();
+    const d=new Date(now.getTime());
     if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
     else if(durUnidad==="horas") d.setHours(d.getHours()+val);
     else d.setDate(d.getDate()+val);

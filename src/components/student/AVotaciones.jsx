@@ -4,6 +4,54 @@ import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
 
+const DUR_MAX={minutos:1440,horas:480,dias:20};
+
+const PROP_HELPER=`📝 CÓMO ESCRIBIR UNA BUENA PROPUESTA DAO
+
+✅ TÍTULO (pregunta clara y directa)
+  "¿Debería la escuela organizar una feria de ciencias?"
+  Evitá: "Propuesta 1" o "Idea nueva"
+
+✅ DESCRIPCIÓN DEL PROBLEMA
+  Explicá qué querés resolver y el impacto esperado.
+  Ej: "Varios estudiantes quieren mostrar sus proyectos. Una feria anual motivaría la creatividad."
+
+✅ OPCIONES DE VOTO — explicá qué significa cada una
+  • "Sí — aprobar y organizar la feria este año"
+  • "No — no organizar por ahora"
+  • "Abstención — necesito más información"
+
+💡 CONSEJOS
+  • Sé específico sobre quién implementaría la decisión
+  • Mencioná si hay costos o recursos involucrados
+  • 2-3 opciones es lo ideal`;
+
+const LEGAL_INFO=`⚖️ QUÉ PUEDE DECIDIRSE EN UNA ESCUELA
+
+✅ PUEDE SER PROPUESTO Y VOTADO:
+  • Organización de eventos y actividades extracurriculares
+    (Ley 26.206 Art. 11 — participación estudiantil)
+  • Normas de convivencia y reglamento interno
+    (Ley 26.892 — Convivencia Escolar, Art. 3)
+  • Uso de espacios comunes y recreación
+  • Propuestas de mejora de infraestructura (no vinculantes)
+  • Actividades del Centro de Estudiantes
+    (Ley 26.877 — Centros de Estudiantes)
+
+❌ NO PUEDE SER DECIDIDO POR VOTO:
+  • Contenidos curriculares
+    (Res. CFE 24/07 — jurisdicción nacional/provincial)
+  • Designación o remoción de docentes
+    (Ley 10.579 — Estatuto Docente)
+  • Modificación de horarios o calendario
+    (Resolución ministerial de cada jurisdicción)
+  • Sanciones disciplinarias a alumnos
+    (Ley 26.892 — Régimen de convivencia)
+
+⚠️ IMPORTANTE
+  Las resoluciones DAO de esta app son CONSULTIVAS.
+  La decisión final siempre queda en la dirección.`;
+
 function AVotaciones({me,showToast,onBack}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd} = useTheme();
   const [sec,setSec]         = useState("global"); // "global"|"aula"
@@ -18,6 +66,19 @@ function AVotaciones({me,showToast,onBack}){
   const [replies,setReplies] = useState({});    // {comment_id: [...]}
   const [classInfo,setCInfo] = useState(null);
   const [savingCmt,setSavingCmt]=useState(false);
+  // Propuesta DAO
+  const [propModal,setPropModal]   = useState(false);
+  const [propTitulo,setPropTitulo] = useState("");
+  const [propContexto,setPropContexto]=useState("");
+  const [propOpciones,setPropOpciones]=useState(["",""]);
+  const [propDurValor,setPropDurValor]=useState("24");
+  const [propDurUnidad,setPropDurUnidad]=useState("horas");
+  const [propWeighted,setPropWeighted]=useState(false);
+  const [propSaving,setPropSaving] = useState(false);
+  const [propHelper,setPropHelper] = useState(false);
+  const [propLegal,setPropLegal]   = useState(false);
+  // Tiempo en vivo para preview de fecha
+  const [now,setNow]=useState(()=>new Date());
 
 
   const loadPolls = (s) => {
@@ -32,6 +93,9 @@ function AVotaciones({me,showToast,onBack}){
 
   useEffect(()=>{
     api.chatClassroomInfo().then(d=>{ const ci=d.data||d; setCInfo(ci); }).catch(()=>{});
+    // Mantener hora en vivo para preview
+    const id=setInterval(()=>setNow(new Date()),30000);
+    return ()=>clearInterval(id);
   },[]);
 
   useEffect(()=>{ loadPolls(); },[sec, classInfo]);
@@ -113,6 +177,51 @@ function AVotaciones({me,showToast,onBack}){
       setComments(cs=>cs.filter(c=>c.id!==cmtId));
     }catch(e){}
   };
+
+  const proponer=async()=>{
+    if(!propTitulo.trim()||propTitulo.trim().length<5){showToast("El título necesita al menos 5 caracteres","error");return;}
+    const isStaff=["admin","teacher"].includes(me.rol);
+    if(!isStaff&&(!propContexto.trim()||propContexto.trim().length<20)){
+      showToast("La descripción necesita al menos 20 caracteres","error");return;
+    }
+    const ops=propOpciones.filter(o=>o.trim());
+    if(ops.length<2){showToast("Necesitás al menos 2 opciones","error");return;}
+    const val=Math.min(parseInt(propDurValor)||24,DUR_MAX[propDurUnidad]);
+    const d=new Date();
+    if(propDurUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
+    else if(propDurUnidad==="horas") d.setHours(d.getHours()+val);
+    else d.setDate(d.getDate()+val);
+    setPropSaving(true);
+    try{
+      await api.createPoll({
+        titulo:propTitulo.trim(), contexto:propContexto.trim()||undefined,
+        opciones:ops, fin:d.toISOString(), weighted:propWeighted, scope:"global",
+      });
+      showToast(isStaff?"Votación creada ✅":"¡Propuesta enviada! Esperando aprobación ⏳");
+      setPropModal(false);
+      setPropTitulo("");setPropContexto("");setPropOpciones(["",""]);setPropWeighted(false);
+      loadPolls(sec);
+    }catch(e){showToast(e.message||"Error al enviar","error");}
+    finally{setPropSaving(false);}
+  };
+
+  const retirarPropuesta=async(id)=>{
+    try{
+      await api.deletePoll(id);
+      setPolls(ps=>ps.filter(p=>p.id!==id));
+      showToast("Propuesta retirada");
+    }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  // Preview de fecha en vivo (usa `now` que se actualiza cada 30s)
+  const previewPropFin=(()=>{
+    const val=Math.min(parseInt(propDurValor)||1,DUR_MAX[propDurUnidad]);
+    const d=new Date(now.getTime());
+    if(propDurUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
+    else if(propDurUnidad==="horas") d.setHours(d.getHours()+val);
+    else d.setDate(d.getDate()+val);
+    return d.toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  })();
 
   // ── Vista comentarios ─────────────────────────────────────
   if(selPoll) return(
@@ -248,35 +357,94 @@ function AVotaciones({me,showToast,onBack}){
   );
 
   // ── Vista lista de votaciones ─────────────────────────────
+  const activePolls=polls.filter(p=>p.status==="active");
+  const myProposals=polls.filter(p=>p.status!=="active"&&p.creador_id===me.id);
+
   return(
     <div style={{background:bg,minHeight:"100vh"}}>
-      <OHdrA title="Votaciones" onBack={onBack}/>
-
-      {/* Tabs Global / Aula */}
-      <div style={{display:"flex",background:cardBg,
-        borderBottom:`1px solid ${inputBg}`}}>
-        {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([id,label])=>(
-          <button key={id} onClick={()=>setSec(id)}
-            style={{flex:1,padding:"11px 4px",background:"none",border:"none",
-              fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"Nunito,sans-serif",
-              color:sec===id?accent:sub,
-              borderBottom:`2.5px solid ${sec===id?accent:"transparent"}`,
-              transition:"all .2s"}}>
-            {label}
+      {/* Header con botón Proponer */}
+      <div style={{background:accent,color:"white",padding:"16px 16px 0",
+        position:"sticky",top:0,zIndex:50,
+        textShadow:dark?"none":"0 1px 4px rgba(0,60,100,.4)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+          {onBack&&(
+            <button onClick={onBack}
+              style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
+                color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
+                display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
+          )}
+          <div style={{flex:1,fontWeight:900,fontSize:17}}>Votaciones</div>
+          <button onClick={()=>setPropModal(true)}
+            style={{background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",
+              borderRadius:99,color:"white",padding:"7px 14px",
+              fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+              display:"flex",alignItems:"center",gap:5}}>
+            🏛️ Proponer
           </button>
-        ))}
+        </div>
+        {/* Tabs Global / Aula */}
+        <div style={{display:"flex",gap:2}}>
+          {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([id,label])=>(
+            <button key={id} onClick={()=>setSec(id)}
+              style={{flex:1,padding:"10px 4px",background:"none",border:"none",
+                fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                color:sec===id?"white":"rgba(255,255,255,.6)",
+                borderBottom:`2.5px solid ${sec===id?"white":"transparent"}`,
+                transition:"all .2s"}}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div style={{padding:"12px 14px"}}>
+        {/* Mis propuestas pendientes/rechazadas */}
+        {myProposals.map(v=>{
+          const isPending=v.status==="pending";
+          return(
+            <div key={v.id} style={{background:cardBg,borderRadius:16,padding:"14px",marginBottom:10,
+              border:`1.5px solid ${isPending?"#f59e0b44":"#ef444444"}`,
+              boxShadow:isPending?"0 2px 10px #f59e0b22":"0 2px 10px #ef444422"}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
+                <div style={{background:isPending?"#f59e0b18":"#ef444418",borderRadius:10,
+                  padding:"4px 10px",fontSize:10,fontWeight:800,
+                  color:isPending?"#b45309":"#ef4444",flexShrink:0}}>
+                  {isPending?"⏳ Pendiente de aprobación":"❌ Rechazada"}
+                </div>
+                <div style={{flex:1}}/>
+                <button onClick={()=>retirarPropuesta(v.id)}
+                  style={{background:"none",border:"none",color:sub,cursor:"pointer",fontSize:12}}>🗑️</button>
+              </div>
+              <div style={{fontWeight:800,fontSize:14,color:txt,marginBottom:4}}>{v.titulo}</div>
+              {v.contexto&&<div style={{fontSize:12,color:sub,marginBottom:6,lineHeight:1.5}}>{v.contexto}</div>}
+              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:6}}>
+                {v.opciones?.map((op,i)=>(
+                  <span key={i} style={{background:inputBg,borderRadius:8,padding:"3px 8px",fontSize:11,color:sub}}>
+                    {op.texto}
+                  </span>
+                ))}
+              </div>
+              {v.review_note&&(
+                <div style={{background:"#ef444418",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#ef4444"}}>
+                  <strong>Motivo:</strong> {v.review_note}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
         {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
-        {!loading&&polls.length===0&&(
+        {!loading&&activePolls.length===0&&myProposals.length===0&&(
           <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center",
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
             <div style={{fontSize:40}}>🗳️</div>
             <div style={{fontWeight:800,color:txt,marginTop:8}}>Sin votaciones {sec==="aula"?"en tu aula":"globales"}</div>
+            <div style={{fontSize:12,color:sub,marginTop:4}}>
+              ¡Sé el primero en proponer algo con el botón "🏛️ Proponer"!
+            </div>
           </div>
         )}
-        {polls.map(v=>{
+        {activePolls.map(v=>{
           const yaVote    = !!v.mi_voto;
           const mostrar   = yaVote||!v.activa;
           const isVoting  = voting===v.id;
@@ -440,6 +608,160 @@ function AVotaciones({me,showToast,onBack}){
           );
         })}
       </div>
+
+      {/* ── Modal Proponer DAO ─────────────────────────────── */}
+      {propModal&&(
+        <div onClick={e=>{if(e.target===e.currentTarget){setPropModal(false);setPropHelper(false);setPropLegal(false);}}}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,
+            display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div style={{background:cardBg,borderRadius:"22px 22px 0 0",
+            width:"100%",maxWidth:480,maxHeight:"92vh",overflowY:"auto",
+            boxShadow:"0 -4px 32px rgba(0,0,0,.18)"}}>
+            <div style={{padding:"16px 18px 0"}}>
+              {/* Drag handle */}
+              <div style={{width:40,height:4,background:inputBg,borderRadius:99,margin:"0 auto 14px"}}/>
+              <div style={{fontWeight:900,fontSize:17,color:txt,marginBottom:4}}>🏛️ Proponer votación DAO</div>
+              <div style={{fontSize:12,color:sub,marginBottom:14}}>
+                {["admin","teacher"].includes(me.rol)
+                  ?"Se publicará de inmediato."
+                  :"El equipo administrativo la revisará antes de publicarla."}
+              </div>
+
+              {/* Botones ayuda */}
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <button onClick={()=>{setPropHelper(h=>!h);setPropLegal(false);}}
+                  style={{flex:1,background:propHelper?accent+"18":inputBg,
+                    border:`1.5px solid ${propHelper?accent:inputBd}`,borderRadius:12,
+                    padding:"8px",fontSize:11,fontWeight:800,cursor:"pointer",
+                    color:propHelper?accent:sub,fontFamily:"Nunito,sans-serif"}}>
+                  📝 Cómo escribirla {propHelper?"▲":"▼"}
+                </button>
+                <button onClick={()=>{setPropLegal(l=>!l);setPropHelper(false);}}
+                  style={{flex:1,background:propLegal?"#6366f118":inputBg,
+                    border:`1.5px solid ${propLegal?"#6366f1":inputBd}`,borderRadius:12,
+                    padding:"8px",fontSize:11,fontWeight:800,cursor:"pointer",
+                    color:propLegal?"#6366f1":sub,fontFamily:"Nunito,sans-serif"}}>
+                  ⚖️ Reglas legales {propLegal?"▲":"▼"}
+                </button>
+              </div>
+
+              {/* Helper content */}
+              {propHelper&&(
+                <div style={{background:accent+"0D",border:`1px solid ${accent}33`,borderRadius:14,
+                  padding:"12px 14px",marginBottom:12,fontSize:11,color:txt,
+                  whiteSpace:"pre-wrap",lineHeight:1.7,fontFamily:"monospace"}}>
+                  {PROP_HELPER}
+                </div>
+              )}
+              {propLegal&&(
+                <div style={{background:"#6366f10D",border:"1px solid #6366f133",borderRadius:14,
+                  padding:"12px 14px",marginBottom:12,fontSize:11,color:txt,
+                  whiteSpace:"pre-wrap",lineHeight:1.7,fontFamily:"monospace"}}>
+                  {LEGAL_INFO}
+                </div>
+              )}
+
+              {/* TÍTULO */}
+              <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:4}}>
+                Título / Pregunta <span style={{color:"#ef4444"}}>*</span>
+              </div>
+              <input value={propTitulo} onChange={e=>setPropTitulo(e.target.value)}
+                placeholder="¿Debería la escuela organizar una feria de ciencias?"
+                maxLength={200}
+                style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${inputBd}`,
+                  borderRadius:12,padding:"10px 14px",fontSize:13,outline:"none",color:txt,
+                  background:inputBg,fontFamily:"Nunito,sans-serif",marginBottom:10}}/>
+
+              {/* CONTEXTO / PROBLEMA */}
+              <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:4}}>
+                Descripción del problema {!["admin","teacher"].includes(me.rol)&&<span style={{color:"#ef4444"}}>*</span>}
+              </div>
+              <textarea value={propContexto} onChange={e=>setPropContexto(e.target.value)}
+                placeholder="¿Por qué es importante? ¿Qué problema resuelve? ¿Cuál sería el impacto? (mín. 20 caracteres)"
+                rows={3} maxLength={1000}
+                style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${inputBd}`,
+                  borderRadius:12,padding:"10px 14px",fontSize:13,outline:"none",resize:"none",
+                  color:txt,background:inputBg,fontFamily:"Nunito,sans-serif",marginBottom:10}}/>
+
+              {/* OPCIONES */}
+              <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:6}}>
+                Opciones de voto <span style={{color:"#ef4444"}}>*</span>
+                <span style={{fontWeight:400,opacity:.7}}> — explicá qué significa cada opción</span>
+              </div>
+              {propOpciones.map((op,i)=>(
+                <div key={i} style={{display:"flex",gap:6,marginBottom:6}}>
+                  <input value={op} onChange={e=>{const n=[...propOpciones];n[i]=e.target.value;setPropOpciones(n);}}
+                    placeholder={i===0?"Sí — aprobar la propuesta":i===1?"No — rechazar por ahora":"Opción "+(i+1)+"..."}
+                    style={{flex:1,border:`1.5px solid ${inputBd}`,borderRadius:12,padding:"9px 12px",
+                      fontSize:12,outline:"none",color:txt,background:inputBg,fontFamily:"Nunito,sans-serif"}}/>
+                  {propOpciones.length>2&&(
+                    <button onClick={()=>setPropOpciones(o=>o.filter((_,j)=>j!==i))}
+                      style={{background:"#fee2e2",border:"none",borderRadius:8,color:"#ef4444",
+                        width:32,cursor:"pointer",fontWeight:800}}>x</button>
+                  )}
+                </div>
+              ))}
+              {propOpciones.length<6&&(
+                <button onClick={()=>setPropOpciones(o=>[...o,""])}
+                  style={{width:"100%",background:inputBg,border:`1px dashed ${inputBd}`,borderRadius:12,
+                    padding:"8px",fontSize:11,fontWeight:800,color:sub,cursor:"pointer",
+                    marginBottom:10,fontFamily:"Nunito,sans-serif"}}>+ Agregar opción</button>
+              )}
+
+              {/* DAO weighted */}
+              <button onClick={()=>setPropWeighted(w=>!w)}
+                style={{width:"100%",background:propWeighted?"#f59e0b18":inputBg,
+                  border:`1.5px solid ${propWeighted?"#f59e0b":inputBd}`,borderRadius:12,
+                  padding:"10px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif",marginBottom:10,display:"flex",
+                  alignItems:"center",gap:8,color:propWeighted?"#b45309":sub,textAlign:"left"}}>
+                <span style={{fontSize:16}}>🏛️</span>
+                <div style={{flex:1}}>Voto ponderado por monedas {propWeighted?"(activado ✓)":""}</div>
+                <div style={{width:20,height:20,borderRadius:"50%",
+                  background:propWeighted?"#f59e0b":"#ddd",color:"white",fontSize:11,
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>{propWeighted?"✓":"○"}</div>
+              </button>
+
+              {/* DURACIÓN */}
+              <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:6}}>Duración de la votación</div>
+              <div style={{display:"flex",gap:8,marginBottom:4,alignItems:"center"}}>
+                <input type="number" value={propDurValor}
+                  onChange={e=>setPropDurValor(String(Math.min(Math.max(1,parseInt(e.target.value)||1),DUR_MAX[propDurUnidad])))}
+                  min="1" max={DUR_MAX[propDurUnidad]}
+                  style={{width:70,border:`1.5px solid ${inputBd}`,borderRadius:12,padding:"10px 12px",
+                    fontSize:16,fontWeight:800,outline:"none",textAlign:"center",
+                    color:accent,fontFamily:"Nunito,sans-serif",background:inputBg}}/>
+                <div style={{display:"flex",gap:6,flex:1}}>
+                  {["minutos","horas","dias"].map(u=>(
+                    <button key={u} onClick={()=>{setPropDurUnidad(u);setPropDurValor(v=>String(Math.min(parseInt(v)||1,DUR_MAX[u])));}}
+                      style={{flex:1,background:propDurUnidad===u?accent:inputBg,
+                        color:propDurUnidad===u?"white":sub,border:"none",borderRadius:10,
+                        padding:"8px 4px",fontWeight:800,fontSize:10,cursor:"pointer",
+                        fontFamily:"Nunito,sans-serif"}}>{u}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{fontSize:11,color:sub,marginBottom:16,textAlign:"center"}}>
+                Cierra aprox. el {previewPropFin}
+              </div>
+            </div>
+
+            <div style={{padding:"0 18px 34px",display:"flex",gap:8}}>
+              <button onClick={()=>{setPropModal(false);setPropHelper(false);setPropLegal(false);}}
+                style={{flex:1,background:inputBg,border:"none",borderRadius:50,
+                  color:sub,padding:"13px",fontWeight:800,fontSize:13,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>Cancelar</button>
+              <button onClick={proponer} disabled={propSaving}
+                style={{flex:2,background:propSaving?"#ccc":accent,border:"none",borderRadius:50,
+                  color:"white",padding:"13px",fontWeight:800,fontSize:13,
+                  cursor:propSaving?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif",
+                  boxShadow:`0 4px 14px ${accent}44`}}>
+                {propSaving?"Enviando...":["admin","teacher"].includes(me.rol)?"Publicar votación":"Enviar propuesta"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

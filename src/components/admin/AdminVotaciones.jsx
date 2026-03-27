@@ -18,6 +18,10 @@ function AdminVotaciones({showToast, onBack}){
   const [classroomId,setClassroomId]=useState("");
   const [classrooms,setClassrooms]=useState([]);
   const [saving,setSaving]=useState(false);
+  const [now,setNow]=useState(()=>new Date());
+  const [pendingPolls,setPendingPolls]=useState([]);
+  const [reviewNote,setReviewNote]=useState({});
+  const [reviewing,setReviewing]=useState(null);
 
   const DUR_MAX={minutos:1440,horas:480,dias:20};
   const DUR_LABEL={minutos:"minutos",horas:"horas",dias:"dias"};
@@ -29,19 +33,48 @@ function AdminVotaciones({showToast, onBack}){
       .catch(()=>{})
       .finally(()=>setLoading(false));
   };
-  useEffect(()=>{ load(); },[]);
+  useEffect(()=>{
+    load();
+    api.pendingPolls().then(d=>setPendingPolls(Array.isArray(d)?d:[])).catch(()=>{});
+    // Preview en vivo
+    const id=setInterval(()=>setNow(new Date()),30000);
+    return ()=>clearInterval(id);
+  },[]);
   useEffect(()=>{
     if(scope==="aula"&&classrooms.length===0)
       api.adminClassrooms().then(d=>setClassrooms(Array.isArray(d)?d:[])).catch(()=>{});
   },[scope]);
 
   const calcFinISO=()=>{
+    // Siempre usa new Date() al momento exacto de hacer click en Crear
     const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
     const d=new Date();
     if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
     else if(durUnidad==="horas") d.setHours(d.getHours()+val);
     else d.setDate(d.getDate()+val);
     return d.toISOString();
+  };
+
+  const previewFin=(()=>{
+    // Usa `now` (actualizado cada 30s) para que el preview no se desactualice
+    const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
+    const d=new Date(now.getTime());
+    if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
+    else if(durUnidad==="horas") d.setHours(d.getHours()+val);
+    else d.setDate(d.getDate()+val);
+    return d.toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  })();
+
+  const reviewPoll=async(pollId, action)=>{
+    const note=reviewNote[pollId]||"";
+    setReviewing(pollId+action);
+    try{
+      await api.reviewPoll(pollId, action, note||undefined);
+      showToast(action==="approve"?"Propuesta aprobada ✅":"Propuesta rechazada");
+      setPendingPolls(ps=>ps.filter(p=>p.id!==pollId));
+      if(action==="approve") load();
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setReviewing(null);}
   };
 
   const crear=async()=>{
@@ -80,15 +113,6 @@ function AdminVotaciones({showToast, onBack}){
     return ra!==rb?ra-rb:new Date(b.created_at)-new Date(a.created_at);
   });
 
-  const previewFin=(()=>{
-    const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
-    const d=new Date();
-    if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
-    else if(durUnidad==="horas") d.setHours(d.getHours()+val);
-    else d.setDate(d.getDate()+val);
-    return d.toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
-  })();
-
   return(
     <div style={{minHeight:"100vh",background:"#F0F0F0"}}>
       <div style={{background:"#00c1fc",color:"white",padding:"22px 16px 28px",
@@ -105,6 +129,65 @@ function AdminVotaciones({showToast, onBack}){
         </div>
       </div>
       <div style={{padding:"12px 14px"}}>
+        {/* ── Propuestas pendientes de revisión ───────────────── */}
+        {pendingPolls.length>0&&(
+          <div style={{background:"white",borderRadius:20,padding:14,marginBottom:14,
+            border:"1.5px solid #f59e0b44",boxShadow:"0 2px 10px #f59e0b22"}}>
+            <div style={{fontWeight:800,fontSize:13,color:"#b45309",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
+              <span>⏳</span> {pendingPolls.length} propuesta{pendingPolls.length!==1?"s":""} pendiente{pendingPolls.length!==1?"s":""}
+            </div>
+            {pendingPolls.map(p=>{
+              const isReviewing=reviewing&&reviewing.startsWith(p.id);
+              return(
+                <div key={p.id} style={{borderTop:"1px solid #f0f0f0",paddingTop:10,marginBottom:10}}>
+                  <div style={{display:"flex",gap:6,marginBottom:4,flexWrap:"wrap",alignItems:"center"}}>
+                    <span style={{fontSize:10,background:p.creador_rol==="student"?"#6366f118":"#f59e0b18",
+                      borderRadius:99,padding:"2px 8px",fontWeight:800,
+                      color:p.creador_rol==="student"?"#6366f1":"#b45309"}}>
+                      {p.creador_rol==="student"?"🧑‍🎓":"👨‍👩‍👧"} {p.creador_nombre}
+                    </span>
+                    {p.weighted&&<span style={{fontSize:10,background:"#f59e0b18",borderRadius:99,
+                      padding:"2px 8px",fontWeight:800,color:"#b45309"}}>🏛️ DAO</span>}
+                    <span style={{fontSize:10,color:"#aaa",marginLeft:"auto"}}>
+                      {new Date(p.created_at).toLocaleDateString("es-AR")}
+                    </span>
+                  </div>
+                  <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:4}}>{p.titulo}</div>
+                  {p.contexto&&(
+                    <div style={{fontSize:12,color:"#666",marginBottom:6,lineHeight:1.5,
+                      background:"#f7f7f7",borderRadius:10,padding:"8px 10px"}}>{p.contexto}</div>
+                  )}
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+                    {(p.opciones||[]).map((op,i)=>(
+                      <span key={i} style={{background:"#f0f0f0",borderRadius:8,padding:"3px 8px",fontSize:11,color:"#555"}}>
+                        {op.texto}
+                      </span>
+                    ))}
+                  </div>
+                  <input value={reviewNote[p.id]||""} onChange={e=>setReviewNote(n=>({...n,[p.id]:e.target.value}))}
+                    placeholder="Nota (opcional: motivo de rechazo o condición de aprobación)..."
+                    style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",borderRadius:10,
+                      padding:"7px 10px",fontSize:11,outline:"none",fontFamily:"Nunito,sans-serif",marginBottom:6}}/>
+                  <div style={{display:"flex",gap:6}}>
+                    <button disabled={!!isReviewing}
+                      onClick={()=>reviewPoll(p.id,"approve")}
+                      style={{flex:1,background:"#dcfce7",border:"none",borderRadius:10,color:"#059669",
+                        padding:"9px",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {reviewing===p.id+"approve"?"...":"✅ Aprobar"}
+                    </button>
+                    <button disabled={!!isReviewing}
+                      onClick={()=>reviewPoll(p.id,"reject")}
+                      style={{flex:1,background:"#fee2e2",border:"none",borderRadius:10,color:"#ef4444",
+                        padding:"9px",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {reviewing===p.id+"reject"?"...":"❌ Rechazar"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {form&&(
           <div style={{background:"white",borderRadius:20,padding:16,marginBottom:12,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
             <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a",marginBottom:10}}>Nueva votacion</div>

@@ -139,6 +139,9 @@ const api = {
   commentReplies: (pid, cid)              => apiFetch(`/polls/${pid}/comments/${cid}/replies`),
   reactComment:   (pid, cid, tipo)        => apiFetch(`/polls/${pid}/comments/${cid}/react`, { method:"POST", body:{tipo} }),
   deleteComment:  (pid, cid)              => apiFetch(`/polls/${pid}/comments/${cid}`, { method:"DELETE" }),
+  reviewPoll:     (id, action, note)      => apiFetch(`/polls/${id}/review`,  { method:"PATCH", body:{action, note} }),
+  deletePoll:     (id)                    => apiFetch(`/polls/${id}`,         { method:"DELETE" }),
+  pendingPolls:   ()                      => apiFetch("/polls/pending"),
   // ── Personalización ───────────────────────────────────────
   customShop:     (tipo)     => apiFetch(`/custom/shop${tipo?`?tipo=${tipo}`:""}`),
   customMe:       ()         => apiFetch("/custom/me"),
