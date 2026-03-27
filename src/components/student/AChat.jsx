@@ -141,7 +141,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
 
     // Cargar grupos y joinear sus rooms de socket
     api.myGroups().then(d => {
-      const gs = d.data || [];
+      const gs = d || [];
       setGroups(gs);
       const s = getSocket();
       if (s) gs.forEach(g => s.emit('join_group', g.conversation_id));
@@ -176,7 +176,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
   useEffect(() => {
     if (sec === 1) {
       api.myGroups().then(d => {
-        const gs = d.data || [];
+        const gs = d || [];
         setGroups(gs);
         const s = getSocket();
         if (s) gs.forEach(g => s.emit('join_group', g.conversation_id));
@@ -190,7 +190,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
     if (!s) return;
     const onGroupAdded = (data) => {
       api.myGroups().then(d => {
-        const gs = d.data || [];
+        const gs = d || [];
         setGroups(gs);
         if (data?.conversation_id) s.emit('join_group', data.conversation_id);
       }).catch(()=>{});
@@ -355,9 +355,9 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
     const toggleInvites = async () => {
       try {
         const d = await api.groupSettings(activeGroup.conversation_id, { allow_invites: !activeGroup.allow_invites });
-        setActiveGroup(g => ({...g, allow_invites: d.data.allow_invites}));
+        setActiveGroup(g => ({...g, allow_invites: d.allow_invites}));
         setGroups(gs => gs.map(g => g.conversation_id === activeGroup.conversation_id
-          ? {...g, allow_invites: d.data.allow_invites} : g));
+          ? {...g, allow_invites: d.allow_invites} : g));
       } catch(e) { showToast(e.message || "Error", "error"); }
     };
 
