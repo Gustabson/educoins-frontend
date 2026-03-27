@@ -184,6 +184,8 @@ const api = {
   chatFriendReq:     (addressee_id) => apiFetch("/chat/friends/request", { method:"POST", body:{addressee_id} }),
   chatFriendAccept:  (id)           => apiFetch(`/chat/friends/${id}/accept`, { method:"POST" }),
   chatFriendReject:  (id)           => apiFetch(`/chat/friends/${id}/reject`, { method:"POST" }),
+  chatFriendRemove:  (id)           => apiFetch(`/chat/friends/${id}`,        { method:"DELETE" }),
+  sendNotification:  (body)         => apiFetch("/notifications/send",        { method:"POST", body }),
   createReport:   (data)                  => apiFetch("/reports",          { method:"POST", body:data }),
   myReports:      ()                      => apiFetch("/reports/mine"),
   allReports:     (q="")                  => apiFetch(`/reports${q}`),

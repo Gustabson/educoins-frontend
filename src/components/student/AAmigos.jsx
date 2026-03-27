@@ -17,7 +17,8 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
   const [results,     setResults]   = useState([]);
   const [searching,   setSearching] = useState(false);
   const [loading,     setLoading]   = useState(true);
-  const [toqueTarget, setToqueTarget] = useState(null);
+  const [toqueTarget,  setToqueTarget]  = useState(null);
+  const [removeTarget, setRemoveTarget] = useState(null);
 
   const card = {
     background:   cardBg,
@@ -80,16 +81,29 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
   const sendToque = async () => {
     if (!toqueTarget) return;
     try {
-      await api.sendNotification?.({
+      await api.sendNotification({
         to_user_id: toqueTarget.user_id,
         type: "toque",
         message: `${displayName(me)} te mandó un 👋 toque`,
-      }).catch(() => {});
+      });
       showToast(`👋 Toque enviado a ${displayName(toqueTarget)}`);
     } catch(e) {
-      showToast("👋 Toque enviado");
+      showToast(e.message || "Error al enviar toque", "error");
     } finally {
       setToqueTarget(null);
+    }
+  };
+
+  const removeFriend = async () => {
+    if (!removeTarget) return;
+    try {
+      await api.chatFriendRemove(removeTarget.friendship_id);
+      showToast(`${displayName(removeTarget)} eliminado de amigos`);
+      load();
+    } catch(e) {
+      showToast(e.message || "Error al eliminar amigo", "error");
+    } finally {
+      setRemoveTarget(null);
     }
   };
 
@@ -255,6 +269,14 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
                         fontSize:15, cursor:"pointer"}}>
                       💬
                     </button>
+                    <button
+                      onClick={() => setRemoveTarget(f)}
+                      title="Eliminar amigo"
+                      style={{background:inputBg, border:`1px solid ${navBord}`,
+                        borderRadius:99, padding:"7px 10px",
+                        fontSize:15, cursor:"pointer"}}>
+                      🗑️
+                    </button>
                   </div>
                 }
               />
@@ -330,6 +352,49 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
           </>
         )}
       </div>
+
+      {/* ── Modal: Confirmar eliminar amigo ──────────────── */}
+      {removeTarget && (
+        <div onClick={e => { if (e.target === e.currentTarget) setRemoveTarget(null); }}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.5)",
+            zIndex:200, display:"flex", alignItems:"flex-end",
+            justifyContent:"center"}}>
+          <div style={{background:cardBg, borderRadius:"20px 20px 0 0",
+            padding:24, width:"100%", maxWidth:480,
+            fontFamily:"Nunito,sans-serif"}}>
+            <div style={{textAlign:"center", marginBottom:16}}>
+              <Av user={removeTarget} sz={56} avatarBg={removeTarget.avatar_bg}/>
+              <div style={{fontWeight:900, fontSize:17, color:txt,
+                marginTop:10, marginBottom:4}}>
+                ¿Eliminar a {displayName(removeTarget)}?
+              </div>
+              {removeTarget.apodo && removeTarget.apodo !== removeTarget.nombre && (
+                <div style={{fontSize:11, color:sub}}>({removeTarget.nombre})</div>
+              )}
+              <div style={{fontSize:13, color:sub, lineHeight:1.5, marginTop:6}}>
+                Se eliminará la amistad y el historial de chat.
+              </div>
+            </div>
+            <div style={{display:"flex", gap:10}}>
+              <button onClick={() => setRemoveTarget(null)}
+                style={{flex:1, background:inputBg,
+                  border:`1px solid ${navBord}`, borderRadius:50,
+                  color:sub, padding:"13px", fontWeight:800,
+                  fontSize:14, cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                Cancelar
+              </button>
+              <button onClick={removeFriend}
+                style={{flex:1, background:"#ef4444", border:"none",
+                  borderRadius:50, color:"white", padding:"13px",
+                  fontWeight:800, fontSize:14, cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                🗑️ Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: Confirmar toque ────────────────────────── */}
       {toqueTarget && (
