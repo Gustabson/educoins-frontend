@@ -372,7 +372,7 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
                 <div style={{fontSize:11, color:sub}}>({removeTarget.nombre})</div>
               )}
               <div style={{fontSize:13, color:sub, lineHeight:1.5, marginTop:6}}>
-                Se eliminará la amistad y el historial de chat.
+                Se eliminará la amistad. El historial de chat se mantiene.
               </div>
             </div>
             <div style={{display:"flex", gap:10}}>

@@ -14,11 +14,13 @@ function ANotificaciones({me,onBack,notifs=[],setNotifs}){
   const NOTIF_ICON={
     reward:"🪙",transfer:"💸",chat_personal:"💬",mission_approved:"✅",
     mission_rejected:"❌",checkin:"🔥",gift:"🎁",new_submission:"📬",tax:"⚖️",
+    toque:"👋",
   };
   const NOTIF_COLOR={
     reward:"#10b981",transfer:"#3b82f6",chat_personal:"#00c1fc",
     mission_approved:"#10b981",mission_rejected:"#ef4444",
     checkin:"#f59e0b",gift:"#ec4899",new_submission:"#8b5cf6",tax:"#f97316",
+    toque:"#f59e0b",
   };
 
   useEffect(()=>{
