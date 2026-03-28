@@ -78,7 +78,7 @@ function AVotaciones({me,showToast,onBack}){
   const [propDurValor,setPropDurValor]=useState("24");
   const [propDurUnidad,setPropDurUnidad]=useState("horas");
   // inicio programado: propDelay=0 → inmediato (solo aula); global siempre ≥1 día
-  const [propDelay,setPropDelay]   = useState(0);      // días para global, valor para aula
+  const [propDelay,setPropDelay]   = useState(1);      // días para global, valor para aula
   const [propDelayUnidad,setPropDelayUnidad] = useState("dias");
   const [propScope,setPropScope]   = useState("global"); // "global"|"aula"
   const [propSaving,setPropSaving] = useState(false);
@@ -253,7 +253,7 @@ function AVotaciones({me,showToast,onBack}){
       showToast("Votación creada ✅");
       setPropModal(false);
       setPropTitulo("");setPropContexto("");setPropOpciones(["",""]);
-      setPropDelay(0);setPropDelayUnidad("dias");setPropScope("global");
+      setPropDelay(1);setPropDelayUnidad("dias");setPropScope("global");
     }catch(e){showToast(e.message||"Error al enviar","error");}
     finally{setPropSaving(false);}
   };
@@ -959,6 +959,7 @@ function AVotaciones({me,showToast,onBack}){
                     disabled={v==="aula"&&!classInfo?.id}
                     onClick={()=>{
                       setPropScope(v);setSnapshot(null);
+                      if(v==="global") setPropDelay(d=>Math.max(1,d));
                       api.pollSnapshot(v, v==="aula"?classInfo?.id:null)
                         .then(d=>setSnapshot(d)).catch(()=>{});
                     }}
@@ -1000,7 +1001,7 @@ function AVotaciones({me,showToast,onBack}){
                 <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
                   <input type="number"
                     min={propScope==="global"?1:1}
-                    value={propDelay||1}
+                    value={propDelay}
                     onChange={e=>setPropDelay(Math.max(propScope==="global"?1:1,parseInt(e.target.value)||1))}
                     style={{width:70,border:`1.5px solid ${inputBd}`,borderRadius:12,
                       padding:"10px 12px",fontSize:16,fontWeight:800,outline:"none",
