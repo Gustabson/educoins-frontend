@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, connectSocket } from "../../api";
-import { getSocket } from "../../socket";
+import { getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
