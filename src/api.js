@@ -23,17 +23,21 @@ async function apiFetch(path, options={}) {
 let _socket = null;
 
 function connectSocket(token) {
-  if (_socket?.connected) return _socket;
-  if (_socket) { _socket.disconnect(); _socket = null; }
+  // Si ya existe (aunque esté conectando), devolvemos el mismo —
+  // no destruirlo evita que los handlers registrados queden en un socket muerto.
+  if (_socket) return _socket;
   _socket = io(API_URL, {
     auth: { token },
     transports: ['websocket'],
     reconnection: true,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: 10,
   });
-  _socket.on('connect', () => console.log('Socket conectado:', _socket.id));
+  _socket.on('connect',       () => console.log('Socket conectado:', _socket.id));
   _socket.on('connect_error', (e) => console.warn('Socket error:', e.message));
   return _socket;
+}
+export function disconnectSocket() {
+  if (_socket) { _socket.disconnect(); _socket = null; }
 }
 function getSocket() { return _socket; }
 

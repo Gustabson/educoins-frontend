@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, connectSocket } from "../../api";
-import { getSocket } from "../../api";
+import { api, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
@@ -462,8 +461,8 @@ function AVotaciones({me,showToast,onBack}){
 
           return(
             <div key={v.id} style={{background:cardBg,borderRadius:20,padding:"16px",marginBottom:12,
-              boxShadow:esAdmin?`0 2px 14px ${accent}33`:esTeacher?"0 2px 14px #8b5cf633":v.weighted?"0 2px 14px #f59e0b33":"0 1px 8px rgba(0,0,0,.06)",
-              border:`1.5px solid ${v.weighted?"#f59e0b44":esAdmin||esTeacher?jerarCol+"44":inputBg}`,
+              boxShadow:esAdmin?`0 2px 14px ${accent}33`:esTeacher?"0 2px 14px #8b5cf633":v.weighted?`0 2px 14px ${accent}33`:"0 1px 8px rgba(0,0,0,.06)",
+              border:`1.5px solid ${v.weighted?accent+"44":esAdmin||esTeacher?jerarCol+"44":inputBg}`,
               transition:"all .2s"}}>
 
               {/* Badges: jerarquía + DAO */}
@@ -478,8 +477,8 @@ function AVotaciones({me,showToast,onBack}){
                 )}
                 {v.weighted&&(
                   <div style={{display:"inline-flex",alignItems:"center",gap:4,
-                    background:"#f59e0b18",borderRadius:99,padding:"2px 8px"}}>
-                    <span style={{fontSize:9,fontWeight:800,color:"#f59e0b"}}>
+                    background:accent+"18",borderRadius:99,padding:"2px 8px"}}>
+                    <span style={{fontSize:9,fontWeight:800,color:accent}}>
                       🏛️ DAO · Poder = Monedas
                     </span>
                   </div>
@@ -497,11 +496,11 @@ function AVotaciones({me,showToast,onBack}){
 
               {/* Poder de voto DAO (antes de votar) */}
               {v.weighted&&v.activa&&!yaVote&&(
-                <div style={{background:sinPoder?"#ef444418":"#f59e0b18",borderRadius:12,
+                <div style={{background:sinPoder?"#ef444418":accent+"18",borderRadius:12,
                   padding:"8px 12px",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
                   <span style={{fontSize:18}}>🏛️</span>
                   <div>
-                    <div style={{fontSize:11,fontWeight:800,color:sinPoder?"#ef4444":"#f59e0b"}}>
+                    <div style={{fontSize:11,fontWeight:800,color:sinPoder?"#ef4444":accent}}>
                       Tu poder de voto: {v.mi_poder??0} monedas
                     </div>
                     {sinPoder&&(
@@ -515,8 +514,8 @@ function AVotaciones({me,showToast,onBack}){
 
               {/* Monedas usadas al votar */}
               {v.weighted&&yaVote&&v.mi_peso!=null&&(
-                <div style={{background:"#f59e0b18",borderRadius:12,padding:"6px 12px",
-                  marginBottom:10,fontSize:11,fontWeight:700,color:"#f59e0b",display:"flex",alignItems:"center",gap:6}}>
+                <div style={{background:accent+"18",borderRadius:12,padding:"6px 12px",
+                  marginBottom:10,fontSize:11,fontWeight:700,color:accent,display:"flex",alignItems:"center",gap:6}}>
                   🏛️ Votaste con {v.mi_peso} monedas de poder
                 </div>
               )}
@@ -558,7 +557,7 @@ function AVotaciones({me,showToast,onBack}){
                     {mostrar&&(
                       <div style={{background:inputBg,borderRadius:99,height:6,overflow:"hidden"}}>
                         <div style={{width:pct+"%",height:"100%",borderRadius:99,
-                          background:esMiVoto?accent:v.weighted?"#f59e0b":"#3b82f6",transition:"width .6s ease"}}/>
+                          background:esMiVoto?accent:v.weighted?accent:"#3b82f6",transition:"width .6s ease"}}/>
                       </div>
                     )}
                   </div>
@@ -660,7 +659,7 @@ function AVotaciones({me,showToast,onBack}){
                         <div style={{fontSize:10,color:sub}}>{voter.opcion_texto}</div>
                       </div>
                       {v.weighted&&(
-                        <div style={{fontSize:11,fontWeight:800,color:"#f59e0b",flexShrink:0}}>
+                        <div style={{fontSize:11,fontWeight:800,color:accent,flexShrink:0}}>
                           🪙{parseFloat(voter.peso).toFixed(0)}
                         </div>
                       )}
@@ -794,15 +793,15 @@ function AVotaciones({me,showToast,onBack}){
 
               {/* DAO weighted */}
               <button onClick={()=>setPropWeighted(w=>!w)}
-                style={{width:"100%",background:propWeighted?"#f59e0b18":inputBg,
-                  border:`1.5px solid ${propWeighted?"#f59e0b":inputBd}`,borderRadius:12,
+                style={{width:"100%",background:propWeighted?accent+"18":inputBg,
+                  border:`1.5px solid ${propWeighted?accent:inputBd}`,borderRadius:12,
                   padding:"10px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
                   fontFamily:"Nunito,sans-serif",marginBottom:10,display:"flex",
-                  alignItems:"center",gap:8,color:propWeighted?"#b45309":sub,textAlign:"left"}}>
+                  alignItems:"center",gap:8,color:propWeighted?accent:sub,textAlign:"left"}}>
                 <span style={{fontSize:16}}>🏛️</span>
                 <div style={{flex:1}}>Voto ponderado por monedas {propWeighted?"(activado ✓)":""}</div>
                 <div style={{width:20,height:20,borderRadius:"50%",
-                  background:propWeighted?"#f59e0b":"#ddd",color:"white",fontSize:11,
+                  background:propWeighted?accent:"#ddd",color:"white",fontSize:11,
                   display:"flex",alignItems:"center",justifyContent:"center"}}>{propWeighted?"✓":"○"}</div>
               </button>
 
