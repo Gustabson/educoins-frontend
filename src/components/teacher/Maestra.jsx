@@ -458,7 +458,7 @@ function MVotaciones({me, showToast}){
   const [opciones,setOpciones] = useState(["",""]);
   const [durValor,setDurValor] = useState("24");
   const [durUnidad,setDurUnidad]= useState("horas");
-  const [weighted,setWeighted] = useState(false);
+  const [weighted,setWeighted] = useState(true); // DAO por defecto
   const [saving,setSaving]     = useState(false);
   const [now,setNow]           = useState(()=>new Date());
 

@@ -13,7 +13,7 @@ function AdminVotaciones({showToast, onBack}){
   const [opciones,setOpciones]=useState(["",""]);
   const [durUnidad,setDurUnidad]=useState("horas");
   const [durValor,setDurValor]=useState("24");
-  const [weighted,setWeighted]=useState(false);
+  const [weighted,setWeighted]=useState(true); // DAO ponderado por defecto
   const [scope,setScope]=useState("global");
   const [classroomId,setClassroomId]=useState("");
   const [classrooms,setClassrooms]=useState([]);
@@ -22,6 +22,9 @@ function AdminVotaciones({showToast, onBack}){
   const [pendingPolls,setPendingPolls]=useState([]);
   const [reviewNote,setReviewNote]=useState({});
   const [reviewing,setReviewing]=useState(null);
+  const [quorumCfg,setQuorumCfg]=useState({aula:{threshold:50,mode:"people"},global:{threshold:50,mode:"coins"}});
+  const [quorumOpen,setQuorumOpen]=useState(false);
+  const [savingQ,setSavingQ]=useState(null);
 
   const DUR_MAX={minutos:1440,horas:480,dias:20};
   const DUR_LABEL={minutos:"minutos",horas:"horas",dias:"dias"};
@@ -36,6 +39,7 @@ function AdminVotaciones({showToast, onBack}){
   useEffect(()=>{
     load();
     api.pendingPolls().then(d=>setPendingPolls(Array.isArray(d)?d:[])).catch(()=>{});
+    api.quorumSettings().then(d=>{ if(Array.isArray(d)) setQuorumCfg(Object.fromEntries(d.map(r=>[r.scope,{threshold:parseFloat(r.threshold),mode:r.mode}]))); }).catch(()=>{});
     // Preview en vivo
     const id=setInterval(()=>setNow(new Date()),30000);
     return ()=>clearInterval(id);
@@ -64,6 +68,17 @@ function AdminVotaciones({showToast, onBack}){
     else d.setDate(d.getDate()+val);
     return d.toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
   })();
+
+  const saveQuorum=async(scope)=>{
+    setSavingQ(scope);
+    try{
+      const d=quorumCfg[scope];
+      const rows=await api.updateQuorum(scope,{threshold:d.threshold,mode:d.mode});
+      if(Array.isArray(rows)) setQuorumCfg(Object.fromEntries(rows.map(r=>[r.scope,{threshold:parseFloat(r.threshold),mode:r.mode}])));
+      showToast(`Quórum ${scope} guardado ✅`);
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setSavingQ(null);}
+  };
 
   const reviewPoll=async(pollId, action)=>{
     const note=reviewNote[pollId]||"";
@@ -356,6 +371,68 @@ function AdminVotaciones({showToast, onBack}){
             </div>
           );
         })}
+
+        {/* ── Configuración de Quórum ──────────────────────── */}
+        <div style={{background:"white",borderRadius:20,padding:"14px 16px",marginTop:4,
+          border:"1.5px solid #6366f133",boxShadow:"0 1px 8px rgba(99,102,241,.08)"}}>
+          <button onClick={()=>setQuorumOpen(q=>!q)}
+            style={{width:"100%",background:"none",border:"none",cursor:"pointer",
+              display:"flex",alignItems:"center",gap:8,padding:0,fontFamily:"Nunito,sans-serif"}}>
+            <span style={{fontWeight:800,fontSize:13,color:"#6366f1",flex:1,textAlign:"left"}}>⚙️ Configuración de quórum</span>
+            <span style={{color:"#aaa",fontSize:12}}>{quorumOpen?"▲":"▼"}</span>
+          </button>
+          {quorumOpen&&(
+            <div style={{marginTop:12}}>
+              <div style={{fontSize:11,color:"#888",marginBottom:10}}>
+                El quórum define la participación mínima para que una votación sea válida.
+              </div>
+              {[["aula","🏫 Aula — excluye docentes"],["global","🌐 Global"]].map(([scope,label])=>{
+                const cfg=quorumCfg[scope]||{threshold:50,mode:"people"};
+                return(
+                  <div key={scope} style={{background:"#f7f7f7",borderRadius:14,padding:"12px 14px",marginBottom:10}}>
+                    <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>{label}</div>
+                    {/* Threshold slider */}
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                      <input type="range" min="1" max="100" value={cfg.threshold}
+                        onChange={e=>setQuorumCfg(q=>({...q,[scope]:{...cfg,threshold:Number(e.target.value)}}))}
+                        style={{flex:1,accentColor:"#6366f1"}}/>
+                      <div style={{background:"#6366f1",borderRadius:8,padding:"4px 10px",
+                        fontWeight:900,fontSize:16,color:"white",minWidth:50,textAlign:"center"}}>
+                        {cfg.threshold}%
+                      </div>
+                    </div>
+                    {/* Mode toggle */}
+                    <div style={{display:"flex",gap:8,marginBottom:10}}>
+                      {[["people","👤 Personas"],["coins","🪙 Monedas"]].map(([m,ml])=>(
+                        <button key={m} onClick={()=>setQuorumCfg(q=>({...q,[scope]:{...cfg,mode:m}}))}
+                          style={{flex:1,background:cfg.mode===m?"#6366f1":"#ececec",
+                            color:cfg.mode===m?"white":"#555",border:"none",borderRadius:10,
+                            padding:"9px",fontWeight:800,fontSize:11,cursor:"pointer",
+                            fontFamily:"Nunito,sans-serif"}}>{ml}</button>
+                      ))}
+                    </div>
+                    <div style={{fontSize:10,color:"#aaa",marginBottom:8}}>
+                      {cfg.mode==="people"
+                        ?scope==="aula"
+                          ?`Al menos el ${cfg.threshold}% de los alumnos del aula deben votar`
+                          :`Al menos el ${cfg.threshold}% de alumnos+padres deben votar`
+                        :scope==="aula"
+                          ?`Al menos el ${cfg.threshold}% de las monedas del aula deben participar`
+                          :`Al menos el ${cfg.threshold}% de las monedas en circulación deben participar`}
+                    </div>
+                    <button onClick={()=>saveQuorum(scope)} disabled={savingQ===scope}
+                      style={{width:"100%",background:savingQ===scope?"#ccc":"#6366f1",
+                        border:"none",borderRadius:50,color:"white",padding:"10px",
+                        fontWeight:800,fontSize:12,cursor:savingQ===scope?"not-allowed":"pointer",
+                        fontFamily:"Nunito,sans-serif"}}>
+                      {savingQ===scope?"Guardando...":"Guardar"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

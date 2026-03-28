@@ -142,6 +142,10 @@ const api = {
   reviewPoll:     (id, action, note)      => apiFetch(`/polls/${id}/review`,  { method:"PATCH", body:{action, note} }),
   deletePoll:     (id)                    => apiFetch(`/polls/${id}`,         { method:"DELETE" }),
   pendingPolls:   ()                      => apiFetch("/polls/pending"),
+  pollById:       (id)                    => apiFetch(`/polls/${id}`),
+  pollVoters:     (id)                    => apiFetch(`/polls/${id}/voters`),
+  quorumSettings: ()                      => apiFetch("/admin/quorum-settings"),
+  updateQuorum:   (scope, data)           => apiFetch(`/admin/quorum-settings/${scope}`, { method:"PATCH", body:data }),
   // ── Personalización ───────────────────────────────────────
   customShop:     (tipo)     => apiFetch(`/custom/shop${tipo?`?tipo=${tipo}`:""}`),
   customMe:       ()         => apiFetch("/custom/me"),

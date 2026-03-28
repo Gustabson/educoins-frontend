@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, connectSocket } from "../../api";
+import { getSocket } from "../../socket";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
@@ -73,18 +74,26 @@ function AVotaciones({me,showToast,onBack}){
   const [propOpciones,setPropOpciones]=useState(["",""]);
   const [propDurValor,setPropDurValor]=useState("24");
   const [propDurUnidad,setPropDurUnidad]=useState("horas");
-  const [propWeighted,setPropWeighted]=useState(false);
+  const [propWeighted,setPropWeighted]=useState(true); // DAO por defecto
   const [propSaving,setPropSaving] = useState(false);
   const [propHelper,setPropHelper] = useState(false);
   const [propLegal,setPropLegal]   = useState(false);
   // Tiempo en vivo para preview de fecha
   const [now,setNow]=useState(()=>new Date());
+  // Lista de votantes
+  const [voterPoll,setVoterPoll]=useState(null);
+  const [voters,setVoters]=useState([]);
+  const [loadingVoters,setLoadingVoters]=useState(false);
+  // Ref para capturar sec en el handler de socket
+  const secRef=useRef(sec);
+  const classInfoRef=useRef(classInfo);
 
 
-  const loadPolls = (s) => {
+  const loadPolls = (s, ci) => {
     setLoading(true);
-    const scope = s||sec;
-    const cid   = scope==="aula"&&classInfo?.id ? classInfo.id : null;
+    const scope = s ?? sec;
+    const info  = ci ?? classInfo;
+    const cid   = scope==="aula" && info?.id ? info.id : null;
     api.polls(scope, cid)
       .then(d=>setPolls(Array.isArray(d)?d:d.data||[]))
       .catch(()=>setPolls([]))
@@ -93,9 +102,30 @@ function AVotaciones({me,showToast,onBack}){
 
   useEffect(()=>{
     api.chatClassroomInfo().then(d=>{ const ci=d.data||d; setCInfo(ci); }).catch(()=>{});
-    // Mantener hora en vivo para preview
     const id=setInterval(()=>setNow(new Date()),30000);
     return ()=>clearInterval(id);
+  },[]);
+
+  // Mantener refs actualizados
+  useEffect(()=>{ secRef.current=sec; },[sec]);
+  useEffect(()=>{ classInfoRef.current=classInfo; },[classInfo]);
+
+  // Real-time: actualizar polls cuando alguien vota o se crea una nueva
+  useEffect(()=>{
+    let socket;
+    try{ socket=getSocket(); } catch(e){ return; }
+    const handler=({ poll_id, action })=>{
+      if(action==='created'){
+        loadPolls(secRef.current, classInfoRef.current);
+      } else {
+        // Actualizar solo la poll que cambió
+        api.pollById(poll_id)
+          .then(updated=>{ if(updated) setPolls(ps=>ps.map(p=>p.id===poll_id?updated:p)); })
+          .catch(()=>{});
+      }
+    };
+    socket.on('poll_update', handler);
+    return ()=>socket.off('poll_update', handler);
   },[]);
 
   useEffect(()=>{ loadPolls(); },[sec, classInfo]);
@@ -211,6 +241,14 @@ function AVotaciones({me,showToast,onBack}){
       setPolls(ps=>ps.filter(p=>p.id!==id));
       showToast("Propuesta retirada");
     }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  const verVotantes=async(pollId)=>{
+    if(voterPoll===pollId){ setVoterPoll(null); return; }
+    setVoterPoll(pollId); setVoters([]); setLoadingVoters(true);
+    try{ const d=await api.pollVoters(pollId); setVoters(Array.isArray(d)?d:[]); }
+    catch(e){}
+    finally{ setLoadingVoters(false); }
   };
 
   // Preview de fecha en vivo (usa `now` que se actualiza cada 30s)
@@ -576,13 +614,42 @@ function AVotaciones({me,showToast,onBack}){
                 </div>
               )}
 
+              {/* Quórum */}
+              {v.quorum&&(
+                <div style={{background:v.quorum.met?"#10b98108":"#f59e0b08",borderRadius:10,
+                  padding:"8px 10px",marginTop:8,
+                  border:`1px solid ${v.quorum.met?"#10b98133":"#f59e0b33"}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",
+                    fontSize:11,fontWeight:700,marginBottom:4,
+                    color:v.quorum.met?"#10b981":"#f59e0b"}}>
+                    <span>{v.quorum.met?"✅ Quórum alcanzado":"⏳ Quórum pendiente"}</span>
+                    <span>{v.quorum.pct}%</span>
+                  </div>
+                  <div style={{background:inputBg,borderRadius:99,height:5,overflow:"hidden"}}>
+                    <div style={{width:`${Math.min(v.quorum.pct,100)}%`,height:"100%",borderRadius:99,
+                      background:v.quorum.met?"#10b981":"#f59e0b",transition:"width .6s ease"}}/>
+                  </div>
+                  <div style={{fontSize:9,color:sub,marginTop:3}}>
+                    {v.quorum.mode==="coins"
+                      ?`${parseFloat(v.quorum.current).toFixed(0)} / ${parseFloat(v.quorum.required).toFixed(0)}🪙 necesarias (${v.quorum.threshold}%)`
+                      :`${v.quorum.current} / ${Math.ceil(v.quorum.required)} persona${Math.ceil(v.quorum.required)!==1?"s":""} necesarias (${v.quorum.threshold}%)`}
+                  </div>
+                </div>
+              )}
+
               {/* Footer: info + reacciones + comentarios */}
-              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12,
-                paddingTop:10,borderTop:`1px solid ${inputBg}`}}>
-                <span style={{fontSize:10,color:sub,flex:1}}>
-                  {v.total_votos} voto{v.total_votos!==1?"s":""}
-                  {v.weighted&&v.total_peso>0&&` · ${parseFloat(v.total_peso).toFixed(0)} monedas`}
-                  {v.fin&&` · Cierra ${new Date(v.fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,
+                paddingTop:10,borderTop:`1px solid ${inputBg}`,flexWrap:"wrap"}}>
+                {/* Votantes */}
+                <button onClick={()=>verVotantes(v.id)}
+                  style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:3,
+                    color:voterPoll===v.id?accent:sub,fontWeight:voterPoll===v.id?800:400,
+                    fontSize:11,fontFamily:"Nunito,sans-serif",padding:0}}>
+                  👥 {v.total_votos} votante{v.total_votos!==1?"s":""}
+                  {v.weighted&&v.total_peso>0&&<span style={{fontSize:9,marginLeft:2}}>· {parseFloat(v.total_peso).toFixed(0)}🪙</span>}
+                </button>
+                <span style={{fontSize:10,color:sub,flex:1,textAlign:"right"}}>
+                  {v.fin&&`Cierra ${new Date(v.fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`}
                 </span>
                 {/* Like/Dislike */}
                 <button onClick={()=>reaccionar(v.id,"like")}
@@ -604,6 +671,35 @@ function AVotaciones({me,showToast,onBack}){
                   💬 {v.total_comentarios||0}
                 </button>
               </div>
+
+              {/* Lista de votantes expandible */}
+              {voterPoll===v.id&&(
+                <div style={{borderTop:`1px solid ${inputBg}`,marginTop:8,paddingTop:8,
+                  maxHeight:220,overflowY:"auto"}}>
+                  {loadingVoters&&<div style={{textAlign:"center",color:sub,fontSize:12,padding:8}}>Cargando...</div>}
+                  {!loadingVoters&&voters.length===0&&(
+                    <div style={{textAlign:"center",color:sub,fontSize:11,padding:8}}>Sin votos aún</div>
+                  )}
+                  {!loadingVoters&&voters.map(voter=>(
+                    <div key={voter.id} style={{display:"flex",gap:8,alignItems:"center",
+                      padding:"5px 0",borderBottom:`1px solid ${inputBg}`}}>
+                      <Av user={voter} sz={26}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:12,color:txt,
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {voter.nombre}
+                        </div>
+                        <div style={{fontSize:10,color:sub}}>{voter.opcion_texto}</div>
+                      </div>
+                      {v.weighted&&(
+                        <div style={{fontSize:11,fontWeight:800,color:"#f59e0b",flexShrink:0}}>
+                          🪙{parseFloat(voter.peso).toFixed(0)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
