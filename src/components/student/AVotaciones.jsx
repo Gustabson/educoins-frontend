@@ -235,31 +235,19 @@ function AVotaciones({me,showToast,onBack}){
     if(!propTitulo.trim()||propTitulo.trim().length<5){showToast("El título necesita al menos 5 caracteres","error");return;}
     const ops=propOpciones.filter(o=>o.trim());
     if(ops.length<2){showToast("Necesitás al menos 2 opciones","error");return;}
-    const durVal=Math.min(parseInt(propDurValor)||24,DUR_MAX[propDurUnidad]);
     const delayVal=parseInt(propDelay)||0;
-    // Validar inicio para global
     if(propScope==="global" && delayVal<1){
       showToast("Las votaciones globales deben comenzar al menos 1 día después","error"); return;
     }
-    // Calcular inicio
-    const inicioD=new Date();
-    if(delayVal>0){
-      if(propDelayUnidad==="minutos") inicioD.setMinutes(inicioD.getMinutes()+delayVal);
-      else if(propDelayUnidad==="horas") inicioD.setHours(inicioD.getHours()+delayVal);
-      else inicioD.setDate(inicioD.getDate()+delayVal);
-    }
-    // fin = inicio + duración
-    const finD=new Date(inicioD.getTime());
-    if(propDurUnidad==="minutos") finD.setMinutes(finD.getMinutes()+durVal);
-    else if(propDurUnidad==="horas") finD.setHours(finD.getHours()+durVal);
-    else finD.setDate(finD.getDate()+durVal);
     setPropSaving(true);
     try{
+      // Enviamos los parámetros de delay/duración — el servidor calcula inicio y fin
+      // para evitar manipulación del reloj del cliente
       await api.createPoll({
         titulo:propTitulo.trim(), contexto:propContexto.trim()||undefined,
         opciones:ops,
-        inicio: delayVal>0 ? inicioD.toISOString() : null,
-        fin: finD.toISOString(),
+        delay_valor: delayVal, delay_unidad: propDelayUnidad,
+        dur_valor: parseInt(propDurValor)||24, dur_unidad: propDurUnidad,
         scope:propScope, classroom_id:propScope==="aula"?classInfo?.id:null,
       });
       showToast("Votación creada ✅");
@@ -822,8 +810,8 @@ function AVotaciones({me,showToast,onBack}){
                 </div>
               )}
 
-              {/* Botón Aprobar — solo admin, solo polls cerradas no aprobadas */}
-              {me.rol==="admin"&&!v.activa&&v.status!=="approved"&&(
+              {/* Botón Aprobar — solo admin, poll cerrada (fin pasado) y no aprobada */}
+              {me.rol==="admin"&&!v.activa&&v.fin&&new Date(v.fin)<new Date()&&v.status!=="approved"&&(
                 <button onClick={async()=>{
                   try{
                     const updated=await api.approvePoll(v.id);

@@ -134,9 +134,10 @@ function AdminVotaciones({showToast, onBack}){
     if(scope==="aula"&&!classroomId){showToast("Seleccioná un aula","error");return;}
     setSaving(true);
     try{
-      const {inicio,fin}=calcInicioFin();
       await api.createPoll({
-        titulo:titulo.trim(), opciones:ops, inicio, fin,
+        titulo:titulo.trim(), opciones:ops,
+        delay_valor: parseInt(inicioValor)||0, delay_unidad: inicioUnidad,
+        dur_valor: parseInt(durValor)||1, dur_unidad: durUnidad,
         scope, classroom_id: scope==="aula"?classroomId:null,
       });
       showToast("Votación creada 🏛️");
@@ -477,7 +478,7 @@ function AdminVotaciones({showToast, onBack}){
                         fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                       {v.activa?"Cerrar":"Reabrir"}
                     </button>
-                    {!v.activa&&(
+                    {!v.activa&&v.fin&&new Date(v.fin)<new Date()&&(
                       <button onClick={()=>aprobarPoll(v)}
                         style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:99,
                           color:"#10b981",padding:"5px 14px",fontSize:11,fontWeight:800,
