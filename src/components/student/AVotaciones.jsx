@@ -55,6 +55,10 @@ const LEGAL_INFO=`⚖️ QUÉ PUEDE DECIDIRSE EN UNA ESCUELA
 function AVotaciones({me,showToast,onBack}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd} = useTheme();
   const [sec,setSec]         = useState("global"); // "global"|"aula"
+  const [subSec,setSubSec]   = useState("activas"); // "activas"|"aprobadas"
+  const [searchQ,setSearchQ] = useState("");
+  const [sortBy,setSortBy]   = useState("newest"); // newest|nearQuorum|mostVoted|expiringSoon|daoOnly
+  const [snapshot,setSnapshot]= useState(null);
   const [polls,setPolls]     = useState([]);
   const [loading,setLoading] = useState(true);
   const [voting,setVoting]   = useState(null);
@@ -89,12 +93,14 @@ function AVotaciones({me,showToast,onBack}){
   const classInfoRef=useRef(classInfo);
 
 
-  const loadPolls = (s, ci) => {
+  const loadPolls = (s, ci, sub) => {
     setLoading(true);
-    const scope = s ?? sec;
-    const info  = ci ?? classInfo;
-    const cid   = scope==="aula" && info?.id ? info.id : null;
-    api.polls(scope, cid)
+    const scope  = s   ?? sec;
+    const info   = ci  ?? classInfo;
+    const ss     = sub ?? subSec;
+    const cid    = scope==="aula" && info?.id ? info.id : null;
+    const status = ss==="aprobadas" ? "approved" : undefined;
+    api.polls(scope, cid, status)
       .then(d=>setPolls(Array.isArray(d)?d:d.data||[]))
       .catch(()=>setPolls([]))
       .finally(()=>setLoading(false));
@@ -107,7 +113,9 @@ function AVotaciones({me,showToast,onBack}){
   },[]);
 
   // Mantener refs actualizados
+  const subSecRef = useRef(subSec);
   useEffect(()=>{ secRef.current=sec; },[sec]);
+  useEffect(()=>{ subSecRef.current=subSec; },[subSec]);
   useEffect(()=>{ classInfoRef.current=classInfo; },[classInfo]);
 
   // Real-time: actualizar polls, votos y comentarios
@@ -117,11 +125,16 @@ function AVotaciones({me,showToast,onBack}){
     if(!socket) return;
     const handler=({ poll_id, action })=>{
       if(action==='created'){
-        loadPolls(secRef.current, classInfoRef.current);
+        if(subSecRef.current==='activas') loadPolls(secRef.current, classInfoRef.current, 'activas');
+      } else if(action==='approved'){
+        // Sacar poll de activas; si estamos en aprobadas recargar
+        setPolls(ps=>ps.filter(p=>p.id!==poll_id));
+        if(subSecRef.current==='aprobadas') loadPolls(secRef.current, classInfoRef.current, 'aprobadas');
       } else if(action==='vote'){
-        api.pollById(poll_id)
-          .then(updated=>{ if(updated) setPolls(ps=>ps.map(p=>p.id===poll_id?updated:p)); })
-          .catch(()=>{});
+        if(subSecRef.current==='activas')
+          api.pollById(poll_id)
+            .then(updated=>{ if(updated) setPolls(ps=>ps.map(p=>p.id===poll_id?updated:p)); })
+            .catch(()=>{});
       } else if(action==='comment'){
         // Si estamos mirando esa poll, recargar comentarios
         setSelPoll(prev=>{
@@ -136,7 +149,7 @@ function AVotaciones({me,showToast,onBack}){
     return ()=>socket.off('poll_update', handler);
   },[]);
 
-  useEffect(()=>{ loadPolls(); },[sec, classInfo]);
+  useEffect(()=>{ loadPolls(); },[sec, classInfo, subSec]);
 
   const confirmarVoto=async(pollId)=>{
     const optionId=seleccion[pollId];
@@ -221,6 +234,11 @@ function AVotaciones({me,showToast,onBack}){
     const ops=propOpciones.filter(o=>o.trim());
     if(ops.length<2){showToast("Necesitás al menos 2 opciones","error");return;}
     const val=Math.min(parseInt(propDurValor)||24,DUR_MAX[propDurUnidad]);
+    // Validar mínimo 24h para global
+    if(propScope==="global"){
+      const totalMinutes = propDurUnidad==="minutos"?val : propDurUnidad==="horas"?val*60 : val*1440;
+      if(totalMinutes<1440){showToast("Las votaciones globales deben durar al menos 24 horas","error");return;}
+    }
     const d=new Date();
     if(propDurUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
     else if(propDurUnidad==="horas") d.setHours(d.getHours()+val);
@@ -414,7 +432,11 @@ function AVotaciones({me,showToast,onBack}){
                 display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
           )}
           <div style={{flex:1,fontWeight:900,fontSize:17}}>Votaciones</div>
-          <button onClick={()=>{setPropModal(true);setPropScope(sec);}}
+          <button onClick={()=>{
+            setPropModal(true);setPropScope(sec);setSnapshot(null);
+            api.pollSnapshot(sec, sec==="aula"?classInfo?.id:null)
+              .then(d=>setSnapshot(d)).catch(()=>{});
+          }}
             style={{background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",
               borderRadius:99,color:"white",padding:"7px 14px",
               fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",
@@ -425,7 +447,7 @@ function AVotaciones({me,showToast,onBack}){
         {/* Tabs Global / Aula */}
         <div style={{display:"flex",gap:2}}>
           {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([id,label])=>(
-            <button key={id} onClick={()=>setSec(id)}
+            <button key={id} onClick={()=>{setSec(id);setSubSec("activas");setSearchQ("");}}
               style={{flex:1,padding:"10px 4px",background:"none",border:"none",
                 fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"Nunito,sans-serif",
                 color:sec===id?"white":"rgba(255,255,255,.6)",
@@ -437,19 +459,97 @@ function AVotaciones({me,showToast,onBack}){
         </div>
       </div>
 
-      <div style={{padding:"12px 14px"}}>
-        {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
-        {!loading&&polls.length===0&&(
-          <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center",
-            boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
-            <div style={{fontSize:40}}>🗳️</div>
-            <div style={{fontWeight:800,color:txt,marginTop:8}}>Sin votaciones {sec==="aula"?"en tu aula":"globales"}</div>
-            <div style={{fontSize:12,color:sub,marginTop:4}}>
-              ¡Sé el primero en proponer algo con el botón "🏛️ Proponer"!
-            </div>
+      {/* Sub-tabs Activas / Aprobadas + Buscador */}
+      <div style={{background:cardBg,borderBottom:`1px solid ${inputBd}`,padding:"8px 14px",
+        position:"sticky",top:74,zIndex:40}}>
+        <div style={{display:"flex",gap:6,marginBottom:8}}>
+          {[["activas","⚡ Activas"],["aprobadas","✅ Aprobadas"]].map(([id,label])=>(
+            <button key={id} onClick={()=>{setSubSec(id);setSearchQ("");}}
+              style={{flex:1,padding:"7px 4px",background:subSec===id?accent:inputBg,
+                border:`1.5px solid ${subSec===id?accent:inputBd}`,
+                color:subSec===id?"white":sub,borderRadius:99,
+                fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                transition:"all .2s"}}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{position:"relative"}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",
+            fontSize:14,pointerEvents:"none"}}>🔍</span>
+          <input value={searchQ} onChange={e=>setSearchQ(e.target.value)}
+            placeholder='Buscar por nombre o "#123"...'
+            style={{width:"100%",boxSizing:"border-box",background:inputBg,
+              border:`1.5px solid ${inputBd}`,borderRadius:99,
+              padding:"7px 12px 7px 32px",fontSize:12,outline:"none",
+              color:txt,fontFamily:"Nunito,sans-serif"}}/>
+        </div>
+        {/* Filtros de orden — solo en activas */}
+        {subSec==="activas"&&(
+          <div style={{display:"flex",gap:5,marginTop:6,overflowX:"auto",paddingBottom:2}}>
+            {[
+              ["newest","🕐 Recientes"],
+              ["nearQuorum","📊 Cerca quórum"],
+              ["mostVoted","🔥 Más votadas"],
+              ["expiringSoon","⏰ Por cerrar"],
+              ["daoOnly","🏛️ Solo DAO"],
+            ].map(([id,label])=>(
+              <button key={id} onClick={()=>setSortBy(id)}
+                style={{flexShrink:0,background:sortBy===id?accent+"18":inputBg,
+                  border:`1px solid ${sortBy===id?accent:inputBd}`,
+                  color:sortBy===id?accent:sub,borderRadius:99,
+                  padding:"4px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif",whiteSpace:"nowrap"}}>
+                {label}
+              </button>
+            ))}
           </div>
         )}
-        {polls.map(v=>{
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
+        {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
+        {!loading&&(()=>{
+          // Filtrar por búsqueda
+          let displayed=polls.filter(v=>{
+            if(!searchQ.trim()) return true;
+            const q=searchQ.trim().toLowerCase();
+            if(q.startsWith('#')) return String(v.poll_number)===q.slice(1);
+            return v.titulo.toLowerCase().includes(q);
+          });
+          // Ordenar (solo activas)
+          if(subSec==="activas"){
+            displayed=[...displayed].sort((a,b)=>{
+              if(sortBy==="nearQuorum") return (b.quorum?.pct??0)-(a.quorum?.pct??0);
+              if(sortBy==="mostVoted") return b.total_votos-a.total_votos;
+              if(sortBy==="expiringSoon"){
+                if(!a.fin) return 1; if(!b.fin) return -1;
+                return new Date(a.fin)-new Date(b.fin);
+              }
+              if(sortBy==="daoOnly"){
+                if(a.weighted&&!b.weighted) return -1;
+                if(!a.weighted&&b.weighted) return 1;
+              }
+              return new Date(b.created_at)-new Date(a.created_at);
+            });
+          }
+          if(displayed.length===0) return(
+            <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center",
+              boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontSize:40}}>{subSec==="aprobadas"?"✅":"🗳️"}</div>
+              <div style={{fontWeight:800,color:txt,marginTop:8}}>
+                {searchQ?"Sin resultados para tu búsqueda":
+                  subSec==="aprobadas"?"Sin propuestas aprobadas aún":
+                  `Sin votaciones ${sec==="aula"?"en tu aula":"globales"}`}
+              </div>
+              {subSec==="activas"&&!searchQ&&(
+                <div style={{fontSize:12,color:sub,marginTop:4}}>
+                  ¡Sé el primero en proponer algo con el botón "🏛️ Proponer"!
+                </div>
+              )}
+            </div>
+          );
+          return displayed.map(v=>{
           const yaVote    = !!v.mi_voto;
           const mostrar   = yaVote||!v.activa;
           const isVoting  = voting===v.id;
@@ -465,8 +565,12 @@ function AVotaciones({me,showToast,onBack}){
               border:`1.5px solid ${v.weighted?accent+"44":esAdmin||esTeacher?jerarCol+"44":inputBg}`,
               transition:"all .2s"}}>
 
-              {/* Badges: jerarquía + DAO */}
+              {/* Badges: jerarquía + DAO + ID */}
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+                <div style={{display:"inline-flex",alignItems:"center",
+                  background:inputBg,borderRadius:99,padding:"2px 8px"}}>
+                  <span style={{fontSize:9,fontWeight:800,color:sub}}>#{v.poll_number}</span>
+                </div>
                 {(esAdmin||esTeacher)&&(
                   <div style={{display:"inline-flex",alignItems:"center",gap:4,
                     background:jerarCol+"18",borderRadius:99,padding:"2px 8px"}}>
@@ -483,14 +587,22 @@ function AVotaciones({me,showToast,onBack}){
                     </span>
                   </div>
                 )}
+                {v.status==="approved"&&(
+                  <div style={{display:"inline-flex",alignItems:"center",gap:4,
+                    background:"#10b98118",borderRadius:99,padding:"2px 8px"}}>
+                    <span style={{fontSize:9,fontWeight:800,color:"#10b981"}}>
+                      ✅ Aprobada {v.approved_at?new Date(v.approved_at).toLocaleDateString("es-AR"):""}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:12}}>
                 <div style={{fontWeight:800,fontSize:14,color:txt,flex:1,lineHeight:1.3}}>{v.titulo}</div>
-                <span style={{background:v.activa?"#10b98122":"#94a3b822",
-                  color:v.activa?"#10b981":"#94a3b8",
+                <span style={{background:v.status==="approved"?"#10b98122":v.activa?"#10b98122":"#94a3b822",
+                  color:v.status==="approved"?"#10b981":v.activa?"#10b981":"#94a3b8",
                   borderRadius:99,padding:"3px 10px",fontSize:10,fontWeight:800,flexShrink:0}}>
-                  {v.activa?"Activa":"Cerrada"}
+                  {v.status==="approved"?"Aprobada":v.activa?"Activa":"Cerrada"}
                 </span>
               </div>
 
@@ -667,9 +779,37 @@ function AVotaciones({me,showToast,onBack}){
                   ))}
                 </div>
               )}
+
+              {/* Snapshot info — solo si tiene datos */}
+              {v.snapshot_total_coins>0&&subSec==="aprobadas"&&(
+                <div style={{marginTop:8,borderTop:`1px solid ${inputBg}`,paddingTop:8,
+                  display:"flex",gap:10,flexWrap:"wrap"}}>
+                  <span style={{fontSize:9,color:sub,fontWeight:700}}>📸 Snapshot:
+                    &nbsp;{parseFloat(v.snapshot_total_coins).toFixed(0)}🪙&nbsp;·&nbsp;{v.snapshot_total_voters}👥
+                  </span>
+                </div>
+              )}
+
+              {/* Botón Aprobar — solo admin, solo polls cerradas no aprobadas */}
+              {me.rol==="admin"&&!v.activa&&v.status!=="approved"&&(
+                <button onClick={async()=>{
+                  try{
+                    const updated=await api.approvePoll(v.id);
+                    setPolls(ps=>ps.filter(p=>p.id!==v.id));
+                    showToast("Propuesta aprobada oficialmente ✅");
+                  }catch(e){showToast(e.message||"Error","error");}
+                }}
+                  style={{width:"100%",marginTop:10,background:"#10b98118",
+                    border:"1.5px solid #10b98144",borderRadius:99,
+                    color:"#10b981",padding:"9px",fontWeight:800,fontSize:12,
+                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                  ✅ Aprobar oficialmente esta propuesta
+                </button>
+              )}
             </div>
           );
-        })}
+          });
+        })()}
       </div>
 
       {/* ── Modal Proponer DAO ─────────────────────────────── */}
@@ -684,9 +824,31 @@ function AVotaciones({me,showToast,onBack}){
               {/* Drag handle */}
               <div style={{width:40,height:4,background:inputBg,borderRadius:99,margin:"0 auto 14px"}}/>
               <div style={{fontWeight:900,fontSize:17,color:txt,marginBottom:4}}>🏛️ Proponer votación DAO</div>
-              <div style={{fontSize:12,color:sub,marginBottom:14}}>
+              <div style={{fontSize:12,color:sub,marginBottom:10}}>
                 Se publicará de inmediato. El admin puede cerrarla si es necesario.
               </div>
+              {/* Snapshot preview */}
+              {snapshot&&(
+                <div style={{background:accent+"0D",border:`1px solid ${accent}33`,borderRadius:14,
+                  padding:"10px 14px",marginBottom:12}}>
+                  <div style={{fontSize:10,fontWeight:900,color:accent,marginBottom:6}}>
+                    📸 Estado actual ({propScope==="global"?"Global":"Tu aula"})
+                  </div>
+                  <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                    <div style={{fontSize:11,color:txt,fontWeight:700}}>
+                      🪙 {parseFloat(snapshot.total_coins).toFixed(0)} monedas en circulación
+                    </div>
+                    <div style={{fontSize:11,color:txt,fontWeight:700}}>
+                      👥 {snapshot.total_voters} votantes elegibles
+                    </div>
+                    {propWeighted&&snapshot.total_coins>0&&(
+                      <div style={{fontSize:11,color:accent,fontWeight:700}}>
+                        ⭐ Poder admin: {(snapshot.total_coins*0.03).toFixed(0)} monedas (3%)
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Botones ayuda */}
               <div style={{display:"flex",gap:8,marginBottom:12}}>
@@ -775,7 +937,11 @@ function AVotaciones({me,showToast,onBack}){
                 {[["global","🌐 Global"],["aula","🏫 Mi aula"]].map(([v,l])=>(
                   <button key={v}
                     disabled={v==="aula"&&!classInfo?.id}
-                    onClick={()=>setPropScope(v)}
+                    onClick={()=>{
+                      setPropScope(v);setSnapshot(null);
+                      api.pollSnapshot(v, v==="aula"?classInfo?.id:null)
+                        .then(d=>setSnapshot(d)).catch(()=>{});
+                    }}
                     style={{flex:1,background:propScope===v?accent:inputBg,
                       color:propScope===v?"white":sub,border:`1.5px solid ${propScope===v?accent:inputBd}`,
                       borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:12,
@@ -806,7 +972,10 @@ function AVotaciones({me,showToast,onBack}){
               </button>
 
               {/* DURACIÓN */}
-              <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:6}}>Duración de la votación</div>
+              <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:6}}>
+                Duración de la votación
+                {propScope==="global"&&<span style={{fontWeight:400,color:"#f59e0b",fontSize:11}}> · mín. 24 horas</span>}
+              </div>
               <div style={{display:"flex",gap:8,marginBottom:4,alignItems:"center"}}>
                 <input type="number" value={propDurValor}
                   onChange={e=>setPropDurValor(String(Math.min(Math.max(1,parseInt(e.target.value)||1),DUR_MAX[propDurUnidad])))}

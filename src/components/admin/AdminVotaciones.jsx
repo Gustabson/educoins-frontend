@@ -15,6 +15,8 @@ const C = {
 };
 
 function AdminVotaciones({showToast, onBack}){
+  const [subSec,setSubSec]         = useState("activas"); // activas|cerradas|aprobadas
+  const [searchQ,setSearchQ]       = useState("");
   const [polls,setPolls]           = useState([]);
   const [loading,setLoading]       = useState(true);
   const [form,setForm]             = useState(false);
@@ -36,15 +38,21 @@ function AdminVotaciones({showToast, onBack}){
   const DUR_LABEL = {minutos:"minutos",horas:"horas",dias:"dias"};
   const JERARQUIA_COLOR = {admin:C.accent,teacher:"#8b5cf6"};
 
-  const load=()=>{
-    api.polls()
+  const subSecRef = { current: "activas" };
+
+  const load=(ss)=>{
+    const s = ss ?? subSecRef.current;
+    setLoading(true);
+    const statusMap = {activas:undefined, cerradas:"closed", aprobadas:"approved"};
+    api.polls(null, null, statusMap[s])
       .then(d=>setPolls(Array.isArray(d)?d:[]))
-      .catch(()=>{})
+      .catch(()=>setPolls([]))
       .finally(()=>setLoading(false));
   };
 
+  useEffect(()=>{ subSecRef.current = subSec; load(subSec); },[subSec]);
+
   useEffect(()=>{
-    load();
     api.quorumSettings().then(d=>{
       if(Array.isArray(d)) setQuorumCfg(Object.fromEntries(d.map(r=>[r.scope,{threshold:parseFloat(r.threshold),mode:r.mode}])));
     }).catch(()=>{});
@@ -64,7 +72,10 @@ function AdminVotaciones({showToast, onBack}){
     if(!socket) return;
     const handler=({ poll_id, action })=>{
       if(action==='created'){
-        load();
+        if(subSecRef.current==='activas') load('activas');
+      } else if(action==='approved'){
+        setPolls(ps=>ps.filter(p=>p.id!==poll_id));
+        if(subSecRef.current==='aprobadas') load('aprobadas');
       } else if(action==='vote'){
         api.pollById(poll_id)
           .then(u=>{ if(u) setPolls(ps=>ps.map(p=>p.id===poll_id?u:p)); })
@@ -142,6 +153,27 @@ function AdminVotaciones({showToast, onBack}){
     }catch(e){showToast(e.message||"Error","error");}
   };
 
+  const aprobarPoll=async(poll)=>{
+    try{
+      await api.approvePoll(poll.id);
+      setPolls(ps=>ps.filter(p=>p.id!==poll.id));
+      showToast("Propuesta aprobada oficialmente ✅");
+    }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  const displayed=[...polls]
+    .filter(v=>{
+      if(!searchQ.trim()) return true;
+      const q=searchQ.trim().toLowerCase();
+      if(q.startsWith('#')) return String(v.poll_number)===q.slice(1);
+      return v.titulo.toLowerCase().includes(q);
+    })
+    .sort((a,b)=>{
+      const rank={admin:0,teacher:1};
+      const ra=rank[a.creador_rol]??2, rb=rank[b.creador_rol]??2;
+      return ra!==rb?ra-rb:new Date(b.created_at)-new Date(a.created_at);
+    });
+
   const sorted=[...polls].sort((a,b)=>{
     const rank={admin:0,teacher:1};
     const ra=rank[a.creador_rol]??2, rb=rank[b.creador_rol]??2;
@@ -157,11 +189,38 @@ function AdminVotaciones({showToast, onBack}){
           <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",borderRadius:50,
             color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
             display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-          <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:20}}>Votaciones</div>
+              <div style={{flex:1,textAlign:"center",fontWeight:900,fontSize:20}}>Votaciones</div>
           <button onClick={()=>setForm(f=>!f)} style={{background:"rgba(0,0,0,.15)",border:"none",
             borderRadius:99,color:"white",padding:"7px 14px",fontWeight:800,fontSize:12,cursor:"pointer"}}>
             {form?"Cerrar":"+ Nueva"}
           </button>
+        </div>
+      </div>
+
+      {/* Sub-tabs + Buscador */}
+      <div style={{background:C.card,borderBottom:`1px solid ${C.bd}`,padding:"8px 14px",
+        position:"sticky",top:70,zIndex:40}}>
+        <div style={{display:"flex",gap:5,marginBottom:8}}>
+          {[["activas","⚡ Activas"],["cerradas","🔒 Cerradas"],["aprobadas","✅ Aprobadas"]].map(([id,label])=>(
+            <button key={id} onClick={()=>{setSubSec(id);setSearchQ("");}}
+              style={{flex:1,padding:"7px 4px",background:subSec===id?C.accent:C.bd2,
+                border:`1.5px solid ${subSec===id?C.accent:C.bd}`,
+                color:subSec===id?"white":C.sub,borderRadius:99,
+                fontWeight:800,fontSize:11,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                transition:"all .2s"}}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{position:"relative"}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",
+            fontSize:14,pointerEvents:"none"}}>🔍</span>
+          <input value={searchQ} onChange={e=>setSearchQ(e.target.value)}
+            placeholder='Buscar por nombre o "#123"...'
+            style={{width:"100%",boxSizing:"border-box",background:"#f7f7f7",
+              border:`1.5px solid ${C.bd}`,borderRadius:99,
+              padding:"7px 12px 7px 32px",fontSize:12,outline:"none",
+              color:C.txt,fontFamily:"Nunito,sans-serif"}}/>
         </div>
       </div>
 
@@ -217,18 +276,18 @@ function AdminVotaciones({showToast, onBack}){
 
             {/* DAO Weighted */}
             <button onClick={()=>setWeighted(w=>!w)}
-              style={{width:"100%",background:weighted?"#f59e0b18":"#f7f7f7",
-                border:`1.5px solid ${weighted?"#f59e0b":C.bd}`,borderRadius:12,
+              style={{width:"100%",background:weighted?C.accent+"18":"#f7f7f7",
+                border:`1.5px solid ${weighted?C.accent:C.bd}`,borderRadius:12,
                 padding:"10px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
                 fontFamily:"Nunito,sans-serif",marginBottom:10,display:"flex",alignItems:"center",gap:8,
-                color:weighted?"#b45309":C.sub,textAlign:"left"}}>
+                color:weighted?C.accent:C.sub,textAlign:"left"}}>
               <span style={{fontSize:16}}>🏛️</span>
               <div style={{flex:1}}>
                 <div>DAO: Poder de voto por monedas {weighted?"✓ Activado":""}</div>
                 {weighted&&<div style={{fontSize:10,fontWeight:600,opacity:.7}}>El peso de cada voto = balance del votante</div>}
               </div>
               <div style={{width:22,height:22,borderRadius:"50%",
-                background:weighted?"#f59e0b":"#ddd",display:"flex",alignItems:"center",justifyContent:"center",
+                background:weighted?C.accent:"#ddd",display:"flex",alignItems:"center",justifyContent:"center",
                 color:"white",fontSize:12,flexShrink:0}}>{weighted?"✓":"○"}</div>
             </button>
 
@@ -265,7 +324,19 @@ function AdminVotaciones({showToast, onBack}){
         {loading&&<div style={{textAlign:"center",color:C.muted,padding:32}}>Cargando...</div>}
 
         {/* ── Lista de polls ────────────────────────────────── */}
-        {sorted.map(v=>{
+        {!loading&&displayed.length===0&&(
+          <div style={{background:C.card,borderRadius:16,padding:32,textAlign:"center",
+            boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+            <div style={{fontSize:36}}>{subSec==="aprobadas"?"✅":subSec==="cerradas"?"🔒":"🗳️"}</div>
+            <div style={{fontWeight:800,color:C.txt,marginTop:8}}>
+              {searchQ?"Sin resultados":
+               subSec==="activas"?"No hay votaciones activas":
+               subSec==="cerradas"?"No hay votaciones cerradas pendientes de aprobación":
+               "No hay propuestas aprobadas aún"}
+            </div>
+          </div>
+        )}
+        {displayed.map(v=>{
           const esAdmin  =v.creador_rol==="admin";
           const esTeacher=v.creador_rol==="teacher";
           const jerarCol =JERARQUIA_COLOR[v.creador_rol]||"#94a3b8";
@@ -276,6 +347,10 @@ function AdminVotaciones({showToast, onBack}){
               <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:10}}>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:4}}>
+                    <div style={{display:"inline-flex",alignItems:"center",
+                      background:C.bd2,borderRadius:99,padding:"2px 8px"}}>
+                      <span style={{fontSize:9,fontWeight:800,color:C.muted}}>#{v.poll_number}</span>
+                    </div>
                     {(esAdmin||esTeacher)&&(
                       <div style={{display:"inline-flex",alignItems:"center",gap:4,
                         background:jerarCol+"18",borderRadius:99,padding:"2px 8px"}}>
@@ -286,14 +361,22 @@ function AdminVotaciones({showToast, onBack}){
                     )}
                     {v.weighted&&(
                       <div style={{display:"inline-flex",alignItems:"center",gap:3,
-                        background:"#f59e0b18",borderRadius:99,padding:"2px 8px"}}>
-                        <span style={{fontSize:9,fontWeight:800,color:"#b45309"}}>🏛️ DAO</span>
+                        background:C.accent+"18",borderRadius:99,padding:"2px 8px"}}>
+                        <span style={{fontSize:9,fontWeight:800,color:C.accent}}>🏛️ DAO</span>
                       </div>
                     )}
                     {v.scope==="aula"&&(
                       <div style={{display:"inline-flex",alignItems:"center",gap:3,
                         background:"#6366f118",borderRadius:99,padding:"2px 8px"}}>
                         <span style={{fontSize:9,fontWeight:800,color:"#6366f1"}}>🏫 Aula</span>
+                      </div>
+                    )}
+                    {v.status==="approved"&&(
+                      <div style={{display:"inline-flex",alignItems:"center",gap:3,
+                        background:"#10b98118",borderRadius:99,padding:"2px 8px"}}>
+                        <span style={{fontSize:9,fontWeight:800,color:"#10b981"}}>
+                          ✅ Aprobada {v.approved_at?new Date(v.approved_at).toLocaleDateString("es-AR"):""}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -303,23 +386,25 @@ function AdminVotaciones({showToast, onBack}){
                     {v.fin&&(" · Cierra "+new Date(v.fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))}
                   </div>
                 </div>
-                <span style={{background:v.activa?"#10b98122":"#94a3b822",
-                  color:v.activa?"#10b981":"#94a3b8",borderRadius:99,padding:"3px 9px",
-                  fontSize:10,fontWeight:800,flexShrink:0}}>{v.activa?"Activa":"Cerrada"}</span>
+                <span style={{background:v.status==="approved"?"#10b98122":v.activa?"#10b98122":"#94a3b822",
+                  color:v.status==="approved"?"#10b981":v.activa?"#10b981":"#94a3b8",borderRadius:99,padding:"3px 9px",
+                  fontSize:10,fontWeight:800,flexShrink:0}}>
+                  {v.status==="approved"?"Aprobada":v.activa?"Activa":"Cerrada"}
+                </span>
               </div>
 
               {v.opciones?.map(op=>{
                 const contPct=v.total_votos>0?Math.round(op.votos/v.total_votos*100):0;
                 const pesoPct=v.weighted&&v.total_peso>0?Math.round(parseFloat(op.peso_total||0)/v.total_peso*100):0;
                 const pct   =v.weighted?pesoPct:contPct;
-                const barCol=v.weighted?"#f59e0b":jerarCol;
+                const barCol=v.weighted?C.accent:jerarCol;
                 return(
                   <div key={op.id} style={{marginBottom:6}}>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,color:C.sub,marginBottom:2}}>
                       <span>{op.texto}</span>
                       <span style={{textAlign:"right"}}>
                         {v.weighted
-                          ?<>{pct}% <span style={{fontSize:10,color:"#f59e0b"}}>({parseFloat(op.peso_total||0).toFixed(0)} mon)</span></>
+                          ?<>{pct}% <span style={{fontSize:10,color:C.accent}}>({parseFloat(op.peso_total||0).toFixed(0)} mon)</span></>
                           :<>{op.votos} votos ({pct}%)</>}
                       </span>
                     </div>
@@ -352,13 +437,30 @@ function AdminVotaciones({showToast, onBack}){
                 <span style={{fontSize:11,color:C.muted,flex:1}}>
                   {v.total_votos} voto{v.total_votos!==1?"s":""}
                   {v.weighted&&v.total_peso>0&&` · ${parseFloat(v.total_peso).toFixed(0)} mon`}
+                  {v.snapshot_total_coins>0&&(
+                    <span style={{marginLeft:6,fontSize:9}}>
+                      (snap: {parseFloat(v.snapshot_total_coins).toFixed(0)}🪙 · {v.snapshot_total_voters}👥)
+                    </span>
+                  )}
                 </span>
-                <button onClick={()=>toggleActiva(v)}
-                  style={{background:v.activa?"#fee2e2":"#dcfce7",border:"none",
-                    borderRadius:99,color:v.activa?"#ef4444":"#10b981",padding:"5px 14px",
-                    fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  {v.activa?"Cerrar":"Reabrir"}
-                </button>
+                {v.status!=="approved"&&(
+                  <>
+                    <button onClick={()=>toggleActiva(v)}
+                      style={{background:v.activa?"#fee2e2":"#dcfce7",border:"none",
+                        borderRadius:99,color:v.activa?"#ef4444":"#10b981",padding:"5px 14px",
+                        fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                      {v.activa?"Cerrar":"Reabrir"}
+                    </button>
+                    {!v.activa&&(
+                      <button onClick={()=>aprobarPoll(v)}
+                        style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:99,
+                          color:"#10b981",padding:"5px 14px",fontSize:11,fontWeight:800,
+                          cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                        ✅ Aprobar
+                      </button>
+                    )}
+                  </>
+                )}
                 <button onClick={()=>borrarPoll(v)}
                   style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14,
                     padding:"4px 6px",borderRadius:8}}>🗑️</button>

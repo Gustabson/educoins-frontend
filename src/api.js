@@ -133,7 +133,8 @@ const api = {
   post:           (id)                    => apiFetch(`/posts/${id}`),
   createPost:     (data)                  => apiFetch("/posts",               { method:"POST", body:data }),
   // ── Votaciones ────────────────────────────────────────────
-  polls:          (scope,cid)             => apiFetch(`/polls${scope?'?scope='+scope+(cid?'&classroom_id='+cid:''):(cid?'?classroom_id='+cid:'')}`),
+  polls:          (scope,cid,status)      => apiFetch(`/polls?${new URLSearchParams(Object.fromEntries(Object.entries({scope,classroom_id:cid,status}).filter(([,v])=>v)))}`),
+  pollSnapshot:   (scope,cid)             => apiFetch(`/polls/snapshot?${new URLSearchParams(Object.fromEntries(Object.entries({scope,classroom_id:cid}).filter(([,v])=>v)))}`),
   poll:           (id)                    => apiFetch(`/polls/${id}`),
   vote:           (poll_id, option_id)    => apiFetch(`/polls/${poll_id}/vote`,{ method:"POST", body:{option_id} }),
   createPoll:     (data)                  => apiFetch("/polls",               { method:"POST", body:data }),
@@ -144,6 +145,7 @@ const api = {
   reactComment:   (pid, cid, tipo)        => apiFetch(`/polls/${pid}/comments/${cid}/react`, { method:"POST", body:{tipo} }),
   deleteComment:  (pid, cid)              => apiFetch(`/polls/${pid}/comments/${cid}`, { method:"DELETE" }),
   reviewPoll:     (id, action, note)      => apiFetch(`/polls/${id}/review`,  { method:"PATCH", body:{action, note} }),
+  approvePoll:    (id)                    => apiFetch(`/polls/${id}/approve`, { method:"PATCH" }),
   deletePoll:     (id)                    => apiFetch(`/polls/${id}`,         { method:"DELETE" }),
   pendingPolls:   ()                      => apiFetch("/polls/pending"),
   pollById:       (id)                    => apiFetch(`/polls/${id}`),
