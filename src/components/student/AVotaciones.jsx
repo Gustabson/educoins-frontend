@@ -75,6 +75,7 @@ function AVotaciones({me,showToast,onBack}){
   const [propDurValor,setPropDurValor]=useState("24");
   const [propDurUnidad,setPropDurUnidad]=useState("horas");
   const [propWeighted,setPropWeighted]=useState(true); // DAO por defecto
+  const [propScope,setPropScope]   = useState("global"); // "global"|"aula"
   const [propSaving,setPropSaving] = useState(false);
   const [propHelper,setPropHelper] = useState(false);
   const [propLegal,setPropLegal]   = useState(false);
@@ -110,18 +111,26 @@ function AVotaciones({me,showToast,onBack}){
   useEffect(()=>{ secRef.current=sec; },[sec]);
   useEffect(()=>{ classInfoRef.current=classInfo; },[classInfo]);
 
-  // Real-time: actualizar polls cuando alguien vota o se crea una nueva
+  // Real-time: actualizar polls, votos y comentarios
   useEffect(()=>{
     let socket;
     try{ socket=getSocket(); } catch(e){ return; }
+    if(!socket) return;
     const handler=({ poll_id, action })=>{
       if(action==='created'){
         loadPolls(secRef.current, classInfoRef.current);
-      } else {
-        // Actualizar solo la poll que cambió
+      } else if(action==='vote'){
         api.pollById(poll_id)
           .then(updated=>{ if(updated) setPolls(ps=>ps.map(p=>p.id===poll_id?updated:p)); })
           .catch(()=>{});
+      } else if(action==='comment'){
+        // Si estamos mirando esa poll, recargar comentarios
+        setSelPoll(prev=>{
+          if(prev?.id===poll_id){
+            api.pollComments(poll_id).then(d=>setComments(Array.isArray(d)?d:[])).catch(()=>{});
+          }
+          return prev;
+        });
       }
     };
     socket.on('poll_update', handler);
@@ -225,11 +234,12 @@ function AVotaciones({me,showToast,onBack}){
     try{
       await api.createPoll({
         titulo:propTitulo.trim(), contexto:propContexto.trim()||undefined,
-        opciones:ops, fin:d.toISOString(), weighted:propWeighted, scope:"global",
+        opciones:ops, fin:d.toISOString(), weighted:propWeighted,
+        scope:propScope, classroom_id:propScope==="aula"?classInfo?.id:null,
       });
       showToast(isStaff?"Votación creada ✅":"¡Propuesta enviada! Esperando aprobación ⏳");
       setPropModal(false);
-      setPropTitulo("");setPropContexto("");setPropOpciones(["",""]);setPropWeighted(false);
+      setPropTitulo("");setPropContexto("");setPropOpciones(["",""]);setPropWeighted(true);setPropScope("global");
       loadPolls(sec);
     }catch(e){showToast(e.message||"Error al enviar","error");}
     finally{setPropSaving(false);}
@@ -412,7 +422,7 @@ function AVotaciones({me,showToast,onBack}){
                 display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
           )}
           <div style={{flex:1,fontWeight:900,fontSize:17}}>Votaciones</div>
-          <button onClick={()=>setPropModal(true)}
+          <button onClick={()=>{setPropModal(true);setPropScope(sec);}}
             style={{background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",
               borderRadius:99,color:"white",padding:"7px 14px",
               fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",
@@ -802,6 +812,28 @@ function AVotaciones({me,showToast,onBack}){
                   style={{width:"100%",background:inputBg,border:`1px dashed ${inputBd}`,borderRadius:12,
                     padding:"8px",fontSize:11,fontWeight:800,color:sub,cursor:"pointer",
                     marginBottom:10,fontFamily:"Nunito,sans-serif"}}>+ Agregar opción</button>
+              )}
+
+              {/* ALCANCE */}
+              <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:6}}>Alcance</div>
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                {[["global","🌐 Global"],["aula","🏫 Mi aula"]].map(([v,l])=>(
+                  <button key={v}
+                    disabled={v==="aula"&&!classInfo?.id}
+                    onClick={()=>setPropScope(v)}
+                    style={{flex:1,background:propScope===v?accent:inputBg,
+                      color:propScope===v?"white":sub,border:`1.5px solid ${propScope===v?accent:inputBd}`,
+                      borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:12,
+                      cursor:v==="aula"&&!classInfo?.id?"not-allowed":"pointer",
+                      opacity:v==="aula"&&!classInfo?.id?0.5:1,
+                      fontFamily:"Nunito,sans-serif"}}>{l}</button>
+                ))}
+              </div>
+              {propScope==="aula"&&classInfo&&(
+                <div style={{background:accent+"12",borderRadius:10,padding:"6px 12px",
+                  marginBottom:10,fontSize:11,color:accent,fontWeight:700}}>
+                  🏫 {classInfo.nombre}
+                </div>
               )}
 
               {/* DAO weighted */}
