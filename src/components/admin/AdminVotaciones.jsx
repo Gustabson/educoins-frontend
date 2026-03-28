@@ -24,7 +24,8 @@ function AdminVotaciones({showToast, onBack}){
   const [opciones,setOpciones]     = useState(["",""]);
   const [durUnidad,setDurUnidad]   = useState("horas");
   const [durValor,setDurValor]     = useState("24");
-  const [weighted,setWeighted]     = useState(true);
+  const [inicioValor,setInicioValor] = useState("1");
+  const [inicioUnidad,setInicioUnidad] = useState("dias");
   const [scope,setScope]           = useState("global");
   const [classroomId,setClassroomId]=useState("");
   const [classrooms,setClassrooms] = useState([]);
@@ -86,22 +87,31 @@ function AdminVotaciones({showToast, onBack}){
     return ()=>socket.off('poll_update', handler);
   },[]);
 
-  const calcFinISO=()=>{
-    const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
-    const d=new Date();
-    if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
-    else if(durUnidad==="horas") d.setHours(d.getHours()+val);
-    else d.setDate(d.getDate()+val);
-    return d.toISOString();
+  const calcInicioFin=()=>{
+    const delay=Math.max(scope==="global"?1:0, parseInt(inicioValor)||0);
+    const durVal=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
+    const inicioD=new Date();
+    if(delay>0){
+      if(inicioUnidad==="minutos") inicioD.setMinutes(inicioD.getMinutes()+delay);
+      else if(inicioUnidad==="horas") inicioD.setHours(inicioD.getHours()+delay);
+      else inicioD.setDate(inicioD.getDate()+delay);
+    }
+    const finD=new Date(inicioD.getTime());
+    if(durUnidad==="minutos") finD.setMinutes(finD.getMinutes()+durVal);
+    else if(durUnidad==="horas") finD.setHours(finD.getHours()+durVal);
+    else finD.setDate(finD.getDate()+durVal);
+    return { inicio: delay>0?inicioD.toISOString():null, fin: finD.toISOString() };
   };
 
   const previewFin=(()=>{
-    const val=Math.min(parseInt(durValor)||1,DUR_MAX[durUnidad]);
-    const d=new Date(now.getTime());
-    if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
-    else if(durUnidad==="horas") d.setHours(d.getHours()+val);
-    else d.setDate(d.getDate()+val);
-    return d.toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+    const {fin} = calcInicioFin();
+    return new Date(fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  })();
+  const previewInicio=(()=>{
+    const delay=Math.max(scope==="global"?1:0, parseInt(inicioValor)||0);
+    if(delay===0) return "Inmediatamente";
+    const {inicio} = calcInicioFin();
+    return new Date(inicio).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
   })();
 
   const saveQuorum=async(sc)=>{
@@ -124,13 +134,14 @@ function AdminVotaciones({showToast, onBack}){
     if(scope==="aula"&&!classroomId){showToast("Seleccioná un aula","error");return;}
     setSaving(true);
     try{
+      const {inicio,fin}=calcInicioFin();
       await api.createPoll({
-        titulo:titulo.trim(), opciones:ops, fin:calcFinISO(),
-        weighted, scope, classroom_id: scope==="aula"?classroomId:null,
+        titulo:titulo.trim(), opciones:ops, inicio, fin,
+        scope, classroom_id: scope==="aula"?classroomId:null,
       });
-      showToast(weighted?"Propuesta DAO creada 🏛️":"Votación creada");
+      showToast("Votación creada 🏛️");
       setForm(false);setTitulo("");setOpciones(["",""]);setDurValor("24");setDurUnidad("horas");
-      setWeighted(true);setScope("global");setClassroomId("");
+      setInicioValor("1");setInicioUnidad("dias");setScope("global");setClassroomId("");
       load();
     }catch(e){showToast(e.message||"Error al crear","error");}
     finally{setSaving(false);}
@@ -274,22 +285,37 @@ function AdminVotaciones({showToast, onBack}){
               </select>
             )}
 
-            {/* DAO Weighted */}
-            <button onClick={()=>setWeighted(w=>!w)}
-              style={{width:"100%",background:weighted?C.accent+"18":"#f7f7f7",
-                border:`1.5px solid ${weighted?C.accent:C.bd}`,borderRadius:12,
-                padding:"10px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
-                fontFamily:"Nunito,sans-serif",marginBottom:10,display:"flex",alignItems:"center",gap:8,
-                color:weighted?C.accent:C.sub,textAlign:"left"}}>
-              <span style={{fontSize:16}}>🏛️</span>
-              <div style={{flex:1}}>
-                <div>DAO: Poder de voto por monedas {weighted?"✓ Activado":""}</div>
-                {weighted&&<div style={{fontSize:10,fontWeight:600,opacity:.7}}>El peso de cada voto = balance del votante</div>}
+            {/* ¿Cuándo empieza? */}
+            <div style={{fontWeight:700,fontSize:12,color:C.sub,marginBottom:6}}>
+              🕐 ¿Cuándo empieza? {scope==="global"&&<span style={{color:C.muted,fontWeight:600}}>(mín. 1 día)</span>}
+            </div>
+            <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
+              <input type="number" value={inicioValor}
+                onChange={e=>{
+                  const min=scope==="global"&&inicioUnidad==="dias"?1:scope==="global"?1:0;
+                  const v=Math.max(min,parseInt(e.target.value)||0);
+                  setInicioValor(String(v));
+                }}
+                min={scope==="global"?1:0}
+                style={{width:70,border:`1.5px solid ${C.bd}`,borderRadius:12,padding:"10px 12px",
+                  fontSize:16,fontWeight:800,outline:"none",fontFamily:"Nunito,sans-serif",
+                  textAlign:"center",color:C.accent}}/>
+              <div style={{display:"flex",gap:6,flex:1}}>
+                {(scope==="aula"?["minutos","horas","dias"]:["dias"]).map(u=>(
+                  <button key={u}
+                    onClick={()=>{
+                      setInicioUnidad(u);
+                      if(scope==="global") setInicioValor(v=>String(Math.max(1,parseInt(v)||1)));
+                    }}
+                    style={{flex:1,background:inicioUnidad===u?C.accent:C.bd2,color:inicioUnidad===u?"white":C.sub,
+                      border:"none",borderRadius:10,padding:"8px 4px",fontWeight:800,fontSize:11,cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif"}}>{u}</button>
+                ))}
               </div>
-              <div style={{width:22,height:22,borderRadius:"50%",
-                background:weighted?C.accent:"#ddd",display:"flex",alignItems:"center",justifyContent:"center",
-                color:"white",fontSize:12,flexShrink:0}}>{weighted?"✓":"○"}</div>
-            </button>
+            </div>
+            <div style={{fontSize:11,color:C.muted,marginBottom:10,textAlign:"center"}}>
+              Inicio: {previewInicio}
+            </div>
 
             <div style={{fontWeight:700,fontSize:12,color:C.sub,marginBottom:6}}>Duración (máx. 20 días)</div>
             <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>

@@ -77,7 +77,9 @@ function AVotaciones({me,showToast,onBack}){
   const [propOpciones,setPropOpciones]=useState(["",""]);
   const [propDurValor,setPropDurValor]=useState("24");
   const [propDurUnidad,setPropDurUnidad]=useState("horas");
-  const [propWeighted,setPropWeighted]=useState(true); // DAO por defecto
+  // inicio programado: propDelay=0 → inmediato (solo aula); global siempre ≥1 día
+  const [propDelay,setPropDelay]   = useState(0);      // días para global, valor para aula
+  const [propDelayUnidad,setPropDelayUnidad] = useState("dias");
   const [propScope,setPropScope]   = useState("global"); // "global"|"aula"
   const [propSaving,setPropSaving] = useState(false);
   const [propHelper,setPropHelper] = useState(false);
@@ -233,26 +235,37 @@ function AVotaciones({me,showToast,onBack}){
     if(!propTitulo.trim()||propTitulo.trim().length<5){showToast("El título necesita al menos 5 caracteres","error");return;}
     const ops=propOpciones.filter(o=>o.trim());
     if(ops.length<2){showToast("Necesitás al menos 2 opciones","error");return;}
-    const val=Math.min(parseInt(propDurValor)||24,DUR_MAX[propDurUnidad]);
-    // Validar mínimo 24h para global
-    if(propScope==="global"){
-      const totalMinutes = propDurUnidad==="minutos"?val : propDurUnidad==="horas"?val*60 : val*1440;
-      if(totalMinutes<1440){showToast("Las votaciones globales deben durar al menos 24 horas","error");return;}
+    const durVal=Math.min(parseInt(propDurValor)||24,DUR_MAX[propDurUnidad]);
+    const delayVal=parseInt(propDelay)||0;
+    // Validar inicio para global
+    if(propScope==="global" && delayVal<1){
+      showToast("Las votaciones globales deben comenzar al menos 1 día después","error"); return;
     }
-    const d=new Date();
-    if(propDurUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
-    else if(propDurUnidad==="horas") d.setHours(d.getHours()+val);
-    else d.setDate(d.getDate()+val);
+    // Calcular inicio
+    const inicioD=new Date();
+    if(delayVal>0){
+      if(propDelayUnidad==="minutos") inicioD.setMinutes(inicioD.getMinutes()+delayVal);
+      else if(propDelayUnidad==="horas") inicioD.setHours(inicioD.getHours()+delayVal);
+      else inicioD.setDate(inicioD.getDate()+delayVal);
+    }
+    // fin = inicio + duración
+    const finD=new Date(inicioD.getTime());
+    if(propDurUnidad==="minutos") finD.setMinutes(finD.getMinutes()+durVal);
+    else if(propDurUnidad==="horas") finD.setHours(finD.getHours()+durVal);
+    else finD.setDate(finD.getDate()+durVal);
     setPropSaving(true);
     try{
       await api.createPoll({
         titulo:propTitulo.trim(), contexto:propContexto.trim()||undefined,
-        opciones:ops, fin:d.toISOString(), weighted:propWeighted,
+        opciones:ops,
+        inicio: delayVal>0 ? inicioD.toISOString() : null,
+        fin: finD.toISOString(),
         scope:propScope, classroom_id:propScope==="aula"?classInfo?.id:null,
       });
       showToast("Votación creada ✅");
       setPropModal(false);
-      setPropTitulo("");setPropContexto("");setPropOpciones(["",""]);setPropWeighted(true);setPropScope("global");
+      setPropTitulo("");setPropContexto("");setPropOpciones(["",""]);
+      setPropDelay(0);setPropDelayUnidad("dias");setPropScope("global");
     }catch(e){showToast(e.message||"Error al enviar","error");}
     finally{setPropSaving(false);}
   };
@@ -273,14 +286,25 @@ function AVotaciones({me,showToast,onBack}){
     finally{ setLoadingVoters(false); }
   };
 
-  // Preview de fecha en vivo (usa `now` que se actualiza cada 30s)
-  const previewPropFin=(()=>{
-    const val=Math.min(parseInt(propDurValor)||1,DUR_MAX[propDurUnidad]);
-    const d=new Date(now.getTime());
-    if(propDurUnidad==="minutos") d.setMinutes(d.getMinutes()+val);
-    else if(propDurUnidad==="horas") d.setHours(d.getHours()+val);
-    else d.setDate(d.getDate()+val);
-    return d.toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  // Preview de inicio y fin (usa `now` actualizado cada 30s)
+  const { previewInicio, previewFin: previewPropFin } = (()=>{
+    const delay=parseInt(propDelay)||0;
+    const durVal=Math.min(parseInt(propDurValor)||1,DUR_MAX[propDurUnidad]);
+    const inicioD=new Date(now.getTime());
+    if(delay>0){
+      if(propDelayUnidad==="minutos") inicioD.setMinutes(inicioD.getMinutes()+delay);
+      else if(propDelayUnidad==="horas") inicioD.setHours(inicioD.getHours()+delay);
+      else inicioD.setDate(inicioD.getDate()+delay);
+    }
+    const finD=new Date(inicioD.getTime());
+    if(propDurUnidad==="minutos") finD.setMinutes(finD.getMinutes()+durVal);
+    else if(propDurUnidad==="horas") finD.setHours(finD.getHours()+durVal);
+    else finD.setDate(finD.getDate()+durVal);
+    const fmt={day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"};
+    return {
+      previewInicio: delay>0 ? inicioD.toLocaleString("es-AR",fmt) : "Inmediatamente",
+      previewFin:    finD.toLocaleString("es-AR",fmt),
+    };
   })();
 
   // ── Vista comentarios ─────────────────────────────────────
@@ -551,13 +575,14 @@ function AVotaciones({me,showToast,onBack}){
           );
           return displayed.map(v=>{
           const yaVote    = !!v.mi_voto;
-          const mostrar   = yaVote||!v.activa;
+          const isUpcoming= v.inicio && new Date(v.inicio) > new Date();
+          const mostrar   = yaVote||!v.activa||isUpcoming;
           const isVoting  = voting===v.id;
           const opSel     = seleccion[v.id];
           const esAdmin   = v.creador_rol==="admin";
           const esTeacher = v.creador_rol==="teacher";
           const jerarCol  = esAdmin?accent:esTeacher?"#8b5cf6":"#94a3b8";
-          const sinPoder  = v.weighted && !yaVote && (v.mi_poder??0) < 1;
+          const sinPoder  = !yaVote && (v.mi_poder??0) < 1;
 
           return(
             <div key={v.id} style={{background:cardBg,borderRadius:20,padding:"16px",marginBottom:12,
@@ -598,11 +623,18 @@ function AVotaciones({me,showToast,onBack}){
               </div>
 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:12}}>
-                <div style={{fontWeight:800,fontSize:14,color:txt,flex:1,lineHeight:1.3}}>{v.titulo}</div>
-                <span style={{background:v.status==="approved"?"#10b98122":v.activa?"#10b98122":"#94a3b822",
-                  color:v.status==="approved"?"#10b981":v.activa?"#10b981":"#94a3b8",
-                  borderRadius:99,padding:"3px 10px",fontSize:10,fontWeight:800,flexShrink:0}}>
-                  {v.status==="approved"?"Aprobada":v.activa?"Activa":"Cerrada"}
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:14,color:txt,lineHeight:1.3}}>{v.titulo}</div>
+                  {isUpcoming&&(
+                    <div style={{fontSize:11,color:"#f59e0b",fontWeight:700,marginTop:4}}>
+                      🕐 Comienza el {new Date(v.inicio).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                    </div>
+                  )}
+                </div>
+                <span style={{background:v.status==="approved"?"#10b98122":isUpcoming?"#f59e0b22":v.activa?"#10b98122":"#94a3b822",
+                  color:v.status==="approved"?"#10b981":isUpcoming?"#b45309":v.activa?"#10b981":"#94a3b8",
+                  borderRadius:99,padding:"3px 10px",fontSize:10,fontWeight:800,flexShrink:0,whiteSpace:"nowrap"}}>
+                  {v.status==="approved"?"Aprobada":isUpcoming?"Próxima":v.activa?"Activa":"Cerrada"}
                 </span>
               </div>
 
@@ -957,24 +989,54 @@ function AVotaciones({me,showToast,onBack}){
                 </div>
               )}
 
-              {/* DAO weighted */}
-              <button onClick={()=>setPropWeighted(w=>!w)}
-                style={{width:"100%",background:propWeighted?accent+"18":inputBg,
-                  border:`1.5px solid ${propWeighted?accent:inputBd}`,borderRadius:12,
-                  padding:"10px 14px",fontSize:12,fontWeight:800,cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif",marginBottom:10,display:"flex",
-                  alignItems:"center",gap:8,color:propWeighted?accent:sub,textAlign:"left"}}>
-                <span style={{fontSize:16}}>🏛️</span>
-                <div style={{flex:1}}>Voto ponderado por monedas {propWeighted?"(activado ✓)":""}</div>
-                <div style={{width:20,height:20,borderRadius:"50%",
-                  background:propWeighted?accent:"#ddd",color:"white",fontSize:11,
-                  display:"flex",alignItems:"center",justifyContent:"center"}}>{propWeighted?"✓":"○"}</div>
-              </button>
+              {/* INICIO PROGRAMADO */}
+              <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:6}}>
+                ¿Cuándo empieza?
+                {propScope==="global"&&<span style={{fontWeight:400,color:"#f59e0b",fontSize:11}}> · mín. 1 día para globales</span>}
+              </div>
+              {propScope==="aula"&&(
+                <div style={{display:"flex",gap:6,marginBottom:6}}>
+                  <button onClick={()=>setPropDelay(0)}
+                    style={{flex:1,background:propDelay===0?accent:inputBg,
+                      color:propDelay===0?"white":sub,border:`1.5px solid ${propDelay===0?accent:inputBd}`,
+                      borderRadius:10,padding:"8px",fontWeight:800,fontSize:12,cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif"}}>⚡ Inmediatamente</button>
+                  <button onClick={()=>{if(propDelay===0)setPropDelay(1);}}
+                    style={{flex:1,background:propDelay>0?accent:inputBg,
+                      color:propDelay>0?"white":sub,border:`1.5px solid ${propDelay>0?accent:inputBd}`,
+                      borderRadius:10,padding:"8px",fontWeight:800,fontSize:12,cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif"}}>🕐 Programar</button>
+                </div>
+              )}
+              {(propScope==="global"||propDelay>0)&&(
+                <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
+                  <input type="number"
+                    min={propScope==="global"?1:1}
+                    value={propDelay||1}
+                    onChange={e=>setPropDelay(Math.max(propScope==="global"?1:1,parseInt(e.target.value)||1))}
+                    style={{width:70,border:`1.5px solid ${inputBd}`,borderRadius:12,
+                      padding:"10px 12px",fontSize:16,fontWeight:800,outline:"none",
+                      textAlign:"center",color:accent,fontFamily:"Nunito,sans-serif",background:inputBg}}/>
+                  <div style={{display:"flex",gap:6,flex:1}}>
+                    {(propScope==="aula"?["minutos","horas","dias"]:["dias"]).map(u=>(
+                      <button key={u} onClick={()=>setPropDelayUnidad(u)}
+                        style={{flex:1,background:propDelayUnidad===u?accent:inputBg,
+                          color:propDelayUnidad===u?"white":sub,border:"none",borderRadius:10,
+                          padding:"8px 4px",fontWeight:800,fontSize:10,cursor:"pointer",
+                          fontFamily:"Nunito,sans-serif"}}>{u}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div style={{background:accent+"0D",border:`1px solid ${accent}22`,borderRadius:10,
+                padding:"8px 12px",marginBottom:10,fontSize:11,color:txt}}>
+                <span style={{fontWeight:700,color:accent}}>📸 Snapshot:</span> al inicio ·
+                <span style={{fontWeight:700,color:sub}}> Empieza: {previewInicio}</span>
+              </div>
 
               {/* DURACIÓN */}
               <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:6}}>
-                Duración de la votación
-                {propScope==="global"&&<span style={{fontWeight:400,color:"#f59e0b",fontSize:11}}> · mín. 24 horas</span>}
+                Duración de la votación <span style={{fontWeight:400,opacity:.7}}>(desde el inicio)</span>
               </div>
               <div style={{display:"flex",gap:8,marginBottom:4,alignItems:"center"}}>
                 <input type="number" value={propDurValor}
