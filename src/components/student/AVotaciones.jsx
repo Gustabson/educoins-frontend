@@ -873,7 +873,7 @@ function AVotaciones({me,showToast,onBack}){
                     <div style={{fontSize:11,color:txt,fontWeight:700}}>
                       👥 {snapshot.total_voters} votantes elegibles
                     </div>
-                    {propWeighted&&snapshot.total_coins>0&&(
+                    {snapshot.total_coins>0&&(
                       <div style={{fontSize:11,color:accent,fontWeight:700}}>
                         ⭐ Poder admin: {(snapshot.total_coins*0.03).toFixed(0)} monedas (3%)
                       </div>
