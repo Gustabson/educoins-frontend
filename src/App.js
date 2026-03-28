@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
-import { api } from './api';
+import { api, connectSocket } from './api';
 import { GS } from './constants';
 import { Inp, PBtn } from './components/shared/index';
 import Alumno from './components/student/Alumno';
@@ -20,6 +19,7 @@ export default function App(){
   useEffect(()=>{
     const token = localStorage.getItem("ec_token");
     if(!token){ setLoading(false); return; }
+    connectSocket(token); // Conectar socket para TODOS los roles al cargar
     Promise.all([api.me(), api.account()])
       .then(([user,acc])=>{ setMe(user); setBalance(acc.balance); })
       .catch(()=>localStorage.removeItem("ec_token"))
@@ -32,6 +32,7 @@ export default function App(){
     try{
       const {token,user} = await api.login(email,pass);
       localStorage.setItem("ec_token",token);
+      connectSocket(token); // Conectar socket para TODOS los roles al login
       const acc = await api.account().catch(()=>({balance:0}));
       setMe(user); setBalance(acc.balance);
     }catch(e){

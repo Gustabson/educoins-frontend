@@ -219,10 +219,6 @@ function AVotaciones({me,showToast,onBack}){
 
   const proponer=async()=>{
     if(!propTitulo.trim()||propTitulo.trim().length<5){showToast("El título necesita al menos 5 caracteres","error");return;}
-    const isStaff=["admin","teacher"].includes(me.rol);
-    if(!isStaff&&(!propContexto.trim()||propContexto.trim().length<20)){
-      showToast("La descripción necesita al menos 20 caracteres","error");return;
-    }
     const ops=propOpciones.filter(o=>o.trim());
     if(ops.length<2){showToast("Necesitás al menos 2 opciones","error");return;}
     const val=Math.min(parseInt(propDurValor)||24,DUR_MAX[propDurUnidad]);
@@ -237,10 +233,9 @@ function AVotaciones({me,showToast,onBack}){
         opciones:ops, fin:d.toISOString(), weighted:propWeighted,
         scope:propScope, classroom_id:propScope==="aula"?classInfo?.id:null,
       });
-      showToast(isStaff?"Votación creada ✅":"¡Propuesta enviada! Esperando aprobación ⏳");
+      showToast("Votación creada ✅");
       setPropModal(false);
       setPropTitulo("");setPropContexto("");setPropOpciones(["",""]);setPropWeighted(true);setPropScope("global");
-      loadPolls(sec);
     }catch(e){showToast(e.message||"Error al enviar","error");}
     finally{setPropSaving(false);}
   };
@@ -405,8 +400,6 @@ function AVotaciones({me,showToast,onBack}){
   );
 
   // ── Vista lista de votaciones ─────────────────────────────
-  const activePolls=polls.filter(p=>p.status==="active");
-  const myProposals=polls.filter(p=>p.status!=="active"&&p.creador_id===me.id);
 
   return(
     <div style={{background:bg,minHeight:"100vh"}}>
@@ -446,43 +439,8 @@ function AVotaciones({me,showToast,onBack}){
       </div>
 
       <div style={{padding:"12px 14px"}}>
-        {/* Mis propuestas pendientes/rechazadas */}
-        {myProposals.map(v=>{
-          const isPending=v.status==="pending";
-          return(
-            <div key={v.id} style={{background:cardBg,borderRadius:16,padding:"14px",marginBottom:10,
-              border:`1.5px solid ${isPending?"#f59e0b44":"#ef444444"}`,
-              boxShadow:isPending?"0 2px 10px #f59e0b22":"0 2px 10px #ef444422"}}>
-              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
-                <div style={{background:isPending?"#f59e0b18":"#ef444418",borderRadius:10,
-                  padding:"4px 10px",fontSize:10,fontWeight:800,
-                  color:isPending?"#b45309":"#ef4444",flexShrink:0}}>
-                  {isPending?"⏳ Pendiente de aprobación":"❌ Rechazada"}
-                </div>
-                <div style={{flex:1}}/>
-                <button onClick={()=>retirarPropuesta(v.id)}
-                  style={{background:"none",border:"none",color:sub,cursor:"pointer",fontSize:12}}>🗑️</button>
-              </div>
-              <div style={{fontWeight:800,fontSize:14,color:txt,marginBottom:4}}>{v.titulo}</div>
-              {v.contexto&&<div style={{fontSize:12,color:sub,marginBottom:6,lineHeight:1.5}}>{v.contexto}</div>}
-              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:6}}>
-                {v.opciones?.map((op,i)=>(
-                  <span key={i} style={{background:inputBg,borderRadius:8,padding:"3px 8px",fontSize:11,color:sub}}>
-                    {op.texto}
-                  </span>
-                ))}
-              </div>
-              {v.review_note&&(
-                <div style={{background:"#ef444418",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#ef4444"}}>
-                  <strong>Motivo:</strong> {v.review_note}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
         {loading&&<div style={{textAlign:"center",padding:32,color:sub}}>Cargando...</div>}
-        {!loading&&activePolls.length===0&&myProposals.length===0&&(
+        {!loading&&polls.length===0&&(
           <div style={{background:cardBg,borderRadius:20,padding:32,textAlign:"center",
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
             <div style={{fontSize:40}}>🗳️</div>
@@ -492,7 +450,7 @@ function AVotaciones({me,showToast,onBack}){
             </div>
           </div>
         )}
-        {activePolls.map(v=>{
+        {polls.map(v=>{
           const yaVote    = !!v.mi_voto;
           const mostrar   = yaVote||!v.activa;
           const isVoting  = voting===v.id;
@@ -728,9 +686,7 @@ function AVotaciones({me,showToast,onBack}){
               <div style={{width:40,height:4,background:inputBg,borderRadius:99,margin:"0 auto 14px"}}/>
               <div style={{fontWeight:900,fontSize:17,color:txt,marginBottom:4}}>🏛️ Proponer votación DAO</div>
               <div style={{fontSize:12,color:sub,marginBottom:14}}>
-                {["admin","teacher"].includes(me.rol)
-                  ?"Se publicará de inmediato."
-                  :"El equipo administrativo la revisará antes de publicarla."}
+                Se publicará de inmediato. El admin puede cerrarla si es necesario.
               </div>
 
               {/* Botones ayuda */}
@@ -780,7 +736,7 @@ function AVotaciones({me,showToast,onBack}){
 
               {/* CONTEXTO / PROBLEMA */}
               <div style={{fontWeight:700,fontSize:12,color:sub,marginBottom:4}}>
-                Descripción del problema {!["admin","teacher"].includes(me.rol)&&<span style={{color:"#ef4444"}}>*</span>}
+                Descripción del problema <span style={{fontWeight:400,opacity:.7}}>(opcional)</span>
               </div>
               <textarea value={propContexto} onChange={e=>setPropContexto(e.target.value)}
                 placeholder="¿Por qué es importante? ¿Qué problema resuelve? ¿Cuál sería el impacto? (mín. 20 caracteres)"
@@ -884,7 +840,7 @@ function AVotaciones({me,showToast,onBack}){
                   color:"white",padding:"13px",fontWeight:800,fontSize:13,
                   cursor:propSaving?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif",
                   boxShadow:`0 4px 14px ${accent}44`}}>
-                {propSaving?"Enviando...":["admin","teacher"].includes(me.rol)?"Publicar votación":"Enviar propuesta"}
+                {propSaving?"Publicando...":"Publicar votación"}
               </button>
             </div>
           </div>

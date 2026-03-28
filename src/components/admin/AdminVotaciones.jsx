@@ -28,9 +28,6 @@ function AdminVotaciones({showToast, onBack}){
   const [classrooms,setClassrooms] = useState([]);
   const [saving,setSaving]         = useState(false);
   const [now,setNow]               = useState(()=>new Date());
-  const [pendingPolls,setPendingPolls]=useState([]);
-  const [reviewNote,setReviewNote] = useState({});
-  const [reviewing,setReviewing]   = useState(null);
   const [quorumCfg,setQuorumCfg]   = useState({aula:{threshold:50,mode:"people"},global:{threshold:50,mode:"coins"}});
   const [quorumOpen,setQuorumOpen] = useState(false);
   const [savingQ,setSavingQ]       = useState(null);
@@ -48,7 +45,6 @@ function AdminVotaciones({showToast, onBack}){
 
   useEffect(()=>{
     load();
-    api.pendingPolls().then(d=>setPendingPolls(Array.isArray(d)?d:[])).catch(()=>{});
     api.quorumSettings().then(d=>{
       if(Array.isArray(d)) setQuorumCfg(Object.fromEntries(d.map(r=>[r.scope,{threshold:parseFloat(r.threshold),mode:r.mode}])));
     }).catch(()=>{});
@@ -69,7 +65,6 @@ function AdminVotaciones({showToast, onBack}){
     const handler=({ poll_id, action })=>{
       if(action==='created'){
         load();
-        api.pendingPolls().then(d=>setPendingPolls(Array.isArray(d)?d:[])).catch(()=>{});
       } else if(action==='vote'){
         api.pollById(poll_id)
           .then(u=>{ if(u) setPolls(ps=>ps.map(p=>p.id===poll_id?u:p)); })
@@ -109,18 +104,6 @@ function AdminVotaciones({showToast, onBack}){
     finally{setSavingQ(null);}
   };
 
-  const reviewPoll=async(pollId, action)=>{
-    const note=reviewNote[pollId]||"";
-    setReviewing(pollId+action);
-    try{
-      await api.reviewPoll(pollId, action, note||undefined);
-      showToast(action==="approve"?"Propuesta aprobada ✅":"Propuesta rechazada");
-      setPendingPolls(ps=>ps.filter(p=>p.id!==pollId));
-      if(action==="approve") load();
-    }catch(e){showToast(e.message||"Error","error");}
-    finally{setReviewing(null);}
-  };
-
   const crear=async()=>{
     if(!titulo.trim()){showToast("Escribí un título","error");return;}
     const ops=opciones.filter(o=>o.trim());
@@ -150,6 +133,15 @@ function AdminVotaciones({showToast, onBack}){
     }catch(e){showToast(e.message||"Error","error");}
   };
 
+  const borrarPoll=async(poll)=>{
+    if(!window.confirm(`¿Eliminar "${poll.titulo}"?`)) return;
+    try{
+      await api.deletePoll(poll.id);
+      setPolls(ps=>ps.filter(p=>p.id!==poll.id));
+      showToast("Votación eliminada");
+    }catch(e){showToast(e.message||"Error","error");}
+  };
+
   const sorted=[...polls].sort((a,b)=>{
     const rank={admin:0,teacher:1};
     const ra=rank[a.creador_rol]??2, rb=rank[b.creador_rol]??2;
@@ -174,65 +166,6 @@ function AdminVotaciones({showToast, onBack}){
       </div>
 
       <div style={{padding:"12px 14px"}}>
-        {/* ── Propuestas pendientes ────────────────────────── */}
-        {pendingPolls.length>0&&(
-          <div style={{background:C.card,borderRadius:20,padding:14,marginBottom:14,
-            border:"1.5px solid #f59e0b44",boxShadow:"0 2px 10px #f59e0b22"}}>
-            <div style={{fontWeight:800,fontSize:13,color:"#b45309",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-              <span>⏳</span> {pendingPolls.length} propuesta{pendingPolls.length!==1?"s":""} pendiente{pendingPolls.length!==1?"s":""}
-            </div>
-            {pendingPolls.map(p=>{
-              const isReviewing=reviewing&&reviewing.startsWith(p.id);
-              return(
-                <div key={p.id} style={{borderTop:`1px solid ${C.bd2}`,paddingTop:10,marginBottom:10}}>
-                  <div style={{display:"flex",gap:6,marginBottom:4,flexWrap:"wrap",alignItems:"center"}}>
-                    <span style={{fontSize:10,background:p.creador_rol==="student"?"#6366f118":"#f59e0b18",
-                      borderRadius:99,padding:"2px 8px",fontWeight:800,
-                      color:p.creador_rol==="student"?"#6366f1":"#b45309"}}>
-                      {p.creador_rol==="student"?"🧑‍🎓":"👨‍👩‍👧"} {p.creador_nombre}
-                    </span>
-                    {p.weighted&&<span style={{fontSize:10,background:"#f59e0b18",borderRadius:99,
-                      padding:"2px 8px",fontWeight:800,color:"#b45309"}}>🏛️ DAO</span>}
-                    {p.scope==="aula"&&<span style={{fontSize:10,background:"#6366f118",borderRadius:99,
-                      padding:"2px 8px",fontWeight:800,color:"#6366f1"}}>🏫 Aula</span>}
-                    <span style={{fontSize:10,color:C.muted,marginLeft:"auto"}}>
-                      {new Date(p.created_at).toLocaleDateString("es-AR")}
-                    </span>
-                  </div>
-                  <div style={{fontWeight:800,fontSize:13,color:C.txt,marginBottom:4}}>{p.titulo}</div>
-                  {p.contexto&&(
-                    <div style={{fontSize:12,color:C.sub,marginBottom:6,lineHeight:1.5,
-                      background:"#f7f7f7",borderRadius:10,padding:"8px 10px"}}>{p.contexto}</div>
-                  )}
-                  <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
-                    {(p.opciones||[]).map((op,i)=>(
-                      <span key={i} style={{background:C.bd2,borderRadius:8,padding:"3px 8px",fontSize:11,color:C.sub}}>
-                        {op.texto}
-                      </span>
-                    ))}
-                  </div>
-                  <input value={reviewNote[p.id]||""} onChange={e=>setReviewNote(n=>({...n,[p.id]:e.target.value}))}
-                    placeholder="Nota (opcional: motivo de rechazo o condición de aprobación)..."
-                    style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.bd}`,borderRadius:10,
-                      padding:"7px 10px",fontSize:11,outline:"none",fontFamily:"Nunito,sans-serif",marginBottom:6}}/>
-                  <div style={{display:"flex",gap:6}}>
-                    <button disabled={!!isReviewing} onClick={()=>reviewPoll(p.id,"approve")}
-                      style={{flex:1,background:"#dcfce7",border:"none",borderRadius:10,color:"#059669",
-                        padding:"9px",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                      {reviewing===p.id+"approve"?"...":"✅ Aprobar"}
-                    </button>
-                    <button disabled={!!isReviewing} onClick={()=>reviewPoll(p.id,"reject")}
-                      style={{flex:1,background:"#fee2e2",border:"none",borderRadius:10,color:"#ef4444",
-                        padding:"9px",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                      {reviewing===p.id+"reject"?"...":"❌ Rechazar"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* ── Formulario nueva votación ─────────────────────── */}
         {form&&(
           <div style={{background:C.card,borderRadius:20,padding:16,marginBottom:12,
@@ -415,10 +348,10 @@ function AdminVotaciones({showToast, onBack}){
                 </div>
               )}
 
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-                <span style={{fontSize:11,color:C.muted}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,gap:6}}>
+                <span style={{fontSize:11,color:C.muted,flex:1}}>
                   {v.total_votos} voto{v.total_votos!==1?"s":""}
-                  {v.weighted&&v.total_peso>0&&` · ${parseFloat(v.total_peso).toFixed(0)} monedas`}
+                  {v.weighted&&v.total_peso>0&&` · ${parseFloat(v.total_peso).toFixed(0)} mon`}
                 </span>
                 <button onClick={()=>toggleActiva(v)}
                   style={{background:v.activa?"#fee2e2":"#dcfce7",border:"none",
@@ -426,6 +359,9 @@ function AdminVotaciones({showToast, onBack}){
                     fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                   {v.activa?"Cerrar":"Reabrir"}
                 </button>
+                <button onClick={()=>borrarPoll(v)}
+                  style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14,
+                    padding:"4px 6px",borderRadius:8}}>🗑️</button>
               </div>
             </div>
           );
