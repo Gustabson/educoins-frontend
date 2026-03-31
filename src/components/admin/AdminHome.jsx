@@ -64,7 +64,8 @@ function AdminHome({me,onNav,showToast}){
           {icon:"🏆",title:"Ranking",           sub:"Top holders y top ganancias",               dest:"ranking",   col:"#f59e0b"},
           {icon:"🏛️",title:"Banco",             sub:"Transferir a alumnos y docentes",           dest:"banco",     col:"#10b981"},
           {icon:"🏫",title:"Aulas",             sub:"Crear aulas y asignar miembros",            dest:"aulas",     col:"#f59e0b"},
-          {icon:"💹",title:"Economía",           sub:"Temas, precios, premios y suscripciones",  dest:"economia",  col:"#10b981"},
+          {icon:"💹",title:"Economía",           sub:"Temas, precios, premios y suscripciones",  dest:"economia",   col:"#10b981"},
+          {icon:"🧠",title:"Psicología",         sub:"Bienestar, alertas y reportes de alumnos", dest:"psicologia", col:"#8b5cf6"},
           {icon:"📋",title:"Audit Log",         sub:"Historial de todas las acciones",           dest:"audit",     col:"#64748b"},
         ].map(item=>(
           <WCard key={item.dest} onClick={()=>onNav(item.dest)}

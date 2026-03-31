@@ -16,6 +16,7 @@ import AdminReportes from "./AdminReportes";
 import AdminAulas from "./AdminAulas";
 import AdminConfig from "./AdminConfig";
 import AdminEconomia from "./AdminEconomia";
+import AdminPsicologia from "./AdminPsicologia";
 
 function Admin({me,logout}){
   const [tab,setTab]=useState("home");
@@ -41,7 +42,8 @@ function Admin({me,logout}){
         {tab==="votaciones" && <AdminVotaciones showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="reportes"   && <AdminReportes  showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="aulas"      && <AdminAulas     showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="economia"   && <AdminEconomia   showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="economia"    && <AdminEconomia   showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="psicologia"  && <AdminPsicologia showToast={showToast} onBack={()=>setTab("home")}/>}
       </div>
       {!hideNav&&(
       <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
