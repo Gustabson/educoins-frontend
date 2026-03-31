@@ -94,7 +94,7 @@ function IconBtn({ icon, onClick, title }) {
 function ExplorarView({ refreshTick }) {
   const [data,      setData]      = useState([]);
   const [loading,   setLoading]   = useState(true);
-  const [period,    setPeriod]    = useState("today");
+  const [days,      setDays]      = useState(30);
   const [onlyNota,  setOnlyNota]  = useState(false);
   const [onlySinRep,setOnlySinRep]= useState(false);
   const [expanded,  setExpanded]  = useState(null);
@@ -102,15 +102,15 @@ function ExplorarView({ refreshTick }) {
 
   const load = () => {
     setLoading(true);
-    api.wellnessAdminExplore(period)
+    api.wellnessAdminExplore(days)
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   };
-  useEffect(load, [period, refreshTick]);
+  useEffect(load, [days, refreshTick]);
 
   let filtered = [...data];
-  if (onlyNota)   filtered = filtered.filter(s => s.entry?.has_nota);
+  if (onlyNota)   filtered = filtered.filter(s => s.notes?.length > 0);
   if (onlySinRep) filtered = filtered.filter(s => !s.entry);
 
   // Re-sort client-side
@@ -128,7 +128,7 @@ function ExplorarView({ refreshTick }) {
   });
 
   const withEntry  = data.filter(s => s.entry);
-  const withNota   = data.filter(s => s.entry?.has_nota);
+  const withNota   = data.filter(s => s.notes?.length > 0);
   const sinReporte = data.filter(s => !s.entry);
   const moodDist   = [1,2,3,4,5].map(m => ({
     mood: m, cnt: data.filter(s => s.entry?.mood === m).length
@@ -137,13 +137,13 @@ function ExplorarView({ refreshTick }) {
   return (
     <div style={{padding:"14px 14px 24px"}}>
 
-      {/* Period tabs */}
-      <div style={{display:"flex",gap:6,marginBottom:10}}>
-        {[["today","Hoy"],["week","Esta semana"]].map(([v,l]) => (
-          <button key={v} onClick={()=>setPeriod(v)}
-            style={{flex:1,border:"none",borderRadius:99,padding:"8px",
-              background:period===v?"#8b5cf6":"#f0f0f0",
-              color:period===v?"white":"#555",
+      {/* Days selector */}
+      <div style={{display:"flex",gap:6,marginBottom:10,overflowX:"auto",paddingBottom:2}}>
+        {[[30,"30 días"],[60,"60 días"],[120,"120 días"],[365,"1 año"],[730,"2 años"]].map(([v,l]) => (
+          <button key={v} onClick={()=>setDays(v)}
+            style={{flexShrink:0,border:"none",borderRadius:99,padding:"7px 14px",
+              background:days===v?"#8b5cf6":"#f0f0f0",
+              color:days===v?"white":"#555",
               fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
             {l}
           </button>
@@ -571,13 +571,14 @@ function StudentDetail({ userId, showToast }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab,     setTab]     = useState("timeline");
+  const [days,    setDays]    = useState(30);
 
   const load = () => {
     setLoading(true);
-    api.wellnessAdminStudent(userId)
+    api.wellnessAdminStudentDays(userId, days)
       .then(setData).catch(()=>{}).finally(()=>setLoading(false));
   };
-  useEffect(load,[userId]);
+  useEffect(load,[userId, days]);
 
   const markReviewed = async(id) => {
     try {
@@ -647,13 +648,26 @@ function StudentDetail({ userId, showToast }) {
           {[
             {val:risk.consecutive_low||0,  label:"días bajos\nconsecut.", col:"#ef4444"},
             {val:risk.total_entries||0,    label:"entradas\n30 días",     col:"#8b5cf6"},
-            {val:notesList.length,         label:"notas\n20 días",        col:"#06b6d4"},
+            {val:notesList.length,         label:`notas\n${days}d`,        col:"#06b6d4"},
             {val:risk.unread_reports||0,   label:"reportes\nsin leer",    col:risk.unread_reports?"#ef4444":"#10b981"},
           ].map(({val,label,col})=>(
             <div key={label} style={{textAlign:"center",background:"#fafafa",borderRadius:12,padding:"8px 4px"}}>
               <div style={{fontWeight:900,fontSize:16,color:col}}>{val}</div>
               <div style={{fontSize:9,color:"#aaa",fontWeight:700,lineHeight:1.3,whiteSpace:"pre-line"}}>{label}</div>
             </div>
+          ))}
+        </div>
+
+        {/* Selector de período */}
+        <div style={{display:"flex",gap:5,marginBottom:10,overflowX:"auto",paddingBottom:2}}>
+          {[[30,"30d"],[60,"60d"],[120,"120d"],[365,"1a"],[730,"2a"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setDays(v)}
+              style={{flexShrink:0,border:"none",borderRadius:99,padding:"5px 12px",
+                background:days===v?"#8b5cf6":"#f0f0f0",
+                color:days===v?"white":"#555",
+                fontWeight:800,fontSize:11,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              {l}
+            </button>
           ))}
         </div>
 
@@ -723,9 +737,9 @@ function StudentDetail({ userId, showToast }) {
       {/* Tab Notas — historial completo de notas (últimos 20 días) */}
       {tab==="notas"&&(
         <div style={{padding:"0 14px"}}>
-          {notesList.length===0&&<Empty msg="Sin notas en los últimos 20 días"/>}
+          {notesList.length===0&&<Empty msg={`Sin notas en los últimos ${days} días`}/>}
           <div style={{fontSize:11,color:"#aaa",fontWeight:700,marginBottom:10,textAlign:"center"}}>
-            Últimos 20 días · {notesList.length} nota{notesList.length!==1?"s":""}
+            Últimos {days} días · {notesList.length} nota{notesList.length!==1?"s":""}
           </div>
           {notesList.map((n,i)=>(
             <div key={n.id||i} style={{marginBottom:10}}>
@@ -1057,6 +1071,141 @@ function WellnessConfig({ showToast, onSaved }) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// SECCIÓN: BACKUPS — cifrados con AES-256-GCM
+// ══════════════════════════════════════════════════════════════
+function BackupsView({ showToast }) {
+  const [backups,     setBackups]     = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [creating,    setCreating]    = useState(false);
+  const [days,        setDays]        = useState(30);
+  const [deleting,    setDeleting]    = useState(null);
+  const [downloading, setDownloading] = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    api.wellnessAdminBackups()
+      .then(d => setBackups(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+
+  const create = async () => {
+    setCreating(true);
+    try {
+      await api.wellnessAdminBackupCreate(days);
+      showToast("Backup generado ✓");
+      load();
+    } catch(e) { showToast(e.message||"Error","error"); }
+    finally { setCreating(false); }
+  };
+
+  const del = async (id) => {
+    setDeleting(id);
+    try {
+      await api.wellnessAdminBackupDelete(id);
+      setBackups(b => b.filter(x => x.id !== id));
+      showToast("Backup eliminado");
+    } catch(e) { showToast(e.message||"Error","error"); }
+    finally { setDeleting(null); }
+  };
+
+  const download = async (id) => {
+    setDownloading(id);
+    try {
+      const url = api.wellnessAdminBackupDownload(id);
+      const token = localStorage.getItem("ec_token");
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Error al descargar");
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `wellness_backup_${id.slice(0,8)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch(e) { showToast(e.message||"Error al descargar","error"); }
+    finally { setDownloading(null); }
+  };
+
+  return (
+    <div style={{padding:"14px 14px 40px"}}>
+      <div style={{background:"#f0f9ff",border:"1.5px solid #bae6fd",borderRadius:14,
+        padding:"10px 14px",marginBottom:16,fontSize:12,color:"#0369a1"}}>
+        💾 Los backups se generan automáticamente cada 14 días y se cifran con AES-256-GCM.
+        Podés generar uno manual en cualquier momento. Se conservan los últimos 10.
+      </div>
+
+      {/* Generar backup manual */}
+      <div style={{background:"white",borderRadius:16,padding:"14px 16px",
+        marginBottom:14,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:10}}>
+          🆕 Generar backup manual
+        </div>
+        <div style={{fontSize:11,color:"#555",marginBottom:8}}>Período de datos a incluir:</div>
+        <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+          {[[30,"30 días"],[60,"60 días"],[120,"120 días"],[365,"1 año"],[730,"2 años"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setDays(v)}
+              style={{border:"none",borderRadius:99,padding:"6px 14px",
+                background:days===v?"#8b5cf6":"#f0f0f0",
+                color:days===v?"white":"#555",
+                fontWeight:800,fontSize:11,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <button onClick={create} disabled={creating}
+          style={{width:"100%",background:creating?"#ccc":"#8b5cf6",border:"none",
+            borderRadius:99,color:"white",padding:"10px",fontSize:12,fontWeight:800,
+            cursor:creating?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif"}}>
+          {creating?"Generando...":"Generar backup ahora"}
+        </button>
+      </div>
+
+      {/* Lista */}
+      <div style={{fontWeight:800,fontSize:13,color:"#555",marginBottom:8}}>
+        Backups guardados ({backups.length})
+      </div>
+      {loading && <Loader/>}
+      {!loading && backups.length===0 && <Empty msg="No hay backups guardados aún"/>}
+      {!loading && backups.map(b=>(
+        <div key={b.id} style={{background:"white",borderRadius:14,padding:"12px 14px",
+          marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{fontSize:22,flexShrink:0}}>💾</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>
+                {b.period_days} días de datos
+              </div>
+              <div style={{fontSize:11,color:"#aaa",marginTop:2}}>
+                {new Date(b.created_at).toLocaleString("es-AR")}
+                {" · "}{b.record_count ?? "?"} registros
+                {b.size_bytes ? ` · ${(b.size_bytes/1024).toFixed(1)} KB` : ""}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>download(b.id)} disabled={!!downloading}
+                style={{background:"#e0f2fe",border:"none",borderRadius:10,
+                  padding:"7px 12px",fontSize:13,fontWeight:800,
+                  color:downloading===b.id?"#aaa":"#0369a1",
+                  cursor:downloading?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif"}}>
+                {downloading===b.id?"⏳":"⬇"}
+              </button>
+              <button onClick={()=>del(b.id)} disabled={!!deleting}
+                style={{background:"#fef2f2",border:"none",borderRadius:10,
+                  padding:"7px 12px",fontSize:13,fontWeight:800,
+                  color:deleting===b.id?"#aaa":"#ef4444",
+                  cursor:deleting?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif"}}>
+                {deleting===b.id?"⏳":"🗑"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
 // RAÍZ — AdminPsicologia
 // ══════════════════════════════════════════════════════════════
 function AdminPsicologia({ showToast, onBack }) {
@@ -1086,12 +1235,12 @@ function AdminPsicologia({ showToast, onBack }) {
 
   const goBack = () => {
     if (smartView==="student") setSmartView("list");
-    else if (["list","reports","config"].includes(smartView)) setSmartView("dashboard");
+    else if (["list","reports","config","backups"].includes(smartView)) setSmartView("dashboard");
     else onBack();
   };
 
   const SMART_TITLES = {
-    dashboard:"Dashboard",list:"Alumnos",student:"Perfil",reports:"Reportes",config:"Configuración"
+    dashboard:"Dashboard",list:"Alumnos",student:"Perfil",reports:"Reportes",config:"Configuración",backups:"Backups"
   };
 
   const showingSmartDetail = mainTab==="smart" && smartView!=="dashboard";
@@ -1115,6 +1264,7 @@ function AdminPsicologia({ showToast, onBack }) {
           </div>
           {mainTab==="smart"&&smartView==="dashboard"&&(
             <div style={{display:"flex",gap:6}}>
+              <IconBtn icon="💾" onClick={()=>navSmart("backups")} title="Backups"/>
               <IconBtn icon="📬" onClick={()=>navSmart("reports")} title="Reportes"/>
               <IconBtn icon="⚙️" onClick={()=>navSmart("config")}  title="Configurar"/>
             </div>
@@ -1173,6 +1323,9 @@ function AdminPsicologia({ showToast, onBack }) {
               setConfigKey(k=>k+1);      // re-fetch lista Smart
               setSmartView("dashboard"); // volver al dashboard
             }}/>
+          )}
+          {smartView==="backups" && (
+            <BackupsView showToast={showToast}/>
           )}
         </>
       )}
