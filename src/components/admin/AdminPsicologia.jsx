@@ -673,12 +673,15 @@ function StudentDetail({ userId, showToast }) {
 
         {/* Tabs */}
         <div style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
-          {[
-            ["timeline","📅 Timeline"],
-            ["notas",   `💬 Notas${notesList.length?` (${notesList.length})`:""`],
-            ["cats",    "🏷 Categorías"],
-            ["reports", `📬${reports.filter(r=>!r.reviewed).length>0?` (${reports.filter(r=>!r.reviewed).length})`:""}`],
-          ].map(([id,lbl])=>(
+          {(()=>{
+            const unread = reports.filter(r=>!r.reviewed).length;
+            return [
+              ["timeline","📅 Timeline"],
+              ["notas",   notesList.length ? "💬 Notas (" + notesList.length + ")" : "💬 Notas"],
+              ["cats",    "🏷 Categorías"],
+              ["reports", unread > 0 ? "📬 (" + unread + ")" : "📬"],
+            ];
+          })().map(([id,lbl])=>(
             <button key={id} onClick={()=>setTab(id)}
               style={{flex:1,border:"none",background:"none",cursor:"pointer",
                 padding:"10px 2px",fontFamily:"Nunito,sans-serif",
