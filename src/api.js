@@ -223,6 +223,7 @@ const api = {
   wellnessAdminStudent:       (uid)    => apiFetch(`/wellness/admin/student/${uid}`),
   wellnessAdminConfig:        ()       => apiFetch("/wellness/admin/config"),
   wellnessAdminConfigUpdate:  (body)   => apiFetch("/wellness/admin/config",      { method:"PUT",   body }),
+  wellnessAdminExplore:       (period) => apiFetch(`/wellness/admin/explore?period=${period||'today'}`),
   myReports:      ()                      => apiFetch("/reports/mine"),
   allReports:     (q="")                  => apiFetch(`/reports${q}`),
   updateReport:   (id, data)              => apiFetch(`/reports/${id}/estado`, { method:"PATCH", body:data }),
