@@ -69,10 +69,9 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
   useEffect(() => {
     api.wellnessToday()
       .then(d => {
-        const entry = d.data;
-        if (entry) {
-          if (!initialMood) setMood(entry.mood || null);
-          setCats(entry.categories || []);
+        if (d) {
+          if (!initialMood) setMood(d.mood || null);
+          setCats(d.categories || []);
           setWasUpdate(true);
         }
       })

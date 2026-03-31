@@ -206,7 +206,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       applyActive(data?.active||null);
     }).catch(()=>{});
     api.wellnessToday().then(d=>{
-      if(d.data?.mood) setTodayMood(d.data.mood);
+      if(d?.mood) setTodayMood(d.mood);
       setMoodLoaded(true);
     }).catch(()=>{ setMoodLoaded(true); });
   },[]);
