@@ -126,19 +126,28 @@ function AVotaciones({me,showToast,onBack}){
     try{ socket=getSocket(); } catch(e){ return; }
     if(!socket) return;
     const handler=({ poll_id, action })=>{
-      if(action==='created'){
+      if(action==='created'||action==='scheduled'){
         if(subSecRef.current==='activas') loadPolls(secRef.current, classInfoRef.current, 'activas');
       } else if(action==='approved'){
         // Sacar poll de activas; si estamos en aprobadas recargar
         setPolls(ps=>ps.filter(p=>p.id!==poll_id));
         if(subSecRef.current==='aprobadas') loadPolls(secRef.current, classInfoRef.current, 'aprobadas');
-      } else if(action==='vote'){
-        if(subSecRef.current==='activas')
-          api.pollById(poll_id)
-            .then(updated=>{ if(updated) setPolls(ps=>ps.map(p=>p.id===poll_id?updated:p)); })
-            .catch(()=>{});
+      } else if(action==='vote'||action==='reaction'){
+        api.pollById(poll_id)
+          .then(updated=>{ if(updated) setPolls(ps=>ps.map(p=>p.id===poll_id?updated:p)); })
+          .catch(()=>{});
       } else if(action==='comment'){
+        // Actualizar contador en la card
+        setPolls(ps=>ps.map(p=>p.id===poll_id?{...p,total_comentarios:(p.total_comentarios||0)+1}:p));
         // Si estamos mirando esa poll, recargar comentarios
+        setSelPoll(prev=>{
+          if(prev?.id===poll_id){
+            api.pollComments(poll_id).then(d=>setComments(Array.isArray(d)?d:[])).catch(()=>{});
+          }
+          return prev;
+        });
+      } else if(action==='comment_react'){
+        // Si el panel de comentarios de esa poll está abierto, recargar
         setSelPoll(prev=>{
           if(prev?.id===poll_id){
             api.pollComments(poll_id).then(d=>setComments(Array.isArray(d)?d:[])).catch(()=>{});
@@ -254,6 +263,7 @@ function AVotaciones({me,showToast,onBack}){
       setPropModal(false);
       setPropTitulo("");setPropContexto("");setPropOpciones(["",""]);
       setPropDelay(1);setPropDelayUnidad("dias");setPropScope("global");
+      loadPolls(propScope, classInfo, 'activas');
     }catch(e){showToast(e.message||"Error al enviar","error");}
     finally{setPropSaving(false);}
   };
