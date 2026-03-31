@@ -194,6 +194,27 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
     }
   }, [sec]);
 
+  // Recargar lista de amigos ante eventos de amistad en tiempo real
+  const reloadFriends = useCallback(async () => {
+    const updated = await api.chatFriends().catch(()=>({data:[]}));
+    const all = updated.data || updated || [];
+    setFriends(all.filter(f=>f.estado==='accepted'));
+    setPend(all.filter(f=>f.estado==='pending'&&!f.soy_requester));
+  }, []);
+
+  useEffect(() => {
+    const s = getSocket();
+    if (!s) return;
+    s.on('friend_request',  reloadFriends);
+    s.on('friend_accepted', reloadFriends);
+    s.on('friend_removed',  reloadFriends);
+    return () => {
+      s.off('friend_request',  reloadFriends);
+      s.off('friend_accepted', reloadFriends);
+      s.off('friend_removed',  reloadFriends);
+    };
+  }, [reloadFriends]);
+
   // Escuchar group_added para refrescar la lista en tiempo real
   useEffect(() => {
     const s = getSocket();
