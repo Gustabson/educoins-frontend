@@ -219,14 +219,20 @@ function ExplorarView({ refreshTick }) {
 }
 
 function ExplorarCard({ s, expanded, onExpand }) {
-  const e       = s.entry;
-  const isLow   = e && e.mood <= 2;
-  const isHR    = e && (e.categories||[]).some(c => ["miedo","soledad","presion"].includes(c));
-  const border  = isLow ? "#ef4444" : isHR ? "#f97316" : "#e8e8e8";
+  const e      = s.entry;
+  const notes  = s.notes || [];
+  const isLow  = e && e.mood <= 2;
+  const isHR   = e && (e.categories||[]).some(c => ["miedo","soledad","presion"].includes(c));
+  const hasHRNote = notes.some(n => (n.categories||[]).some(c => ["miedo","soledad","presion"].includes(c)));
+  const border = isLow ? "#ef4444" : (isHR||hasHRNote) ? "#f97316" : notes.length ? "#8b5cf6" : "#e8e8e8";
+  const PREVIEW_NOTES = 2;
+  const showMore = !expanded && notes.length > PREVIEW_NOTES;
 
   return (
     <div style={{background:"white",borderRadius:16,padding:"12px 14px",
       marginBottom:8,boxShadow:"0 1px 8px rgba(0,0,0,.05)",borderLeft:`4px solid ${border}`}}>
+
+      {/* Fila principal: avatar + nombre + mood */}
       <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
         <div style={{width:38,height:38,borderRadius:"50%",flexShrink:0,
           background: e ? MOOD_COLOR[e.mood]+"22":"#f0f0f0",
@@ -236,7 +242,15 @@ function ExplorarCard({ s, expanded, onExpand }) {
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{s.nombre}</div>
-            <div style={{fontSize:10,color:"#aaa"}}>{e ? e.date : "—"}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              {notes.length > 0 && (
+                <span style={{fontSize:10,fontWeight:800,color:"#8b5cf6",
+                  background:"#f3e8ff",borderRadius:99,padding:"1px 7px"}}>
+                  {notes.length} nota{notes.length>1?"s":""}
+                </span>
+              )}
+              <div style={{fontSize:10,color:"#aaa"}}>{e ? e.date : "—"}</div>
+            </div>
           </div>
           {e ? (
             <>
@@ -254,41 +268,64 @@ function ExplorarCard({ s, expanded, onExpand }) {
                   ))}
                 </div>
               )}
-              {/* Nota visible */}
-              {e.nota ? (
-                <div style={{marginTop:6}}>
-                  <div style={{fontSize:12,color:"#444",fontStyle:"italic",lineHeight:1.5,
-                    background:"#f8f0ff",borderRadius:8,padding:"8px 10px",
-                    borderLeft:"3px solid #8b5cf6",
-                    display:expanded?"block":"-webkit-box",
-                    WebkitLineClamp:expanded?"unset":2,
-                    WebkitBoxOrient:"vertical",
-                    overflow:expanded?"visible":"hidden",
-                    cursor:"pointer"}} onClick={onExpand}>
-                    "{e.nota}"
-                  </div>
-                  {!expanded && e.nota.length > 90 && (
-                    <button onClick={onExpand}
-                      style={{background:"none",border:"none",color:"#8b5cf6",
-                        fontSize:11,fontWeight:700,cursor:"pointer",
-                        fontFamily:"Nunito,sans-serif",padding:"2px 0"}}>
-                      Ver completo ↓
-                    </button>
-                  )}
-                </div>
-              ) : e.has_nota ? (
-                <div style={{marginTop:4,fontSize:11,color:"#aaa",fontStyle:"italic"}}>
-                  🔒 Nota privada — activá "Notas visibles" en Configuración
-                </div>
-              ) : null}
             </>
           ) : (
-            <div style={{fontSize:11,color:"#aaa",marginTop:2}}>
-              No registró ánimo en este período
-            </div>
+            <div style={{fontSize:11,color:"#aaa",marginTop:2}}>No registró ánimo en este período</div>
           )}
         </div>
       </div>
+
+      {/* Sección de notas */}
+      {notes.length > 0 && (
+        <div style={{marginTop:8,borderTop:"1px solid #f0f0f0",paddingTop:8}}>
+          <div style={{fontSize:10,fontWeight:800,color:"#8b5cf6",marginBottom:6,letterSpacing:".05em"}}>
+            NOTAS
+          </div>
+          {(expanded ? notes : notes.slice(0, PREVIEW_NOTES)).map((n, i) => (
+            <div key={n.id||i} style={{marginBottom:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                <span style={{fontSize:13}}>{n.mood ? MOOD_EMOJI[n.mood] : "💬"}</span>
+                {(n.categories||[]).filter(c=>CAT_NEG.has(c)).map(c=>(
+                  <span key={c} style={{fontSize:9,fontWeight:800,color:"#ef4444",
+                    background:"#fef2f2",borderRadius:99,padding:"1px 5px"}}>
+                    {CAT_LABEL[c]||c}
+                  </span>
+                ))}
+                <span style={{fontSize:10,color:"#bbb",marginLeft:"auto"}}>
+                  {n.date} {n.time}
+                </span>
+              </div>
+              {n.nota ? (
+                <div style={{fontSize:12,color:"#333",fontStyle:"italic",lineHeight:1.5,
+                  background:"#f8f0ff",borderRadius:8,padding:"7px 10px",
+                  borderLeft:"3px solid #8b5cf6"}}>
+                  "{n.nota}"
+                </div>
+              ) : (
+                <div style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>
+                  🔒 Nota privada — activá "Notas visibles" en Configuración
+                </div>
+              )}
+            </div>
+          ))}
+          {showMore && (
+            <button onClick={onExpand}
+              style={{background:"none",border:"none",color:"#8b5cf6",
+                fontSize:11,fontWeight:700,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif",padding:"2px 0"}}>
+              Ver {notes.length - PREVIEW_NOTES} nota{notes.length-PREVIEW_NOTES>1?"s":""} más ↓
+            </button>
+          )}
+          {expanded && notes.length > PREVIEW_NOTES && (
+            <button onClick={onExpand}
+              style={{background:"none",border:"none",color:"#8b5cf6",
+                fontSize:11,fontWeight:700,cursor:"pointer",
+                fontFamily:"Nunito,sans-serif",padding:"2px 0"}}>
+              Mostrar menos ↑
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -550,10 +587,18 @@ function StudentDetail({ userId, showToast }) {
     } catch(e){ showToast(e.message||"Error","error"); }
   };
 
+  const [copied, setCopied] = useState(false);
+  const copyId = () => {
+    navigator.clipboard.writeText(data?.student?.id||"").then(()=>{
+      setCopied(true); setTimeout(()=>setCopied(false),1500);
+    }).catch(()=>{});
+  };
+
   if (loading) return <Loader/>;
   if (!data) return <Empty msg="No se pudo cargar"/>;
 
-  const { student, risk, entries, reports } = data;
+  const { student, risk, entries, notes, reports } = data;
+  const notesList = notes || [];
   const rc = RISK_CFG[risk.risk_level]||RISK_CFG.normal;
   const tr = TREND_CFG[risk.trend]||TREND_CFG.stable;
 
@@ -562,20 +607,33 @@ function StudentDetail({ userId, showToast }) {
       {/* Cabecera */}
       <div style={{background:"white",padding:"16px 16px 0",
         boxShadow:"0 1px 8px rgba(0,0,0,.06)",marginBottom:12}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-          <div style={{width:52,height:52,borderRadius:"50%",
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+          <div style={{width:52,height:52,borderRadius:"50%",flexShrink:0,
             background:student.avatar_bg||"#e0f7fe",
             display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
             {risk.last_mood?MOOD_EMOJI[risk.last_mood]:"❓"}
           </div>
-          <div style={{flex:1}}>
+          <div style={{flex:1,minWidth:0}}>
             <div style={{fontWeight:900,fontSize:17,color:"#1a1a1a"}}>{student.nombre}</div>
-            <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap",alignItems:"center"}}>
               <RiskBadge level={risk.risk_level}/>
               <span style={{fontSize:11,color:tr.color,fontWeight:700}}>{tr.icon} {tr.label}</span>
             </div>
+            {/* Copiar ID */}
+            <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
+              <span style={{fontSize:9,color:"#bbb",fontFamily:"monospace"}}>
+                {student.id?.slice(0,16)}…
+              </span>
+              <button onClick={copyId}
+                style={{background:copied?"#10b981":"#f0f0f0",border:"none",borderRadius:6,
+                  padding:"2px 7px",fontSize:9,fontWeight:800,cursor:"pointer",
+                  color:copied?"white":"#555",fontFamily:"Nunito,sans-serif",
+                  transition:"background .2s"}}>
+                {copied?"✓ Copiado":"Copiar ID"}
+              </button>
+            </div>
           </div>
-          <div style={{textAlign:"right"}}>
+          <div style={{textAlign:"right",flexShrink:0}}>
             <div style={{fontWeight:900,fontSize:22,
               color:risk.avg_7d?MOOD_COLOR[Math.round(risk.avg_7d)]:"#aaa"}}>
               {risk.avg_7d??"—"}
@@ -587,10 +645,10 @@ function StudentDetail({ userId, showToast }) {
         {/* Métricas */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4,marginBottom:12}}>
           {[
-            {val:risk.consecutive_low||0, label:"días bajos\nconsecut.", col:"#ef4444"},
-            {val:risk.total_entries||0,   label:"entradas\n30 días",    col:"#8b5cf6"},
-            {val:risk.unread_reports||0,  label:"reportes\nsin leer",   col:risk.unread_reports?"#ef4444":"#10b981"},
-            {val:risk.risk_score||0,      label:"puntaje\nriesgo",      col:rc.color},
+            {val:risk.consecutive_low||0,  label:"días bajos\nconsecut.", col:"#ef4444"},
+            {val:risk.total_entries||0,    label:"entradas\n30 días",     col:"#8b5cf6"},
+            {val:notesList.length,         label:"notas\n20 días",        col:"#06b6d4"},
+            {val:risk.unread_reports||0,   label:"reportes\nsin leer",    col:risk.unread_reports?"#ef4444":"#10b981"},
           ].map(({val,label,col})=>(
             <div key={label} style={{textAlign:"center",background:"#fafafa",borderRadius:12,padding:"8px 4px"}}>
               <div style={{fontWeight:900,fontSize:16,color:col}}>{val}</div>
@@ -601,21 +659,25 @@ function StudentDetail({ userId, showToast }) {
 
         {/* Tabs */}
         <div style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
-          {[["timeline","📅 Timeline"],["cats","🏷 Categorías"],["reports","📬 Reportes"]].map(([id,lbl])=>(
+          {[
+            ["timeline","📅 Timeline"],
+            ["notas",   `💬 Notas${notesList.length?` (${notesList.length})`:""`],
+            ["cats",    "🏷 Categorías"],
+            ["reports", `📬${reports.filter(r=>!r.reviewed).length>0?` (${reports.filter(r=>!r.reviewed).length})`:""}`],
+          ].map(([id,lbl])=>(
             <button key={id} onClick={()=>setTab(id)}
               style={{flex:1,border:"none",background:"none",cursor:"pointer",
-                padding:"10px 4px",fontFamily:"Nunito,sans-serif",
-                fontWeight:800,fontSize:12,
+                padding:"10px 2px",fontFamily:"Nunito,sans-serif",
+                fontWeight:800,fontSize:11,
                 color:tab===id?"#8b5cf6":"#999",
                 borderBottom:tab===id?"2px solid #8b5cf6":"2px solid transparent"}}>
-              {lbl} {id==="reports"&&reports.filter(r=>!r.reviewed).length>0
-                ? `(${reports.filter(r=>!r.reviewed).length})` : ""}
+              {lbl}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Tab Timeline */}
+      {/* Tab Timeline — entradas de humor (una por día) */}
       {tab==="timeline"&&(
         <div style={{padding:"0 14px"}}>
           {entries.length===0&&<Empty msg="Sin entradas registradas"/>}
@@ -630,14 +692,14 @@ function StudentDetail({ userId, showToast }) {
                 {i<entries.length-1&&<div style={{width:1,flex:1,background:"#e8e8e8",margin:"2px 0"}}/>}
               </div>
               <div style={{flex:1,background:"white",borderRadius:14,padding:"10px 12px",
-                marginBottom:0,boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+                boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
                 <div style={{display:"flex",justifyContent:"space-between",
                   alignItems:"center",marginBottom:4}}>
                   <span style={{fontWeight:800,fontSize:13,color:MOOD_COLOR[e.mood]}}>{MOOD_LABEL[e.mood]}</span>
                   <span style={{fontSize:10,color:"#aaa"}}>{e.date}</span>
                 </div>
                 {(e.categories||[]).length>0&&(
-                  <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:4}}>
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                     {e.categories.map(c=>(
                       <span key={c} style={{fontSize:10,fontWeight:700,borderRadius:99,padding:"1px 7px",
                         background:CAT_NEG.has(c)?"#fef2f2":"#f0fdf4",
@@ -647,17 +709,57 @@ function StudentDetail({ userId, showToast }) {
                     ))}
                   </div>
                 )}
-                {e.nota?(
-                  <div style={{fontSize:12,color:"#444",fontStyle:"italic",lineHeight:1.5,
-                    background:"#f8f0ff",borderRadius:8,padding:"6px 10px",
-                    borderLeft:"3px solid #8b5cf6"}}>
-                    "{e.nota}"
+                {e.has_nota&&(
+                  <div style={{fontSize:10,color:"#8b5cf6",marginTop:4,fontWeight:700}}>
+                    💬 Tiene nota — ver en tab "Notas"
                   </div>
-                ):e.has_nota?(
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab Notas — historial completo de notas (últimos 20 días) */}
+      {tab==="notas"&&(
+        <div style={{padding:"0 14px"}}>
+          {notesList.length===0&&<Empty msg="Sin notas en los últimos 20 días"/>}
+          <div style={{fontSize:11,color:"#aaa",fontWeight:700,marginBottom:10,textAlign:"center"}}>
+            Últimos 20 días · {notesList.length} nota{notesList.length!==1?"s":""}
+          </div>
+          {notesList.map((n,i)=>(
+            <div key={n.id||i} style={{marginBottom:10}}>
+              {/* Separador de fecha si cambia */}
+              {(i===0 || notesList[i-1].date!==n.date) && (
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                  <div style={{flex:1,height:1,background:"#f0f0f0"}}/>
+                  <span style={{fontSize:10,fontWeight:800,color:"#aaa"}}>{n.date}</span>
+                  <div style={{flex:1,height:1,background:"#f0f0f0"}}/>
+                </div>
+              )}
+              <div style={{background:"white",borderRadius:14,padding:"10px 12px",
+                boxShadow:"0 1px 4px rgba(0,0,0,.04)",
+                borderLeft:`3px solid ${n.mood?MOOD_COLOR[n.mood]:"#8b5cf6"}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                  <span style={{fontSize:16}}>{n.mood?MOOD_EMOJI[n.mood]:"💬"}</span>
+                  {n.mood&&<span style={{fontSize:11,fontWeight:700,color:MOOD_COLOR[n.mood]}}>{MOOD_LABEL[n.mood]}</span>}
+                  {(n.categories||[]).filter(c=>CAT_NEG.has(c)).map(c=>(
+                    <span key={c} style={{fontSize:9,fontWeight:800,color:"#ef4444",
+                      background:"#fef2f2",borderRadius:99,padding:"1px 5px"}}>
+                      ⚠ {CAT_LABEL[c]||c}
+                    </span>
+                  ))}
+                  <span style={{fontSize:10,color:"#bbb",marginLeft:"auto"}}>{n.time}</span>
+                </div>
+                {n.nota ? (
+                  <div style={{fontSize:13,color:"#333",lineHeight:1.6,fontStyle:"italic"}}>
+                    "{n.nota}"
+                  </div>
+                ) : (
                   <div style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>
-                    🔒 Nota privada (activá "Notas visibles" en Config)
+                    🔒 Nota privada — activá "Notas visibles" en Configuración
                   </div>
-                ):null}
+                )}
               </div>
             </div>
           ))}
