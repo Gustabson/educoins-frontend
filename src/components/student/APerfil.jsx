@@ -37,6 +37,8 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   const [emojiPacks,      setEmojiPacks]      = useState([]);
   const [loanedItems,     setLoanedItems]     = useState([]);
   const [apodoCosto,      setApodoCosto]      = useState(15); // default, se carga del server
+  const [apodoItemId,     setApodoItemId]     = useState(null);
+  const [buyingApodo,     setBuyingApodo]     = useState(false);
   // Avatar bg
   const [avatarBg,        setAvatarBg]        = useState(me.avatar_bg||null);
   const [unlockedAvatarBgs,setUnlockedAvatarBgs]=useState(me.unlocked_avatar_bgs||["ab0"]);
@@ -66,11 +68,12 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
       const item=arr.find(i=>i.tipo==="photo_profile");
       setFotoShop(item||null);
     }).catch(()=>{});
-    // Cargar precio del apodo desde el shop
+    // Cargar precio e ID del apodo desde el shop
     api.customShop("nickname").then(d=>{
       const arr=Array.isArray(d)?d:(d?.data||d||[]);
       const item=arr.find(i=>i.tipo==="nickname");
       if(item?.precio) setApodoCosto(item.precio);
+      if(item?.id)     setApodoItemId(item.id);
     }).catch(()=>{});
   },[]);
 
@@ -98,6 +101,19 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
       const updated=await api.me();
       setMe(updated);
     }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  const comprarPermisoApodo=async()=>{
+    if(!apodoItemId){showToast("El admin aún no habilitó este item","error");return;}
+    if(balance<apodoCosto){showToast(`Necesitás 🪙${apodoCosto}`,"error");return;}
+    setBuyingApodo(true);
+    try{
+      await api.customBuy(apodoItemId);
+      setApodoPerm(true);
+      if(refreshBalance) refreshBalance();
+      showToast("¡Permiso de apodo desbloqueado! 🏷️");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setBuyingApodo(false);}
   };
 
   const guardarApodo=async()=>{
@@ -255,15 +271,27 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
         <div style={{...card,padding:"14px 16px",marginBottom:16}}>
           {!apodoPerm?(
             <div style={{textAlign:"center"}}>
-              <div style={{fontSize:11,color:sub,marginBottom:10,lineHeight:1.5}}>
-                Con un apodo todos te ven diferente. Tu nombre real no cambia.
+              <div style={{fontSize:32,marginBottom:6}}>🏷️</div>
+              <div style={{fontSize:11,color:sub,marginBottom:12,lineHeight:1.5}}>
+                Con un apodo todos te ven diferente en el chat, ranking y perfil.<br/>Tu nombre real no cambia.
               </div>
-              <button onClick={()=>showToast("Comprá el permiso en Personalizar → sección Apodo","error")}
-                style={{background:accent,border:"none",borderRadius:99,color:"white",
-                  padding:"8px 18px",fontSize:12,fontWeight:800,cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif"}}>
-                🏷️ Ver en Personalizar
-              </button>
+              {apodoItemId?(
+                <button onClick={comprarPermisoApodo}
+                  disabled={buyingApodo||balance<apodoCosto}
+                  style={{background:buyingApodo||balance<apodoCosto?"#ccc":accent,
+                    border:"none",borderRadius:99,color:"white",padding:"10px 22px",
+                    fontSize:13,fontWeight:900,cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif",
+                    boxShadow:buyingApodo||balance<apodoCosto?"none":`0 4px 14px ${accent}44`}}>
+                  {buyingApodo?"Comprando..."
+                    :balance<apodoCosto?`Sin saldo (necesitás 🪙${apodoCosto})`
+                    :`Comprar permiso 🪙${apodoCosto}`}
+                </button>
+              ):(
+                <div style={{fontSize:11,color:sub}}>
+                  El admin aún no habilitó este item
+                </div>
+              )}
             </div>
           ):(
             <>
