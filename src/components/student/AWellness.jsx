@@ -367,7 +367,7 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
                       }}/>
                     </button>
                     <span style={{fontSize:12, fontWeight:700, color: sub}}>
-                      {rAnon ? "🔒 Anónimo — no sabrán quién sos" : "👤 No anónimo — verán tu nombre"}
+                      {rAnon ? "🔒 Anónimo" : "👤 No anónimo"}
                     </span>
                   </div>
 
