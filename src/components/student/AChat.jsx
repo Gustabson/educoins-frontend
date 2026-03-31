@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CHAT_SECTIONS } from "../../constants";
 import { api, connectSocket, getSocket } from "../../api";;
 import { useTheme } from "../../ThemeContext";
-import { Av, OHdrA, Sheet, Toast, WCard, displayName, useToast } from "../shared/index";
+import { Av, OHdrA, displayName } from "../shared/index";
 
 
 function useChatSocket(token, onMessage, onTyping) {

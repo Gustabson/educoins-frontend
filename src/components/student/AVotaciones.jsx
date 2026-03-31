@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { api, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
-import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
+import { Av, OHdrA, displayName } from "../shared/index";
 
 
 const DUR_MAX={minutos:1440,horas:480,dias:20};
