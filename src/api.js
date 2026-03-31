@@ -116,6 +116,13 @@ const api = {
   loanItem:       (data)                  => apiFetch("/profile/loaned-items",       { method:"POST",   body:data }),
   adminUsers:     ()                      => apiFetch("/admin/users"),
   createUser:     (data)                  => apiFetch("/admin/users",         { method:"POST", body:data }),
+  adminUpdatePermisos:(id,permisos)       => apiFetch(`/admin/users/${id}/permisos`, { method:"PATCH", body:{permisos} }),
+  // ── Solicitudes (superadmin) ──────────────────────────────
+  adminProposals:       ()               => apiFetch("/admin/proposals"),
+  adminResolveProposal: (id,data)        => apiFetch(`/admin/proposals/${id}`, { method:"PATCH", body:data }),
+  // ── Solicitudes (staff) ────────────────────────────────────
+  staffSendProposal:    (data)           => apiFetch("/staff/proposals",       { method:"POST", body:data }),
+  staffMyProposals:     ()               => apiFetch("/staff/proposals/mine"),
   treasury:       ()                      => apiFetch("/admin/treasury"),
   mint:           (amount, description)   => apiFetch("/admin/mint",          { method:"POST", body:{amount,description} }),
   burn:           (amount, reason)        => apiFetch("/admin/burn",          { method:"POST", body:{amount,reason} }),
