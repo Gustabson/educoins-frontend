@@ -30,6 +30,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [camOpen,setCamOpen]=useState(false);
   const [wellnessOpen,setWellnessOpen]=useState(false);
   const [todayMood,setTodayMood]=useState(null);
+  const [moodLoaded,setMoodLoaded]=useState(false);
   const [notifs,setNotifs]=useState([]);
   const [badges,setBadges]=useState({chat:0,notifs:0});
   const [perfilUserId,setPerfilUserId]=useState(null); // perfil modal global
@@ -206,7 +207,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     }).catch(()=>{});
     api.wellnessToday().then(d=>{
       if(d.data?.mood) setTodayMood(d.data.mood);
-    }).catch(()=>{});
+      setMoodLoaded(true);
+    }).catch(()=>{ setMoodLoaded(true); });
   },[]);
 
   const nameColorConfig = customActive?.name_color_config
@@ -280,7 +282,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
-        {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} balDir={balDir} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} onOpenWellness={()=>setWellnessOpen(true)}/>}
+        {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} balDir={balDir} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} moodLoaded={moodLoaded} onOpenWellness={()=>setWellnessOpen(true)}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
@@ -318,6 +320,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           onClose={()=>setWellnessOpen(false)}
           showToast={showToast}
           refreshBalance={refreshBalance}
+          initialMood={todayMood}
           onCheckinDone={(mood)=>{ setTodayMood(mood); }}
         />
       )}

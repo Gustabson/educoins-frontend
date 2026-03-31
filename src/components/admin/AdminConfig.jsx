@@ -1,26 +1,12 @@
-import { useState, useEffect, useRef } from "react";
-import { api } from "../../api";
-import { Av, OHdrA, WCard, Toast, useToast, displayName } from "../shared/index";
+import { useState } from "react";
+import { Toast, useToast } from "../shared/index";
 
 
 
 
 function AdminConfig({me, logout}){
   const ROL_LABEL={admin:"Administrador",teacher:"Docente",student:"Alumno"};
-  const [checkinCfg,setCheckinCfg]=useState(null);
-  const [saving,setSaving]=useState(false);
   const [toast,showToast]=useToast();
-
-  useEffect(()=>{ api.checkinConfig().then(d=>setCheckinCfg(d.data||d)).catch(()=>{}); },[]);
-
-  const saveCheckin=async()=>{
-    setSaving(true);
-    try{
-      await api.checkinConfigUpdate(checkinCfg);
-      showToast("Configuracion guardada");
-    }catch(e){showToast(e.message||"Error","error");}
-    finally{setSaving(false);}
-  };
 
   const infoItems=[
     {icon:"👤", label:"Nombre",      value:me.nombre},
@@ -56,50 +42,6 @@ function AdminConfig({me, logout}){
             {ROL_LABEL[me.rol]}
           </div>
         </div>
-
-        {/* Check-in config */}
-        {checkinCfg&&(
-          <div style={{background:"white",borderRadius:20,padding:"16px",
-            marginBottom:12,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-            <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a",marginBottom:12}}>
-              🔥 Configuracion Check-in Diario
-            </div>
-            {[
-              {key:"base_reward",label:"Monedas base por dia",icon:"🪙"},
-              {key:"bonus_3days",label:"Bonus racha 3 dias",icon:"🥉"},
-              {key:"bonus_7days",label:"Bonus racha 7 dias",icon:"🥈"},
-              {key:"bonus_30days",label:"Bonus racha 30 dias",icon:"🥇"},
-            ].map(f=>(
-              <div key={f.key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                <span style={{fontSize:18,flexShrink:0}}>{f.icon}</span>
-                <div style={{flex:1,fontSize:12,fontWeight:700,color:"#333"}}>{f.label}</div>
-                <input type="number" min="0"
-                  value={checkinCfg[f.key]||0}
-                  onChange={e=>setCheckinCfg(c=>({...c,[f.key]:parseInt(e.target.value)||0}))}
-                  style={{width:70,border:"1.5px solid #e8e8e8",borderRadius:10,padding:"7px 10px",
-                    fontSize:14,fontWeight:800,outline:"none",color:"#00c1fc",textAlign:"center",
-                    fontFamily:"Nunito,sans-serif"}}/>
-              </div>
-            ))}
-            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12}}>
-              <span style={{fontSize:16}}>✅</span>
-              <div style={{flex:1,fontSize:12,fontWeight:700,color:"#333"}}>Check-in activo</div>
-              <button onClick={()=>setCheckinCfg(c=>({...c,activo:!c.activo}))}
-                style={{background:checkinCfg.activo?"#10b981":"#f0f0f0",
-                  color:checkinCfg.activo?"white":"#555",border:"none",borderRadius:99,
-                  padding:"6px 14px",fontWeight:800,fontSize:12,cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif"}}>
-                {checkinCfg.activo?"Activo":"Inactivo"}
-              </button>
-            </div>
-            <button onClick={saveCheckin} disabled={saving}
-              style={{width:"100%",background:saving?"#ccc":"#00c1fc",border:"none",
-                borderRadius:50,color:"white",padding:"12px",fontWeight:800,fontSize:14,
-                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-              {saving?"Guardando...":"Guardar configuracion"}
-            </button>
-          </div>
-        )}
 
         {/* Info del sistema */}
         <div style={{background:"white",borderRadius:20,overflow:"hidden",

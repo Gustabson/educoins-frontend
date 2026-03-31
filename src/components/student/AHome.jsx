@@ -1,31 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { getLv, nextLv } from "../../constants";
-import { api, connectSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
 const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
 
-function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig,todayMood,onOpenWellness}){
+function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg} = useTheme();
   const lv=getLv(me.total_earned||0);
   const next=nextLv(me.total_earned||0);
   const prog=next?Math.min(100,((me.total_earned||0)-lv.min)/(next.min-lv.min)*100):100;
-  const [checkin,setCheckin]=useState(null);
-  const [doingCheckin,setDoingCheckin]=useState(false);
   const arrow = sub;
-
-  useEffect(()=>{ api.checkinMe().then(d=>setCheckin(d.data||d)).catch(()=>{}); },[]);
-
-  const hacerCheckin=async()=>{
-    setDoingCheckin(true);
-    try{
-      const d=await api.checkin();
-      const data=d.data||d;
-      setCheckin(prev=>({...prev, ya_hizo_hoy:true, racha_actual:data.racha, hoy:data}));
-    }catch(e){}
-    finally{setDoingCheckin(false);}
-  };
 
   return(
     <div style={{minHeight:"100vh",background:pageBg,transition:"background .3s"}}>
@@ -47,7 +32,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
               border:"1.5px solid rgba(255,255,255,.3)",borderRadius:50,padding:"6px 12px",
               cursor:"pointer",color:"white",fontSize:12,fontWeight:800,fontFamily:"Nunito,sans-serif"}}>
               <span style={{fontSize:18}}>{todayMood ? MOOD_FACES[todayMood] : "🙂"}</span>
-              {!todayMood && <span>+3🪙</span>}
+              {moodLoaded && !todayMood && <span>+3🪙</span>}
             </button>
           </div>
 
@@ -89,43 +74,8 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
         </div>
       </div>
 
-      {/* Accesos rápidos con check-in */}
+      {/* Accesos rápidos */}
       <div style={{padding:"14px 14px 8px",background:pageBg,minHeight:"60vh",transition:"background .3s"}}>
-
-        {/* Widget check-in */}
-        {checkin&&(
-          <div onClick={!checkin.ya_hizo_hoy&&!doingCheckin?hacerCheckin:undefined}
-            style={{marginBottom:12,borderRadius:20,padding:"14px 16px",cursor:!checkin.ya_hizo_hoy?"pointer":"default",
-              background:checkin.ya_hizo_hoy
-                ?(dark?"#052e16":"#f0fdf4")
-                :accent+"22",
-              border:`1.5px solid ${checkin.ya_hizo_hoy?"#10b981":(dark?"#7c3aed":"#00c1fc")}`,
-              display:"flex",alignItems:"center",gap:12,transition:"all .2s"}}>
-            <div style={{fontSize:32}}>{checkin.ya_hizo_hoy?"✅":"🔥"}</div>
-            <div style={{flex:1}}>
-              {checkin.ya_hizo_hoy?(
-                <>
-                  <div style={{fontWeight:800,fontSize:14,color:"#10b981"}}>Check-in completado</div>
-                  <div style={{fontSize:12,color:sub}}>Racha: {checkin.racha_actual} día{checkin.racha_actual!==1?"s":""} 🔥</div>
-                </>
-              ):(
-                <>
-                  <div style={{fontWeight:800,fontSize:14,color:txt}}>Hacé tu check-in diario</div>
-                  <div style={{fontSize:12,color:sub}}>
-                    {doingCheckin?"Registrando...":
-                     `Racha actual: ${checkin.racha_actual||0} días · Ganás 🪙${checkin.config?.base_reward||5}`}
-                  </div>
-                </>
-              )}
-            </div>
-            {!checkin.ya_hizo_hoy&&!doingCheckin&&(
-              <div style={{background:"#10b981",borderRadius:99,padding:"6px 12px",
-                fontSize:11,fontWeight:800,color:"white"}}>
-                +🪙{checkin.config?.base_reward||5}
-              </div>
-            )}
-          </div>
-        )}
 
         <div style={{fontWeight:900,color:txt,fontSize:15,marginBottom:10,transition:"color .3s"}}>Accesos rápidos</div>
         {[

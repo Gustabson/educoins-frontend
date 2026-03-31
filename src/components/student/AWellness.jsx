@@ -46,16 +46,16 @@ const AFIRMACIONES = {
   5: "¡Genial! Ese buen ánimo es contagioso. ¡Seguí así! 🚀",
 };
 
-function AWellness({ onClose, showToast, refreshBalance, onCheckinDone }) {
+function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialMood = null }) {
   const { primary: accent, isDark: dark, txt, sub, cardBg, pageBg: bg, inputBg, inputBd } = useTheme();
 
-  const [mood,         setMood]        = useState(null);
+  const [mood,         setMood]        = useState(initialMood);
   const [cats,         setCats]        = useState([]);
   const [nota,         setNota]        = useState("");
   const [saving,       setSaving]      = useState(false);
   const [done,         setDone]        = useState(false);
   const [coinsAwarded, setCoinsAwarded]= useState(0);
-  const [wasUpdate,    setWasUpdate]   = useState(false); // ya tenía entrada hoy
+  const [wasUpdate,    setWasUpdate]   = useState(!!initialMood);
 
   // Reporte formal
   const [reportOpen,   setReportOpen]  = useState(false);
@@ -65,13 +65,13 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone }) {
   const [savingRep,    setSavingRep]   = useState(false);
   const [reportDone,   setReportDone]  = useState(false);
 
-  // Al abrir, cargar el estado de hoy si ya existe
+  // Al abrir, cargar categorías guardadas (y confirmar wasUpdate si no había initialMood)
   useEffect(() => {
     api.wellnessToday()
       .then(d => {
         const entry = d.data;
         if (entry) {
-          setMood(entry.mood || null);
+          if (!initialMood) setMood(entry.mood || null);
           setCats(entry.categories || []);
           setWasUpdate(true);
         }

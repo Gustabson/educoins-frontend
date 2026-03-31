@@ -14,7 +14,6 @@ function AdminEconomia({showToast, onBack}){
     {id:"emojis",     icon:"😄", title:"Packs de Emojis",     sub:"Precios de packs",        col:"#f59e0b"},
     {id:"efectos",    icon:"✨", title:"Efectos y Animaciones",sub:"Títulos y nombre",        col:"#3b82f6"},
     {id:"ranking",    icon:"🏆", title:"Premios del Ranking", sub:"Diario, semanal, mensual", col:"#10b981"},
-    {id:"checkin",    icon:"🔥", title:"Check-in Diario",     sub:"Recompensas por racha",    col:"#ef4444"},
     {id:"suscripciones",icon:"🔄",title:"Suscripciones",      sub:"Ver cobros pendientes",    col:"#0ea5e9"},
     {id:"perfil",     icon:"👤", title:"Personalización Perfil",sub:"Apodo, títulos, fondos, préstamos",col:"#f59e0b"},
     {id:"premios",    icon:"🏆", title:"Premios y Recompensas",  sub:"Ranking, manual, historial",     col:"#10b981"},
@@ -110,8 +109,6 @@ function AdminEconomiaSec({sec, onBack, showToast}){
         }).catch(()=>{}).finally(()=>setLoading(false));
     } else if(sec==="ranking"){
       api.rankingConfig().then(d=>setConfig(d.data||d||[])).catch(()=>{}).finally(()=>setLoading(false));
-    } else if(sec==="checkin"){
-      api.checkinConfig().then(d=>setConfig(d.data?[d.data]:d||[])).catch(()=>{}).finally(()=>setLoading(false));
     } else if(sec==="historial"){
       Promise.all([api.rankingPayouts(), api.auditLog()]).then(([rp,al])=>{
         const rpArr=(rp.data||rp||[]).map(x=>({...x,categoria:"premio_ranking"}));
@@ -148,9 +145,6 @@ function AdminEconomiaSec({sec, onBack, showToast}){
     try{
       if(sec==="ranking"){
         await api.rankingConfigUpdate(editing.id, editVal);
-        setConfig(prev=>prev.map(c=>c.id===editing.id?{...c,...editVal}:c));
-      } else if(sec==="checkin"){
-        await api.checkinConfigUpdate(editVal);
         setConfig(prev=>prev.map(c=>c.id===editing.id?{...c,...editVal}:c));
       } else {
         // El PATCH devuelve el item actualizado — usarlo directo, sin segunda llamada
@@ -207,7 +201,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
   const SEC_TITLE = {
     colores:"🖊️ Colores de Nombre", temas:"🎨 Temas", fondos:"🖼️ Fondos de Pantalla",
     emojis:"😄 Packs Emoji", efectos:"✨ Efectos", ranking:"🏆 Premios Ranking",
-    checkin:"🔥 Check-in", suscripciones:"🔄 Suscripciones", historial:"📋 Historial",
+    suscripciones:"🔄 Suscripciones", historial:"📋 Historial",
   };
 
   return(
@@ -235,7 +229,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             </div>
 
             {/* Precio único (compra) — para todos los tipos de item */}
-            {sec!=="ranking"&&sec!=="checkin"&&sec!=="suscripciones"&&sec!=="historial"&&(
+            {sec!=="ranking"&&sec!=="suscripciones"&&sec!=="historial"&&(
               <div style={{marginBottom:12}}>
                 <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>
                   💰 Precio de compra único (0 = solo suscripción)
@@ -250,7 +244,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             )}
 
             {/* Suscripción */}
-            {sec!=="ranking"&&sec!=="checkin"&&sec!=="suscripciones"&&sec!=="historial"&&(
+            {sec!=="ranking"&&sec!=="suscripciones"&&sec!=="historial"&&(
               <>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                   <span style={{fontSize:11,fontWeight:700,color:"#666"}}>🔄 Es suscripción</span>
@@ -550,29 +544,6 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             ))}
           </>
         )}
-
-        {/* Check-in config */}
-        {sec==="checkin"&&!loading&&config.map(c=>(
-          <div key={c.id} style={{background:"white",borderRadius:14,padding:"12px 14px",
-            marginBottom:8,boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-            {[
-              ["base_reward","🪙 Recompensa base/día"],
-              ["bonus_3days","🥉 Bonus 3 días"],
-              ["bonus_7days","🥈 Bonus 7 días"],
-              ["bonus_30days","🥇 Bonus 30 días"],
-            ].map(([k,l])=>(
-              <div key={k} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                <div style={{flex:1,fontSize:12,color:"#333",fontWeight:600}}>{l}</div>
-                <span style={{fontWeight:800,color:"#f59e0b"}}>🪙{c[k]}</span>
-                <button onClick={()=>{setEditing({...c,nombre:l,id:c.id});setEditVal({});}}
-                  style={{background:"#f0f0f0",border:"none",borderRadius:8,padding:"4px 10px",
-                    fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                  Editar
-                </button>
-              </div>
-            ))}
-          </div>
-        ))}
 
         {/* Historial unificado */}
         {sec==="historial"&&!loading&&(
