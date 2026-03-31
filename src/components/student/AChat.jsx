@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CHAT_SECTIONS } from "../../constants";
 import { api, connectSocket, getSocket } from "../../api";;
 import { useTheme } from "../../ThemeContext";
@@ -82,6 +82,16 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
 
   const bg       = pageBg;
   const inputBord= navBord;
+
+  // Set de IDs de amigos aceptados — para mostrar apodo en mensajes
+  const friendIds = useMemo(() => new Set(friends.map(f => f.user_id)), [friends]);
+  // Devuelve el nombre a mostrar para un mensaje: apodo si son amigos, nombre real si no
+  const getSenderName = (m) => {
+    if (!m) return "";
+    if (m.sender_id === me?.id) return m.sender_apodo || m.sender_nombre || "";
+    if (m.sender_apodo && friendIds.has(m.sender_id)) return m.sender_apodo;
+    return m.sender_nombre || "";
+  };
 
   // Cargar emoji packs del usuario
   useEffect(()=>{
@@ -455,9 +465,9 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
             const isMe = m.sender_id===me.id;
             return(
               <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
-                {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||"",avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
+                {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:getSenderName(m),avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
                 <div style={{maxWidth:"72%"}}>
-                  {!isMe&&<div style={{fontSize:10,marginBottom:2,marginLeft:4,fontWeight:700,color:sub}}>{m.sender_nombre}</div>}
+                  {!isMe&&<div style={{fontSize:10,marginBottom:2,marginLeft:4,fontWeight:700,color:sub}}>{getSenderName(m)}</div>}
                   <div style={{padding:"9px 13px",
                     borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
                     background:isMe?accent:cardBg,color:isMe?"white":txt,
@@ -649,7 +659,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
           const isMe = m.sender_id===me.id;
           return(
             <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
-              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||"",avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
+              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:getSenderName(m),avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
               <div style={{maxWidth:"72%"}}>
                 {!isMe&&<div style={{fontSize:10,marginBottom:2,marginLeft:4,fontWeight:700,
                   color: m.sender_name_color
@@ -657,7 +667,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
                         ? JSON.parse(m.sender_name_color||'{}')
                         : m.sender_name_color)?.color || sub
                     : sub
-                }}>{m.sender_nombre}</div>}
+                }}>{getSenderName(m)}</div>}
                 <div style={{padding:"9px 13px",
                   borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
                   background:isMe?accent:cardBg,color:isMe?"white":txt,
@@ -752,7 +762,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
           return(
             <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",
               gap:8,alignItems:"flex-end"}}>
-              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:m.sender_nombre||"",avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
+              {!isMe&&<Av user={{skin:m.skin,border:m.border,nombre:getSenderName(m),avatar_bg:m.avatar_bg||null,foto_url:m.foto_url||null}} sz={28} avatarBg={m.avatar_bg||null}/>}
               <div style={{maxWidth:"75%"}}>
                 {!isMe&&(
                   <div style={{fontSize:10,marginBottom:2,marginLeft:4,
@@ -763,7 +773,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
                           : m.sender_name_color)?.color || sub
                       : m.sender_rol==='teacher'?accent:sub
                   }}>
-                    {m.sender_nombre}{m.sender_rol==='teacher'?' 👩‍🏫':''}
+                    {getSenderName(m)}{m.sender_rol==='teacher'?' 👩‍🏫':''}
                   </div>
                 )}
                 <div style={{padding:"9px 13px",
