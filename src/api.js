@@ -212,6 +212,10 @@ const api = {
   adminParentUnlink:(parent_id, student_id)   => apiFetch("/admin/parent-link",  { method:"DELETE", body:{parent_id, student_id} }),
   adminParentLinks: ()                        => apiFetch("/admin/parent-links"),
   createReport:   (data)                  => apiFetch("/reports",          { method:"POST", body:data }),
+  // ── Wellness ──────────────────────────────────────────────
+  wellnessToday:   ()     => apiFetch("/wellness/today"),
+  wellnessCheckin: (body) => apiFetch("/wellness/checkin", { method:"POST", body }),
+  wellnessReport:  (body) => apiFetch("/wellness/report",  { method:"POST", body }),
   myReports:      ()                      => apiFetch("/reports/mine"),
   allReports:     (q="")                  => apiFetch(`/reports${q}`),
   updateReport:   (id, data)              => apiFetch(`/reports/${id}/estado`, { method:"PATCH", body:data }),

@@ -22,11 +22,14 @@ import ANoticias from "./ANoticias";
 import AVotaciones from "./AVotaciones";
 import AReportes from "./AReportes";
 import ATiendaCustom from "./personalizar/ATiendaCustom";
+import AWellness from "./AWellness";
 
 function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [tab,setTab]=useState("home");
   const [toast,showToast]=useToast();
   const [camOpen,setCamOpen]=useState(false);
+  const [wellnessOpen,setWellnessOpen]=useState(false);
+  const [todayMood,setTodayMood]=useState(null);
   const [notifs,setNotifs]=useState([]);
   const [badges,setBadges]=useState({chat:0,notifs:0});
   const [perfilUserId,setPerfilUserId]=useState(null); // perfil modal global
@@ -201,6 +204,9 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       setCustomActive(data?.active||null);
       applyActive(data?.active||null);
     }).catch(()=>{});
+    api.wellnessToday().then(d=>{
+      if(d.data?.mood) setTodayMood(d.data.mood);
+    }).catch(()=>{});
   },[]);
 
   const nameColorConfig = customActive?.name_color_config
@@ -274,7 +280,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
-        {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} balDir={balDir} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig}/>}
+        {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} balDir={balDir} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} onOpenWellness={()=>setWellnessOpen(true)}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
@@ -305,6 +311,16 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="reportes"   && <AReportes   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
       </div>
+
+      {/* Modal Bienestar */}
+      {wellnessOpen&&(
+        <AWellness
+          onClose={()=>setWellnessOpen(false)}
+          showToast={showToast}
+          refreshBalance={refreshBalance}
+          onCheckinDone={(mood)=>{ setTodayMood(mood); }}
+        />
+      )}
 
       {/* Modal QR Scanner */}
       {camOpen&&(

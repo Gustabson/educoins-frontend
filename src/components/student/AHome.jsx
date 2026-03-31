@@ -4,7 +4,9 @@ import { api, connectSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
-function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig}){
+const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
+
+function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig,todayMood,onOpenWellness}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg} = useTheme();
   const lv=getLv(me.total_earned||0);
   const next=nextLv(me.total_earned||0);
@@ -40,11 +42,12 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
               <Av user={me} sz={44} avatarBg={me?.avatar_bg||null}/>
               <div style={{fontWeight:900,fontSize:17,lineHeight:1.1}}>Hola, {me.nombre.split(" ")[0]} 👋</div>
             </button>
-            <button onClick={()=>onNav("personalizar")} style={{
-              display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,.18)",
+            <button onClick={onOpenWellness} style={{
+              display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.18)",
               border:"1.5px solid rgba(255,255,255,.3)",borderRadius:50,padding:"6px 12px",
               cursor:"pointer",color:"white",fontSize:12,fontWeight:800,fontFamily:"Nunito,sans-serif"}}>
-              🎨 Tema
+              <span style={{fontSize:18}}>{todayMood ? MOOD_FACES[todayMood] : "🙂"}</span>
+              {!todayMood && <span>+3🪙</span>}
             </button>
           </div>
 
