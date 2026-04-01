@@ -218,14 +218,18 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     : null;
 
   // ── Balance animado ──────────────────────────────────────────
-  const displayBalance = useCountUp(balance, 500);
+  const displayBalance = useCountUp(balance, 2000);
   const [balDir,setBalDir] = useState(null); // 'up'|'down'|null
   const prevBal = useRef(balance);
+  // coinBurstTick increments every time balance goes UP — AHome listens to fire the burst
+  const [coinBurstTick, setCoinBurstTick] = useState(0);
   useEffect(()=>{
     if(balance===prevBal.current) return;
-    setBalDir(balance>prevBal.current?"up":"down");
+    const isUp = balance > prevBal.current;
+    setBalDir(isUp ? "up" : "down");
+    if (isUp && prevBal.current > 0) setCoinBurstTick(t => t + 1);
     prevBal.current=balance;
-    const t=setTimeout(()=>setBalDir(null),1600);
+    const t=setTimeout(()=>setBalDir(null),2200);
     return()=>clearTimeout(t);
   },[balance]);
 
@@ -286,7 +290,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
-        {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} balDir={balDir} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} moodLoaded={moodLoaded} onOpenWellness={()=>setWellnessOpen(true)}/>}
+        {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} balDir={balDir} burstTick={coinBurstTick} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} moodLoaded={moodLoaded} onOpenWellness={()=>setWellnessOpen(true)}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}

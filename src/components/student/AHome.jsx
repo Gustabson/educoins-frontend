@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { getLv, nextLv } from "../../constants";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
 const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
+
+// Module-level: persists across AHome unmount/remount cycles (e.g. switching tabs)
+let _lastSeenBurstTick = 0;
 
 // Coins that burst upward when balance increases
 const COIN_CFG = [
@@ -50,33 +53,25 @@ function CoinBurst({ burstKey, anchorRef }) {
   );
 }
 
-function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
+function AHome({me,balance,displayBalance,balDir,burstTick=0,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg, navBord} = useTheme();
   const [gridMode, setGridMode] = useState(() => {
     try { return localStorage.getItem("accesos_grid") === "1"; } catch { return false; }
   });
 
-  // ── Coin burst: triggers when balance goes up, even after returning to this tab ─
+  // ── Coin burst ───────────────────────────────────────────────
+  // burstTick comes from Alumno (always mounted) so it increments even when AHome is away.
+  // _lastSeenBurstTick is module-level so it survives AHome unmount/remount.
+  // On mount: if burstTick > _lastSeenBurstTick, burst fired while we were away → show it now.
+  // On update: normal in-view burst.
   const [burstKey, setBurstKey] = useState(0);
-  const prevBalRef = useRef(null);
-  const balRef = useRef(null); // anchor for portal positioning
+  const balRef = useRef(null);
   useEffect(() => {
-    if (balance === 0) return; // skip while loading
-    const raw = localStorage.getItem("ec_last_seen_bal");
-    const stored = raw !== null ? parseInt(raw) : null;
-    // First ever load with real balance — seed without bursting
-    if (stored === null) {
-      prevBalRef.current = balance;
-      try { localStorage.setItem("ec_last_seen_bal", String(balance)); } catch {}
-      return;
-    }
-    const prev = prevBalRef.current ?? stored;
-    if (balance > prev) {
+    if (burstTick > _lastSeenBurstTick) {
       setBurstKey(k => k + 1);
     }
-    prevBalRef.current = balance;
-    try { localStorage.setItem("ec_last_seen_bal", String(balance)); } catch {}
-  }, [balance]);
+    _lastSeenBurstTick = burstTick;
+  }, [burstTick]);
   const toggleGrid = () => {
     const next = !gridMode;
     setGridMode(next);
