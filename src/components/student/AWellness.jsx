@@ -30,14 +30,6 @@ const CATS_POS = [
   { id:"energia",   emoji:"⚡", label:"Tengo mucha energía" },
 ];
 
-const REPORT_TIPOS = [
-  { id:"bullying",            label:"🚫 Bullying" },
-  { id:"violencia_domestica", label:"🏠 Problema en casa" },
-  { id:"maltrato_docente",    label:"👨‍🏫 Maltrato de adulto" },
-  { id:"acoso",               label:"😰 Acoso o amenazas" },
-  { id:"otro",                label:"💬 Otro" },
-];
-
 const AFIRMACIONES = {
   1: "Es valiente reconocer cuando no estamos bien. Recordá que podés hablar con alguien de confianza. 💙",
   2: "Los días difíciles también pasan. Estamos acá para escucharte. 🤝",
@@ -46,8 +38,8 @@ const AFIRMACIONES = {
   5: "¡Genial! Ese buen ánimo es contagioso. ¡Seguí así! 🚀",
 };
 
-function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialMood = null }) {
-  const { primary: accent, isDark: dark, txt, sub, cardBg, pageBg: bg, inputBg, inputBd } = useTheme();
+function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialMood = null, onGoReportes }) {
+  const { primary: accent, isDark: dark, txt, sub, pageBg: bg, inputBg, inputBd } = useTheme();
 
   const [mood,         setMood]        = useState(initialMood);
   const [cats,         setCats]        = useState([]);
@@ -57,15 +49,6 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
   const [coinsAwarded, setCoinsAwarded]= useState(0);
   const [wasUpdate,    setWasUpdate]   = useState(!!initialMood);
 
-  // Reporte formal
-  const [reportOpen,   setReportOpen]  = useState(false);
-  const [rTipo,        setRTipo]       = useState(null);
-  const [rDesc,        setRDesc]       = useState("");
-  const [rAnon,        setRAnon]       = useState(true);
-  const [savingRep,    setSavingRep]   = useState(false);
-  const [reportDone,   setReportDone]  = useState(false);
-
-  // Al abrir, cargar categorías guardadas (y confirmar wasUpdate si no había initialMood)
   useEffect(() => {
     api.wellnessToday()
       .then(d => {
@@ -83,11 +66,9 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
   const toggleCat = (id) =>
     setCats(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
 
-  // Al cambiar mood limpiar cats incompatibles
   const handleMood = (v) => {
     const next = v === mood ? null : v;
     setMood(next);
-    // Limpiar categorías que ya no aplican
     if (next !== null) {
       const validIds = new Set((next <= 3 ? CATS_NEG : CATS_POS).map(c => c.id));
       setCats(prev => prev.filter(id => validIds.has(id)));
@@ -111,21 +92,6 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
       showToast(e.message || "Error al guardar", "error");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const submitReport = async () => {
-    if (!rTipo)                        { showToast("Elegí el tipo de situación", "error"); return; }
-    if (rDesc.trim().length < 10)      { showToast("Describí brevemente qué pasó (mínimo 10 caracteres)", "error"); return; }
-    setSavingRep(true);
-    try {
-      await api.wellnessReport({ tipo: rTipo, descripcion: rDesc.trim(), is_anonymous: rAnon });
-      setReportDone(true);
-      showToast("Reporte enviado. El equipo lo revisará 🔒");
-    } catch (e) {
-      showToast(e.message || "Error al enviar", "error");
-    } finally {
-      setSavingRep(false);
     }
   };
 
@@ -205,9 +171,9 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
                     flex:1, padding:"10px 0", border:"none", cursor:"pointer",
                     borderRadius:14, fontFamily:"Nunito,sans-serif",
                     background: mood === m.v
-                      ? `${m.color}22`
+                      ? (m.color + "22")
                       : dark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.05)",
-                    outline: mood === m.v ? `2px solid ${m.color}` : "2px solid transparent",
+                    outline: mood === m.v ? ("2px solid " + m.color) : "2px solid transparent",
                     transition:"all .15s",
                   }}>
                   <div style={{fontSize:28}}>{m.emoji}</div>
@@ -233,10 +199,10 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
                         padding:"6px 12px", fontSize:12, fontWeight:700,
                         fontFamily:"Nunito,sans-serif",
                         background: cats.includes(c.id)
-                          ? `${accent}22`
+                          ? (accent + "22")
                           : dark ? "rgba(255,255,255,.09)" : "rgba(0,0,0,.06)",
                         color: cats.includes(c.id) ? accent : sub,
-                        outline: cats.includes(c.id) ? `1.5px solid ${accent}` : "1.5px solid transparent",
+                        outline: cats.includes(c.id) ? ("1.5px solid " + accent) : "1.5px solid transparent",
                         transition:"all .12s",
                       }}>
                       {c.emoji} {c.label}
@@ -259,7 +225,7 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
                 rows={3}
                 style={{
                   width:"100%", boxSizing:"border-box",
-                  background: inputBg, border:`1.5px solid ${inputBd}`,
+                  background: inputBg, border: "1.5px solid " + inputBd,
                   borderRadius:14, padding:"10px 14px",
                   fontSize:13, color: txt, fontFamily:"Nunito,sans-serif",
                   resize:"none", outline:"none", lineHeight:1.5,
@@ -277,124 +243,25 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
               cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1,
               fontFamily:"Nunito,sans-serif", marginBottom:20,
             }}>
-              {saving
-                ? "Guardando..."
-                : wasUpdate
-                  ? "Actualizar estado"
-                  : `Enviar y ganar +${3} 🪙`}
+              {saving ? "Guardando..." : wasUpdate ? "Actualizar estado" : "Enviar y ganar +3 🪙"}
             </button>
 
-            {/* ── Reporte formal ────────────────────────────── */}
-            <div style={{borderTop:`1px solid ${dark?"rgba(255,255,255,.1)":"rgba(0,0,0,.08)"}`, paddingTop:16}}>
-
-              {reportDone ? (
-                <div style={{
-                  background: dark?"rgba(16,185,129,.15)":"rgba(16,185,129,.1)",
-                  border:"1.5px solid #10b981", borderRadius:12,
-                  padding:"10px 14px", fontSize:12, fontWeight:700, color:"#10b981",
-                  display:"flex", gap:8, alignItems:"center",
-                }}>
-                  <span style={{fontSize:18}}>✅</span>
-                  Reporte enviado. Actuamos desde las sombras. 🔒
-                </div>
-              ) : !reportOpen ? (
-                <button onClick={() => setReportOpen(true)} style={{
+            {/* ── Acceso a reportes ciudadanos ──────────────── */}
+            <div style={{borderTop: "1px solid " + (dark ? "rgba(255,255,255,.1)" : "rgba(0,0,0,.08)"), paddingTop:16}}>
+              <button
+                onClick={() => { onClose(); if (onGoReportes) onGoReportes(); }}
+                style={{
                   background:"none", border:"none", cursor:"pointer",
                   color: sub, fontSize:12, fontWeight:700,
                   fontFamily:"Nunito,sans-serif", padding:0,
                   display:"flex", alignItems:"center", gap:6,
-                }}>
-                  <span style={{fontSize:16}}>🚨</span>
-                  ¿Algo serio que reportar? Actuamos desde las sombras →
-                </button>
-              ) : (
-                <div style={{animation:"fadeIn .2s ease"}}>
-                  <div style={{fontWeight:800, fontSize:13, color: txt, marginBottom:2}}>
-                    🔒 Reporte confidencial
-                  </div>
-                  <div style={{fontSize:11, color: sub, marginBottom:12}}>
-                    Actuamos desde las sombras. Nadie sabrá que fuiste vos a menos que lo elijas.
-                  </div>
-
-                  {/* Tipo */}
-                  <div style={{display:"flex", flexWrap:"wrap", gap:6, marginBottom:12}}>
-                    {REPORT_TIPOS.map(t => (
-                      <button key={t.id} onClick={() => setRTipo(t.id)}
-                        style={{
-                          border:"none", cursor:"pointer", borderRadius:50,
-                          padding:"6px 12px", fontSize:11, fontWeight:700,
-                          fontFamily:"Nunito,sans-serif",
-                          background: rTipo === t.id
-                            ? `${accent}22`
-                            : dark ? "rgba(255,255,255,.09)" : "rgba(0,0,0,.06)",
-                          color: rTipo === t.id ? accent : sub,
-                          outline: rTipo === t.id ? `1.5px solid ${accent}` : "1.5px solid transparent",
-                        }}>
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <textarea
-                    value={rDesc}
-                    onChange={e => setRDesc(e.target.value)}
-                    maxLength={1000}
-                    placeholder="Contanos qué pasó, sin importar si son detalles pequeños..."
-                    rows={4}
-                    style={{
-                      width:"100%", boxSizing:"border-box",
-                      background: inputBg, border:`1.5px solid ${inputBd}`,
-                      borderRadius:14, padding:"10px 14px", marginBottom:10,
-                      fontSize:13, color: txt, fontFamily:"Nunito,sans-serif",
-                      resize:"none", outline:"none", lineHeight:1.5,
-                    }}
-                  />
-
-                  {/* Toggle anónimo */}
-                  <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:12}}>
-                    <button onClick={() => setRAnon(!rAnon)}
-                      style={{
-                        width:42, height:24, borderRadius:50, border:"none",
-                        cursor:"pointer", padding:0, position:"relative",
-                        background: rAnon ? accent : (dark?"#444":"#ccc"),
-                        transition:"background .2s", flexShrink:0,
-                      }}>
-                      <span style={{
-                        position:"absolute", top:3,
-                        left: rAnon ? "calc(100% - 21px)" : 3,
-                        width:18, height:18, borderRadius:"50%",
-                        background:"white", transition:"left .2s",
-                      }}/>
-                    </button>
-                    <span style={{fontSize:12, fontWeight:700, color: sub}}>
-                      {rAnon ? "🔒 Anónimo" : "👤 No anónimo"}
-                    </span>
-                  </div>
-
-                  <div style={{display:"flex", gap:8}}>
-                    <button onClick={() => setReportOpen(false)} style={{
-                      flex:1, background:"none",
-                      border:`1.5px solid ${dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.15)"}`,
-                      borderRadius:50, color: sub, padding:"10px",
-                      fontWeight:700, fontSize:13, cursor:"pointer",
-                      fontFamily:"Nunito,sans-serif",
-                    }}>
-                      Cancelar
-                    </button>
-                    <button onClick={submitReport} disabled={savingRep} style={{
-                      flex:2, background: accent, border:"none", borderRadius:50,
-                      color:"white", padding:"10px",
-                      fontWeight:800, fontSize:13,
-                      cursor: savingRep ? "not-allowed" : "pointer",
-                      opacity: savingRep ? .7 : 1,
-                      fontFamily:"Nunito,sans-serif",
-                    }}>
-                      {savingRep ? "Enviando..." : "Enviar reporte 🔒"}
-                    </button>
-                  </div>
-                </div>
-              )}
+                }}
+              >
+                <span style={{fontSize:16}}>🚨</span>
+                ¿Algo serio que reportar? Actuamos desde las sombras →
+              </button>
             </div>
+
           </div>
         )}
       </div>

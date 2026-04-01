@@ -172,17 +172,34 @@ const TAG_COLORS = {
 const TAG_LIST = ["Todos","General","Académico","Deportes","Evento","Aviso"];
 
 const REPORTE_TIPOS = [
-  {id:"bullying",   label:"Bullying",      icon:"😰", col:"#ef4444"},
-  {id:"accidente",  label:"Accidente",     icon:"🚑", col:"#f59e0b"},
-  {id:"perdido",    label:"Obj. perdido",  icon:"🔍", col:"#3b82f6"},
-  {id:"sugerencia", label:"Sugerencia",    icon:"💡", col:"#10b981"},
-  {id:"otro",       label:"Otro",          icon:"📋", col:"#8b5cf6"},
+  // ── Situaciones personales / escolares ──
+  {id:"bullying",          label:"Bullying",            icon:"😰", col:"#ef4444", grupo:"situacion"},
+  {id:"acoso",             label:"Acoso / Amenazas",    icon:"⚠️",  col:"#f97316", grupo:"situacion"},
+  {id:"maltrato_docente",  label:"Maltrato de adulto",  icon:"👨‍🏫", col:"#dc2626", grupo:"situacion"},
+  {id:"violencia",         label:"Violencia física",    icon:"🚨", col:"#b91c1c", grupo:"situacion"},
+  {id:"discriminacion",    label:"Discriminación",       icon:"🙅", col:"#7c3aed", grupo:"situacion"},
+  // ── Infraestructura / Escuela ──
+  {id:"infraestructura",   label:"Problema en escuela", icon:"🏫", col:"#0369a1", grupo:"escuela"},
+  {id:"accidente",         label:"Accidente",            icon:"🚑", col:"#f59e0b", grupo:"escuela"},
+  {id:"perdido",           label:"Objeto perdido",       icon:"🔍", col:"#3b82f6", grupo:"escuela"},
+  // ── Propuestas / Mejoras ──
+  {id:"mejora_educativa",  label:"Propuesta educativa",  icon:"📚", col:"#059669", grupo:"mejora"},
+  {id:"mejora_convivencia",label:"Mejor convivencia",    icon:"🤝", col:"#10b981", grupo:"mejora"},
+  {id:"sugerencia",        label:"Sugerencia general",   icon:"💡", col:"#0891b2", grupo:"mejora"},
+  // ── Otro ──
+  {id:"otro",              label:"Otro",                 icon:"📋", col:"#8b5cf6", grupo:"otro"},
 ];
+const REPORTE_GRUPOS = {
+  situacion: { label:"🚨 Situaciones urgentes",  hint:"Bullying, acoso, maltrato — actuamos rápido y con confidencialidad" },
+  escuela:   { label:"🏫 Escuela / Infraestructura", hint:"Accidentes, objetos perdidos, problemas edilicios" },
+  mejora:    { label:"💡 Propuestas de mejora",  hint:"Tus ideas para mejorar la educación pueden darte hasta 🪙500" },
+  otro:      { label:"📋 Otro",                  hint:"Cualquier otra situación" },
+};
 const ESTADO_LABEL={recibido:"Recibido",en_revision:"En revisión",resuelto:"Resuelto",descartado:"Descartado"};
 const ESTADO_COLOR={recibido:"#f59e0b",en_revision:"#3b82f6",resuelto:"#10b981",descartado:"#94a3b8"};
 const ESTADO_COL={recibido:"#f59e0b",en_revision:"#3b82f6",resuelto:"#10b981",descartado:"#94a3b8"};
 const ESTADO_LABEL2={recibido:"Recibido",en_revision:"En revisión",resuelto:"Resuelto",descartado:"Descartado"};
-const TIPO_ICON={bullying:"😰",accidente:"🚑",perdido:"🔍",sugerencia:"💡",otro:"📋"};
+const TIPO_ICON=Object.fromEntries(REPORTE_TIPOS.map(t=>[t.id,t.icon]));
 
 const CHAT_SECTIONS = ["Personal","Grupos","Aula","Global"];
 
@@ -208,7 +225,7 @@ export {
   SKINS, BORDERS, TITLES, RARITIES, RARITY_CSS, AVATAR_BACKGROUNDS,
   DIFCOL, GS,
   TAG_COLORS, TAG_LIST,
-  REPORTE_TIPOS, ESTADO_LABEL, ESTADO_COLOR,
+  REPORTE_TIPOS, REPORTE_GRUPOS, ESTADO_LABEL, ESTADO_COLOR,
   ESTADO_COL, ESTADO_LABEL2, TIPO_ICON,
   CHAT_SECTIONS
 };

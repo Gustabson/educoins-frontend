@@ -322,6 +322,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           refreshBalance={refreshBalance}
           initialMood={todayMood}
           onCheckinDone={(mood)=>{ setTodayMood(mood); }}
+          onGoReportes={()=>{ setWellnessOpen(false); navTo("reportes"); }}
         />
       )}
 
