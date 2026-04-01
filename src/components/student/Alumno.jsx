@@ -238,18 +238,22 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     const s=connectSocket(token);
     const onNotif=(n)=>{
       setNotifs(prev=>[{...n,id:Date.now(),leida:false},...prev.slice(0,19)]);
-      if(n.type==="chat_personal") setBadges(b=>({...b,chat:b.chat+1}));
+      const tipo = n.type || n.tipo || "";
+      if(tipo==="chat_personal") setBadges(b=>({...b,chat:b.chat+1}));
       else setBadges(b=>({...b,notifs:b.notifs+1}));
-      const msg=n.type==="reward"?`Recibiste 🪙${n.amount} — ${n.description||""}`
-        :n.type==="transfer"?`Te enviaron 🪙${n.amount}`
-        :n.type==="chat_personal"?`Nuevo mensaje de ${n.from}`
-        :n.type==="mission_approved"?`Mision aprobada! +🪙${n.amount}`
-        :n.type==="checkin"?`Check-in dia ${n.racha}! +🪙${n.recompensa}`
-        :n.type==="gift"?`Regalo de ${n.from}! 🎁`
-        :n.type==="tax"?`Impuesto: -🪙${n.amount} — ${n.motivo||""}`
+      const msg=tipo==="reward"?`Recibiste 🪙${n.amount} — ${n.description||""}`
+        :tipo==="transfer"?`Te enviaron 🪙${n.amount}`
+        :tipo==="chat_personal"?`Nuevo mensaje de ${n.from}`
+        :tipo==="mission_approved"?`Mision aprobada! +🪙${n.amount}`
+        :tipo==="checkin"?`Check-in dia ${n.racha}! +🪙${n.recompensa}`
+        :tipo==="gift"?`Regalo de ${n.from}! 🎁`
+        :tipo==="tax"?`Impuesto: -🪙${n.amount} — ${n.motivo||""}`
+        :tipo==="premio_monedas"?`${n.mensaje||"Premio recibido!"}`
+        :tipo==="premio"||tipo==="titulo_otorgado"?`🏆 ${n.mensaje||"Recibiste un premio!"}`
         :"Nueva notificacion";
       showToast(msg);
-      if(["reward","transfer","checkin","gift"].includes(n.type)) refreshBalance();
+      if(["reward","transfer","checkin","gift","premio_monedas","premio","titulo_otorgado"].includes(tipo))
+        refreshBalance();
     };
     s.on('notification',onNotif);
 

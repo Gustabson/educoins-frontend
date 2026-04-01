@@ -220,6 +220,9 @@ input::placeholder{color:#bbb;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes balUp{0%{color:#10b981;transform:scale(1.18)}60%{color:#10b981;transform:scale(1.06)}100%{color:inherit;transform:scale(1)}}
 @keyframes balDown{0%{color:#ef4444;transform:scale(.92)}60%{color:#ef4444;transform:scale(.96)}100%{color:inherit;transform:scale(1)}}
+@keyframes coinFloat{0%{transform:translateY(0) scale(1) rotate(0deg);opacity:1}70%{opacity:.8}100%{transform:translateY(-90px) scale(.4) rotate(40deg);opacity:0}}
+@keyframes coinFloatL{0%{transform:translateY(0) scale(1) rotate(0deg);opacity:1}70%{opacity:.8}100%{transform:translateY(-70px) translateX(-30px) scale(.3) rotate(-30deg);opacity:0}}
+@keyframes coinFloatR{0%{transform:translateY(0) scale(1) rotate(0deg);opacity:1}70%{opacity:.8}100%{transform:translateY(-75px) translateX(30px) scale(.35) rotate(25deg);opacity:0}}
 `;
 
 // ── COMPONENTES BASE ──────────────────────────────────────────

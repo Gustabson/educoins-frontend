@@ -5,6 +5,32 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
 
+// Coins that burst upward when balance increases
+const COIN_CFG = [
+  {anim:"coinFloatL", delay:"0s",   size:22, left:"10%"},
+  {anim:"coinFloat",  delay:"0.05s",size:28, left:"30%"},
+  {anim:"coinFloatR", delay:"0s",   size:20, left:"50%"},
+  {anim:"coinFloat",  delay:"0.1s", size:24, left:"65%"},
+  {anim:"coinFloatL", delay:"0.07s",size:18, left:"80%"},
+  {anim:"coinFloatR", delay:"0.03s",size:26, left:"20%"},
+];
+function CoinBurst({ active }) {
+  if (!active) return null;
+  return (
+    <div style={{position:"absolute",bottom:"100%",left:0,right:0,
+      pointerEvents:"none",zIndex:10,height:0,overflow:"visible"}}>
+      {COIN_CFG.map((c,i) => (
+        <span key={i} style={{
+          position:"absolute", left:c.left, bottom:0,
+          fontSize:c.size, lineHeight:1,
+          animation:`${c.anim} 1s ease-out ${c.delay} both`,
+          display:"block", willChange:"transform,opacity",
+        }}>🪙</span>
+      ))}
+    </div>
+  );
+}
+
 function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg, navBord} = useTheme();
   const [gridMode, setGridMode] = useState(() => {
@@ -46,18 +72,21 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
 
           {/* Caja de ahorro */}
           <div style={{background:"rgba(255,255,255,.18)",borderRadius:22,padding:"16px 20px 14px",
-            border:"1.5px solid rgba(255,255,255,.25)",marginBottom:18}}>
+            border:"1.5px solid rgba(255,255,255,.25)",marginBottom:18,position:"relative",overflow:"visible"}}>
             <div style={{fontSize:11,opacity:.8,fontWeight:700,letterSpacing:".1em",marginBottom:4}}>CAJA DE AHORRO</div>
-            <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1,
-              animation:balDir==="up"?"balUp 1.4s ease":balDir==="down"?"balDown 1.4s ease":"none",
-              display:"flex",alignItems:"center",gap:10}}>
-              🪙 {(displayBalance||balance).toLocaleString("es-AR")}
-              {balDir&&(
-                <span style={{fontSize:18,fontWeight:900,animation:"fadeIn .2s ease",
-                  color:balDir==="up"?"#a7f3d0":"#fca5a5"}}>
-                  {balDir==="up"?"▲":"▼"}
-                </span>
-              )}
+            <div style={{position:"relative"}}>
+              <CoinBurst active={balDir==="up"}/>
+              <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1,
+                animation:balDir==="up"?"balUp 1.4s ease":balDir==="down"?"balDown 1.4s ease":"none",
+                display:"flex",alignItems:"center",gap:10}}>
+                🪙 {(displayBalance||balance).toLocaleString("es-AR")}
+                {balDir&&(
+                  <span style={{fontSize:18,fontWeight:900,animation:"fadeIn .2s ease",
+                    color:balDir==="up"?"#a7f3d0":"#fca5a5"}}>
+                    {balDir==="up"?"▲":"▼"}
+                  </span>
+                )}
+              </div>
             </div>
             <div style={{marginTop:10}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:11,opacity:.8,fontWeight:700,marginBottom:4}}>

@@ -245,6 +245,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
             <div style={{display:"flex",flexWrap:"wrap",gap:4,justifyContent:"center",marginTop:6}}>
               {activeTitles.slice(0,3).map((t,i)=>{
                 const label = t.startsWith("custom:") ? t.slice(7)
+                  : t.startsWith("earned:") ? (earnedTitles.find(et=>et.id===t.slice(7))?.name||"Título")
                   : TITLES.find(ti=>ti.id===t)?.name||t;
                 return(
                   <div key={i} style={{background:accent+"22",borderRadius:99,
