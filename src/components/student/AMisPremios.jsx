@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { SKINS, BORDERS, RARITIES } from "../../constants";
@@ -21,6 +21,27 @@ function AMisPremios({ me, showToast, onEquip, onBack }) {
   const [items,    setItems]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [equipping,setEquipping]= useState(null);
+
+  // Drag-to-scroll for tab bar (works on PC with mouse)
+  const tabBarRef   = useRef(null);
+  const dragState   = useRef({ dragging:false, startX:0, scrollLeft:0, moved:false });
+  const onTabMouseDown = (e) => {
+    const el = tabBarRef.current; if (!el) return;
+    dragState.current = { dragging:true, startX:e.pageX - el.offsetLeft, scrollLeft:el.scrollLeft, moved:false };
+    el.style.cursor = "grabbing"; el.style.userSelect = "none";
+  };
+  const onTabMouseMove = (e) => {
+    const ds = dragState.current; if (!ds.dragging) return;
+    const el = tabBarRef.current; if (!el) return;
+    const dx = (e.pageX - el.offsetLeft) - ds.startX;
+    if (Math.abs(dx) > 4) ds.moved = true;
+    el.scrollLeft = ds.scrollLeft - dx;
+  };
+  const onTabMouseUp = () => {
+    const el = tabBarRef.current; if (!el) return;
+    dragState.current.dragging = false;
+    el.style.cursor = ""; el.style.userSelect = "";
+  };
 
   const card = {
     background: cardBg,
@@ -260,12 +281,18 @@ function AMisPremios({ me, showToast, onEquip, onBack }) {
         </div>
       </div>
 
-      {/* Tabs — scrollable horizontally */}
-      <div style={{display:"flex", borderBottom:`1px solid ${navBord}`,
-        background:cardBg, padding:"0 4px", overflowX:"auto",
-        scrollbarWidth:"none", WebkitOverflowScrolling:"touch"}}>
+      {/* Tabs — scrollable horizontally (drag-to-scroll on PC) */}
+      <div ref={tabBarRef}
+        onMouseDown={onTabMouseDown}
+        onMouseMove={onTabMouseMove}
+        onMouseUp={onTabMouseUp}
+        onMouseLeave={onTabMouseUp}
+        style={{display:"flex", borderBottom:`1px solid ${navBord}`,
+          background:cardBg, padding:"0 4px", overflowX:"auto",
+          scrollbarWidth:"none", WebkitOverflowScrolling:"touch", cursor:"grab"}}>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+          <button key={t.id}
+            onClick={() => { if (!dragState.current.moved) setTab(t.id); dragState.current.moved = false; }}
             style={{flexShrink:0, padding:"10px 12px", background:"none", border:"none",
               fontWeight:800, fontSize:10, cursor:"pointer", fontFamily:"Nunito,sans-serif",
               whiteSpace:"nowrap",

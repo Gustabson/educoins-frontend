@@ -7,25 +7,27 @@ const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
 
 // Coins that burst upward when balance increases
 const COIN_CFG = [
-  {anim:"coinFloatL", delay:"0s",    size:24, left:"8%"},
-  {anim:"coinFloat",  delay:"0.3s",  size:30, left:"22%"},
-  {anim:"coinFloatR", delay:"0.1s",  size:20, left:"38%"},
-  {anim:"coinFloat",  delay:"0.6s",  size:26, left:"52%"},
-  {anim:"coinFloatL", delay:"0.15s", size:18, left:"68%"},
-  {anim:"coinFloatR", delay:"0.45s", size:28, left:"80%"},
-  {anim:"coinFloat",  delay:"0.8s",  size:22, left:"14%"},
-  {anim:"coinFloatL", delay:"0.55s", size:20, left:"62%"},
+  {anim:"coinFloatL", delay:"0s",    size:26, left:"6%"},
+  {anim:"coinFloat",  delay:"0.5s",  size:32, left:"20%"},
+  {anim:"coinFloatR", delay:"0.2s",  size:22, left:"36%"},
+  {anim:"coinFloat",  delay:"1.0s",  size:28, left:"50%"},
+  {anim:"coinFloatL", delay:"0.35s", size:20, left:"65%"},
+  {anim:"coinFloatR", delay:"0.8s",  size:30, left:"78%"},
+  {anim:"coinFloat",  delay:"1.4s",  size:24, left:"12%"},
+  {anim:"coinFloatL", delay:"0.65s", size:18, left:"88%"},
+  {anim:"coinFloatR", delay:"1.2s",  size:26, left:"44%"},
+  {anim:"coinFloat",  delay:"0.9s",  size:20, left:"72%"},
 ];
 function CoinBurst({ burstKey }) {
   if (!burstKey) return null;
   return (
-    <div key={burstKey} style={{position:"absolute",bottom:"100%",left:0,right:0,
+    <div style={{position:"absolute",bottom:"100%",left:0,right:0,
       pointerEvents:"none",zIndex:10,height:0,overflow:"visible"}}>
       {COIN_CFG.map((c,i) => (
         <span key={i} style={{
           position:"absolute", left:c.left, bottom:0,
           fontSize:c.size, lineHeight:1,
-          animation:`${c.anim} 4s ease-out ${c.delay} both`,
+          animation:`${c.anim} 3.5s ease-out ${c.delay} both`,
           display:"block", willChange:"transform,opacity",
         }}>🪙</span>
       ))}
@@ -43,7 +45,14 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
   const [burstKey, setBurstKey] = useState(0);
   const prevBalRef = useRef(null);
   useEffect(() => {
-    const stored = parseInt(localStorage.getItem("ec_last_seen_bal") || "0");
+    const raw = localStorage.getItem("ec_last_seen_bal");
+    const stored = raw !== null ? parseInt(raw) : null;
+    // First ever load (no stored value) — just seed without bursting
+    if (stored === null) {
+      prevBalRef.current = balance;
+      try { localStorage.setItem("ec_last_seen_bal", String(balance)); } catch {}
+      return;
+    }
     const prev = prevBalRef.current ?? stored;
     if (balance > prev) {
       setBurstKey(k => k + 1);
