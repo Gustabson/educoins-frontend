@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getLv, nextLv } from "../../constants";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
@@ -7,23 +7,25 @@ const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
 
 // Coins that burst upward when balance increases
 const COIN_CFG = [
-  {anim:"coinFloatL", delay:"0s",   size:22, left:"10%"},
-  {anim:"coinFloat",  delay:"0.05s",size:28, left:"30%"},
-  {anim:"coinFloatR", delay:"0s",   size:20, left:"50%"},
-  {anim:"coinFloat",  delay:"0.1s", size:24, left:"65%"},
-  {anim:"coinFloatL", delay:"0.07s",size:18, left:"80%"},
-  {anim:"coinFloatR", delay:"0.03s",size:26, left:"20%"},
+  {anim:"coinFloatL", delay:"0s",    size:24, left:"8%"},
+  {anim:"coinFloat",  delay:"0.3s",  size:30, left:"22%"},
+  {anim:"coinFloatR", delay:"0.1s",  size:20, left:"38%"},
+  {anim:"coinFloat",  delay:"0.6s",  size:26, left:"52%"},
+  {anim:"coinFloatL", delay:"0.15s", size:18, left:"68%"},
+  {anim:"coinFloatR", delay:"0.45s", size:28, left:"80%"},
+  {anim:"coinFloat",  delay:"0.8s",  size:22, left:"14%"},
+  {anim:"coinFloatL", delay:"0.55s", size:20, left:"62%"},
 ];
-function CoinBurst({ active }) {
-  if (!active) return null;
+function CoinBurst({ burstKey }) {
+  if (!burstKey) return null;
   return (
-    <div style={{position:"absolute",bottom:"100%",left:0,right:0,
+    <div key={burstKey} style={{position:"absolute",bottom:"100%",left:0,right:0,
       pointerEvents:"none",zIndex:10,height:0,overflow:"visible"}}>
       {COIN_CFG.map((c,i) => (
         <span key={i} style={{
           position:"absolute", left:c.left, bottom:0,
           fontSize:c.size, lineHeight:1,
-          animation:`${c.anim} 1s ease-out ${c.delay} both`,
+          animation:`${c.anim} 4s ease-out ${c.delay} both`,
           display:"block", willChange:"transform,opacity",
         }}>🪙</span>
       ))}
@@ -36,6 +38,19 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
   const [gridMode, setGridMode] = useState(() => {
     try { return localStorage.getItem("accesos_grid") === "1"; } catch { return false; }
   });
+
+  // ── Coin burst: triggers when balance goes up, even after returning to this tab ─
+  const [burstKey, setBurstKey] = useState(0);
+  const prevBalRef = useRef(null);
+  useEffect(() => {
+    const stored = parseInt(localStorage.getItem("ec_last_seen_bal") || "0");
+    const prev = prevBalRef.current ?? stored;
+    if (balance > prev) {
+      setBurstKey(k => k + 1);
+    }
+    prevBalRef.current = balance;
+    try { localStorage.setItem("ec_last_seen_bal", String(balance)); } catch {}
+  }, [balance]);
   const toggleGrid = () => {
     const next = !gridMode;
     setGridMode(next);
@@ -75,7 +90,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
             border:"1.5px solid rgba(255,255,255,.25)",marginBottom:18,position:"relative",overflow:"visible"}}>
             <div style={{fontSize:11,opacity:.8,fontWeight:700,letterSpacing:".1em",marginBottom:4}}>CAJA DE AHORRO</div>
             <div style={{position:"relative"}}>
-              <CoinBurst active={balDir==="up"}/>
+              <CoinBurst burstKey={burstKey}/>
               <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1,
                 animation:balDir==="up"?"balUp 1.4s ease":balDir==="down"?"balDown 1.4s ease":"none",
                 display:"flex",alignItems:"center",gap:10}}>

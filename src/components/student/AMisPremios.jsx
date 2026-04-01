@@ -98,9 +98,12 @@ function AMisPremios({ me, showToast, onEquip, onBack }) {
   const totalActive = titlesActive.length + itemsActive.length;
 
   const TABS = [
-    { id:"todos",     label:`Todos (${totalActive})` },
+    { id:"todos",     label:`⭐ Todos (${totalActive})` },
     { id:"titulos",   label:`🏅 Títulos (${titlesActive.length})` },
-    { id:"items",     label:`🎁 Items (${itemsActive.length})` },
+    { id:"bordes",    label:`🔲 Bordes (${bordes.length})` },
+    { id:"skins",     label:`🎨 Skins (${skins.length})` },
+    { id:"marcos",    label:`🖼️ Marcos (${marcos.length})` },
+    { id:"colores",   label:`✏️ Colores (${colores.length})` },
     { id:"expirados", label:`📦 Vencidos (${titlesExpired.length + itemsExpired.length})` },
   ];
 
@@ -257,13 +260,15 @@ function AMisPremios({ me, showToast, onEquip, onBack }) {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — scrollable horizontally */}
       <div style={{display:"flex", borderBottom:`1px solid ${navBord}`,
-        background:cardBg, padding:"0 4px", overflowX:"auto"}}>
+        background:cardBg, padding:"0 4px", overflowX:"auto",
+        scrollbarWidth:"none", WebkitOverflowScrolling:"touch"}}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            style={{flexShrink:0, padding:"10px 10px", background:"none", border:"none",
+            style={{flexShrink:0, padding:"10px 12px", background:"none", border:"none",
               fontWeight:800, fontSize:10, cursor:"pointer", fontFamily:"Nunito,sans-serif",
+              whiteSpace:"nowrap",
               color:tab===t.id ? accent : sub,
               borderBottom:`2.5px solid ${tab===t.id ? accent : "transparent"}`}}>
             {t.label}
@@ -301,7 +306,7 @@ function AMisPremios({ me, showToast, onEquip, onBack }) {
             : titlesActive.map(t => renderTitulo(t))
         )}
 
-        {/* Items */}
+        {/* Items (todos juntos) */}
         {!loading && tab==="items" && (
           itemsActive.length === 0
             ? <Empty msg="Sin items ganados"/>
@@ -311,6 +316,26 @@ function AMisPremios({ me, showToast, onEquip, onBack }) {
                 {marcos.length>0  && <><div style={{fontSize:11,fontWeight:700,color:sub,margin:"12px 0 8px"}}>🖼️ Marcos</div>{marcos.map(i=>renderItem(i))}</>}
                 {colores.length>0 && <><div style={{fontSize:11,fontWeight:700,color:sub,margin:"12px 0 8px"}}>✏️ Colores</div>{colores.map(i=>renderItem(i))}</>}
               </>
+        )}
+
+        {/* Bordes */}
+        {!loading && tab==="bordes" && (
+          bordes.length === 0 ? <Empty msg="Sin bordes ganados"/> : bordes.map(i=>renderItem(i))
+        )}
+
+        {/* Skins */}
+        {!loading && tab==="skins" && (
+          skins.length === 0 ? <Empty msg="Sin skins ganadas"/> : skins.map(i=>renderItem(i))
+        )}
+
+        {/* Marcos */}
+        {!loading && tab==="marcos" && (
+          marcos.length === 0 ? <Empty msg="Sin marcos ganados"/> : marcos.map(i=>renderItem(i))
+        )}
+
+        {/* Colores */}
+        {!loading && tab==="colores" && (
+          colores.length === 0 ? <Empty msg="Sin colores de nombre ganados"/> : colores.map(i=>renderItem(i))
         )}
 
         {/* Expirados */}
