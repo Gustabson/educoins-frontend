@@ -18,6 +18,8 @@ function AReportes({ me, showToast, onBack }) {
   const [enviando,   setEnviando] = useState(false);
   const [sending,    setSending]  = useState(false);
   const [grupoSel,   setGrupoSel] = useState(null); // seleccion de grupo en formulario
+  const [adjuntos,   setAdjuntos] = useState([]);   // archivos adjuntos
+  const fileRef = useRef(null);
   const bottomRef = useRef(null);
 
   const loadList = () => {
@@ -37,14 +39,30 @@ function AReportes({ me, showToast, onBack }) {
     } catch(e) { showToast("Error al cargar mensajes", "error"); }
   };
 
+  // Convertir archivos a base64
+  const handleFiles = (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 3 - adjuntos.length);
+    files.forEach(file => {
+      if (file.size > 3 * 1024 * 1024) { showToast("Archivo muy grande (máx 3 MB)", "error"); return; }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setAdjuntos(prev => [...prev, { nombre: file.name, tipo: file.type, data: ev.target.result }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+
+  const quitarAdj = (i) => setAdjuntos(prev => prev.filter((_, idx) => idx !== i));
+
   const enviar = async () => {
     if (!tipo)                          { showToast("Elegí un tipo", "error"); return; }
     if (!desc.trim() || desc.length<10) { showToast("Describí qué pasó (mín. 10 caracteres)", "error"); return; }
     setEnviando(true);
     try {
-      await api.createReport({ tipo: tipo.id, descripcion: desc.trim(), anonimo: anon });
+      await api.createReport({ tipo: tipo.id, descripcion: desc.trim(), anonimo: anon, adjuntos });
       showToast("Reporte enviado 🔒");
-      setTipo(null); setDesc(""); setAnon(true); setGrupoSel(null);
+      setTipo(null); setDesc(""); setAnon(true); setGrupoSel(null); setAdjuntos([]);
       setVista("lista");
       loadList();
     } catch(e) { showToast(e.message || "Error", "error"); }
@@ -271,6 +289,43 @@ function AReportes({ me, showToast, onBack }) {
                   border:`1.5px solid ${inputBd}`, borderRadius:14, padding:"11px 14px",
                   fontSize:13, outline:"none", color:txt, fontFamily:"Nunito,sans-serif",
                   resize:"none", fontWeight:600, marginBottom:12 }}/>
+
+              {/* Adjuntos */}
+              <input ref={fileRef} type="file" multiple
+                accept="image/*,.pdf,.doc,.docx"
+                style={{ display:"none" }} onChange={handleFiles}/>
+              <div style={{ marginBottom:12 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:sub, marginBottom:6 }}>
+                  📎 Adjuntos <span style={{ fontWeight:400 }}>(opcional, máx 3 · 3 MB c/u)</span>
+                </div>
+                {adjuntos.length > 0 && (
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
+                    {adjuntos.map((a, i) => (
+                      <div key={i} style={{ display:"flex", alignItems:"center", gap:6,
+                        background:inputBg, border:"1.5px solid "+inputBd,
+                        borderRadius:10, padding:"5px 10px", fontSize:11, fontWeight:700,
+                        color:txt, maxWidth:150 }}>
+                        <span>{a.tipo?.startsWith("image/") ? "🖼️" : "📄"}</span>
+                        <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                          {a.nombre}
+                        </span>
+                        <button onClick={() => quitarAdj(i)}
+                          style={{ background:"none", border:"none", cursor:"pointer",
+                            color:sub, padding:0, fontSize:14, lineHeight:1 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {adjuntos.length < 3 && (
+                  <button onClick={() => fileRef.current?.click()}
+                    style={{ background:"none", border:"1.5px dashed "+inputBd,
+                      borderRadius:10, padding:"7px 14px", cursor:"pointer",
+                      fontSize:11, fontWeight:700, color:sub, fontFamily:"Nunito,sans-serif",
+                      display:"flex", alignItems:"center", gap:6 }}>
+                    <span>📎</span> Agregar archivo
+                  </button>
+                )}
+              </div>
 
               {/* Colectivo info */}
               <div style={{ background:dark?"rgba(255,255,255,.05)":"#f8fafc",

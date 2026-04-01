@@ -84,7 +84,7 @@ function Admin({ me, logout }) {
         {tab==="config"     && canSee("config")     && <AdminConfig     me={me} logout={logout}/>}
         {tab==="noticias"   && canSee("noticias")   && <AdminNoticias   showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="votaciones" && canSee("votaciones") && <AdminVotaciones showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="reportes"   && canSee("reportes")   && <AdminReportes   showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="reportes"   && canSee("reportes")   && <AdminReportes   me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="aulas"      && canSee("aulas")      && <AdminAulas      showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="economia"   && canSee("economia")   && <AdminEconomia   showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="psicologia" && canSee("psicologia") && <AdminPsicologia showToast={showToast} onBack={()=>setTab("home")}/>}

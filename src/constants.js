@@ -177,23 +177,28 @@ const REPORTE_TIPOS = [
   {id:"acoso",             label:"Acoso / Amenazas",    icon:"⚠️",  col:"#f97316", grupo:"situacion"},
   {id:"maltrato_docente",  label:"Maltrato de adulto",  icon:"👨‍🏫", col:"#dc2626", grupo:"situacion"},
   {id:"violencia",         label:"Violencia física",    icon:"🚨", col:"#b91c1c", grupo:"situacion"},
-  {id:"discriminacion",    label:"Discriminación",       icon:"🙅", col:"#7c3aed", grupo:"situacion"},
+  {id:"discriminacion",    label:"Discriminación",      icon:"🙅", col:"#7c3aed", grupo:"situacion"},
   // ── Infraestructura / Escuela ──
   {id:"infraestructura",   label:"Problema en escuela", icon:"🏫", col:"#0369a1", grupo:"escuela"},
-  {id:"accidente",         label:"Accidente",            icon:"🚑", col:"#f59e0b", grupo:"escuela"},
-  {id:"perdido",           label:"Objeto perdido",       icon:"🔍", col:"#3b82f6", grupo:"escuela"},
+  {id:"accidente",         label:"Accidente",           icon:"🚑", col:"#f59e0b", grupo:"escuela"},
+  {id:"perdido",           label:"Objeto perdido",      icon:"🔍", col:"#3b82f6", grupo:"escuela"},
+  // ── Economía / Pagos ──
+  {id:"error_cobro",       label:"Error en cobro",      icon:"💸", col:"#f59e0b", grupo:"economia"},
+  {id:"beca_ayuda",        label:"Beca o ayuda",        icon:"🤝", col:"#10b981", grupo:"economia"},
+  {id:"cuota_problema",    label:"Problema de cuota",   icon:"📑", col:"#3b82f6", grupo:"economia"},
   // ── Propuestas / Mejoras ──
-  {id:"mejora_educativa",  label:"Propuesta educativa",  icon:"📚", col:"#059669", grupo:"mejora"},
-  {id:"mejora_convivencia",label:"Mejor convivencia",    icon:"🤝", col:"#10b981", grupo:"mejora"},
-  {id:"sugerencia",        label:"Sugerencia general",   icon:"💡", col:"#0891b2", grupo:"mejora"},
+  {id:"mejora_educativa",  label:"Propuesta educativa", icon:"📚", col:"#059669", grupo:"mejora"},
+  {id:"mejora_convivencia",label:"Mejor convivencia",   icon:"🤝", col:"#10b981", grupo:"mejora"},
+  {id:"sugerencia",        label:"Sugerencia general",  icon:"💡", col:"#0891b2", grupo:"mejora"},
   // ── Otro ──
-  {id:"otro",              label:"Otro",                 icon:"📋", col:"#8b5cf6", grupo:"otro"},
+  {id:"otro",              label:"Otro",                icon:"📋", col:"#8b5cf6", grupo:"otro"},
 ];
 const REPORTE_GRUPOS = {
-  situacion: { label:"🚨 Situaciones urgentes",  hint:"Bullying, acoso, maltrato — actuamos rápido y con confidencialidad" },
-  escuela:   { label:"🏫 Escuela / Infraestructura", hint:"Accidentes, objetos perdidos, problemas edilicios" },
-  mejora:    { label:"💡 Propuestas de mejora",  hint:"Tus ideas para mejorar la educación pueden darte hasta 🪙500" },
-  otro:      { label:"📋 Otro",                  hint:"Cualquier otra situación" },
+  situacion: { label:"🚨 Situaciones urgentes",    hint:"Bullying, acoso, maltrato — actuamos rápido y con confidencialidad" },
+  escuela:   { label:"🏫 Escuela / Edificio",      hint:"Accidentes, objetos perdidos, problemas edilicios" },
+  economia:  { label:"💰 Pagos / Economía",        hint:"Errores en cobros, problemas de cuota o solicitudes de beca" },
+  mejora:    { label:"💡 Propuestas de mejora",    hint:"Tus ideas para mejorar la educación pueden darte hasta 🪙500" },
+  otro:      { label:"📋 Otro",                    hint:"Cualquier otra situación" },
 };
 const ESTADO_LABEL={recibido:"Recibido",en_revision:"En revisión",resuelto:"Resuelto",descartado:"Descartado"};
 const ESTADO_COLOR={recibido:"#f59e0b",en_revision:"#3b82f6",resuelto:"#10b981",descartado:"#94a3b8"};
