@@ -13,7 +13,6 @@ function AdminEconomia({showToast, onBack}){
     {id:"estilos",    icon:"✍️", title:"Estilos de Texto",    sub:"Precios y colores",       col:"#06b6d4"},
     {id:"emojis",     icon:"😄", title:"Packs de Emojis",     sub:"Precios de packs",        col:"#f59e0b"},
     {id:"efectos",    icon:"✨", title:"Efectos y Animaciones",sub:"Títulos y nombre",        col:"#3b82f6"},
-    {id:"ranking",    icon:"🏆", title:"Premios del Ranking", sub:"Diario, semanal, mensual", col:"#10b981"},
     {id:"suscripciones",icon:"🔄",title:"Suscripciones",      sub:"Ver cobros pendientes",    col:"#0ea5e9"},
     {id:"perfil",     icon:"👤", title:"Personalización Perfil",sub:"Apodo, títulos, fondos, préstamos",col:"#f59e0b"},
     {id:"premios",    icon:"🏆", title:"Premios y Recompensas",  sub:"Ranking, manual, historial",     col:"#10b981"},
@@ -107,8 +106,6 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             setItems(arr.filter(i=>i.tipo===tipoParam));
           }
         }).catch(()=>{}).finally(()=>setLoading(false));
-    } else if(sec==="ranking"){
-      api.rankingConfig().then(d=>setConfig(d.data||d||[])).catch(()=>{}).finally(()=>setLoading(false));
     } else if(sec==="historial"){
       Promise.all([api.rankingPayouts(), api.auditLog()]).then(([rp,al])=>{
         const rpArr=(rp.data||rp||[]).map(x=>({...x,categoria:"premio_ranking"}));
@@ -143,10 +140,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
     if(!editing) return;
     setSaving(true);
     try{
-      if(sec==="ranking"){
-        await api.rankingConfigUpdate(editing.id, editVal);
-        setConfig(prev=>prev.map(c=>c.id===editing.id?{...c,...editVal}:c));
-      } else {
+      {
         // El PATCH devuelve el item actualizado — usarlo directo, sin segunda llamada
         const res = await api.customAdminUpdate(editing.id, editVal);
         const updated = res.data || res;
@@ -200,8 +194,9 @@ function AdminEconomiaSec({sec, onBack, showToast}){
 
   const SEC_TITLE = {
     colores:"🖊️ Colores de Nombre", temas:"🎨 Temas", fondos:"🖼️ Fondos de Pantalla",
-    emojis:"😄 Packs Emoji", efectos:"✨ Efectos", ranking:"🏆 Premios Ranking",
+    emojis:"😄 Packs Emoji", efectos:"✨ Efectos",
     suscripciones:"🔄 Suscripciones", historial:"📋 Historial",
+    premios:"🏆 Premios y Recompensas", perfil:"👤 Personalización Perfil",
   };
 
   return(
@@ -229,7 +224,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             </div>
 
             {/* Precio único (compra) — para todos los tipos de item */}
-            {sec!=="ranking"&&sec!=="suscripciones"&&sec!=="historial"&&(
+            {sec!=="suscripciones"&&sec!=="historial"&&(
               <div style={{marginBottom:12}}>
                 <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>
                   💰 Precio de compra único (0 = solo suscripción)
@@ -244,7 +239,7 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             )}
 
             {/* Suscripción */}
-            {sec!=="ranking"&&sec!=="suscripciones"&&sec!=="historial"&&(
+            {sec!=="suscripciones"&&sec!=="historial"&&(
               <>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                   <span style={{fontSize:11,fontWeight:700,color:"#666"}}>🔄 Es suscripción</span>
@@ -291,18 +286,6 @@ function AdminEconomiaSec({sec, onBack, showToast}){
               </>
             )}
 
-            {/* Premio ranking */}
-            {sec==="ranking"&&(
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>🏆 Premio 🪙</div>
-                <input type="number" min="0"
-                  value={editVal.premio??editing.premio??0}
-                  onChange={e=>setEditVal(v=>({...v,premio:parseInt(e.target.value)||0}))}
-                  style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #e8e8e8",
-                    borderRadius:12,padding:"10px 14px",fontSize:20,fontWeight:900,outline:"none",
-                    color:"#f59e0b",textAlign:"center",fontFamily:"Nunito,sans-serif"}}/>
-              </div>
-            )}
 
             {/* Activo/Inactivo */}
             <div style={{fontSize:11,fontWeight:700,color:"#666",marginBottom:6}}>Estado</div>
@@ -489,61 +472,6 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           </div>
         )}
 
-        {/* Ranking config */}
-        {sec==="ranking"&&!loading&&(
-          <>
-            <div style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:12,
-              boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:800,fontSize:13,marginBottom:10}}>Distribuir premios ahora</div>
-              <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-                {[["daily","Diario"],["weekly","Semanal"],["monthly","Mensual"]].map(([v,l])=>(
-                  <button key={v} onClick={()=>setPClose(v)}
-                    style={{background:periodoClose===v?"#10b981":"#f0f0f0",
-                      color:periodoClose===v?"white":"#555",border:"none",borderRadius:99,
-                      padding:"6px 12px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-              <div style={{display:"flex",gap:8,marginBottom:10}}>
-                {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([v,l])=>(
-                  <button key={v} onClick={()=>setSClose(v)}
-                    style={{flex:1,background:scopeClose===v?"#10b981":"#f0f0f0",
-                      color:scopeClose===v?"white":"#555",border:"none",borderRadius:10,
-                      padding:"8px",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-              <button onClick={cerrarPeriodo} disabled={saving}
-                style={{width:"100%",background:saving?"#ccc":"#10b981",border:"none",borderRadius:50,
-                  color:"white",padding:"12px",fontWeight:800,fontSize:14,cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif"}}>
-                {saving?"Distribuyendo...":"🏆 Distribuir premios"}
-              </button>
-            </div>
-
-            {/* Tabla de premios por período */}
-            {[["daily","Diario"],["weekly","Semanal"],["monthly","Mensual"]].map(([p,pl])=>(
-              <div key={p} style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:10,
-                boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-                <div style={{fontWeight:800,fontSize:13,marginBottom:8}}>{pl} — Global</div>
-                {config.filter(c=>c.periodo===p&&c.scope==="global").map(c=>(
-                  <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
-                    <span style={{fontSize:14}}>{c.posicion<=3?["🥇","🥈","🥉"][c.posicion-1]:`#${c.posicion}`}</span>
-                    <div style={{flex:1,fontSize:12,color:"#555"}}>Posición {c.posicion}</div>
-                    <span style={{fontWeight:800,color:"#10b981",fontSize:13}}>🪙{c.premio}</span>
-                    <button onClick={()=>{setEditing(c);setEditVal({});}}
-                      style={{background:"#f0f0f0",border:"none",borderRadius:8,padding:"4px 10px",
-                        fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
-                      Editar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </>
-        )}
 
         {/* Historial unificado */}
         {sec==="historial"&&!loading&&(
@@ -1297,15 +1225,27 @@ function AdminEconomiaSec({sec, onBack, showToast}){
 
       {sec==="premios"&&!loading&&(
         <div>
+          {/* Info banner */}
+          <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:14,
+            padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20}}>🏆</span>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#065f46"}}>Premios y Recompensas</div>
+              <div style={{fontSize:11,color:"#047857",marginTop:1}}>
+                Configurá premios automáticos por ranking o entregá premios manuales a alumnos.
+              </div>
+            </div>
+          </div>
           {/* Tabs */}
-          <div style={{display:"flex",gap:6,marginBottom:14}}>
-            {[["ranking","🏆 Por Ranking"],["manual","🎁 Manual"],["historial","📋 Historial"]].map(([id,lbl])=>(
+          <div style={{display:"flex",gap:6,marginBottom:14,background:"white",borderRadius:14,
+            padding:5,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+            {[["ranking","🏆 Ranking"],["manual","🎁 Manual"],["historial","📋 Historial"]].map(([id,lbl])=>(
               <button key={id} onClick={()=>setPremioTab(id)}
-                style={{flex:1,background:premioTab===id?"#10b98122":"white",
-                  border:`1.5px solid ${premioTab===id?"#10b981":"#eee"}`,
-                  borderRadius:10,padding:"8px 4px",fontSize:11,fontWeight:800,
-                  cursor:"pointer",color:premioTab===id?"#065f46":"#555",
-                  fontFamily:"Nunito,sans-serif"}}>
+                style={{flex:1,background:premioTab===id?"#10b981":"transparent",
+                  border:"none",
+                  borderRadius:10,padding:"9px 4px",fontSize:11,fontWeight:800,
+                  cursor:"pointer",color:premioTab===id?"white":"#888",
+                  fontFamily:"Nunito,sans-serif",transition:"all .15s"}}>
                 {lbl}
               </button>
             ))}
@@ -1316,16 +1256,24 @@ function AdminEconomiaSec({sec, onBack, showToast}){
             <>
               {/* Selector de período */}
               <div style={{display:"flex",gap:6,marginBottom:14}}>
-                {[["daily","📅 Diario"],["weekly","📆 Semanal"],["monthly","🗓️ Mensual"]].map(([p,lbl])=>(
-                  <button key={p} onClick={()=>setRankingPeriodo(p)}
-                    style={{flex:1,background:rankingPeriodo===p?"#10b98122":"white",
-                      border:`1.5px solid ${rankingPeriodo===p?"#10b981":"#eee"}`,
-                      borderRadius:10,padding:"8px 4px",fontSize:11,fontWeight:800,
-                      cursor:"pointer",color:rankingPeriodo===p?"#065f46":"#555",
-                      fontFamily:"Nunito,sans-serif"}}>
-                    {lbl}
-                  </button>
-                ))}
+                {[["daily","📅 Diario"],["weekly","📆 Semanal"],["monthly","🗓️ Mensual"]].map(([p,lbl])=>{
+                  const setsCount = prizeSets.filter(s=>s.periodo===p).length;
+                  const sch = schedules.find(s=>s.periodo===p);
+                  return(
+                    <button key={p} onClick={()=>setRankingPeriodo(p)}
+                      style={{flex:1,background:rankingPeriodo===p?"#10b981":"white",
+                        border:`1.5px solid ${rankingPeriodo===p?"#10b981":"#eee"}`,
+                        borderRadius:12,padding:"10px 4px 8px",fontSize:11,fontWeight:800,
+                        cursor:"pointer",color:rankingPeriodo===p?"white":"#555",
+                        fontFamily:"Nunito,sans-serif",display:"flex",flexDirection:"column",
+                        alignItems:"center",gap:2,transition:"all .15s"}}>
+                      {lbl}
+                      <span style={{fontSize:9,opacity:.8,fontWeight:700}}>
+                        {setsCount} grupo{setsCount!==1?"s":""} · {sch?.activo?"⏰ auto":"Manual"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Schedule del período seleccionado */}
@@ -1499,12 +1447,13 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           {/* ── Tab Manual ──────────────────────────────────── */}
           {premioTab==="manual"&&(
             <>
-              <div style={{fontSize:11,color:"#888",marginBottom:12}}>
-                Otorgá premios individuales a cualquier alumno.
+              <div style={{background:"#fffbeb",border:"1.5px solid #fde68a",borderRadius:12,
+                padding:"10px 14px",marginBottom:12,fontSize:11,color:"#92400e",lineHeight:1.5}}>
+                🎁 Otorgá premios individuales a cualquier alumno, sin importar su posición en el ranking.
               </div>
               <div style={{background:"white",borderRadius:14,padding:16,
                 boxShadow:"0 1px 8px rgba(0,0,0,.06)"}}>
-                <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Alumno:</div>
+                <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Alumno destinatario:</div>
                 <select value={manualUser} onChange={e=>setManualUser(e.target.value)}
                   style={{width:"100%",background:"#f7f7f7",border:"1.5px solid #eee",
                     borderRadius:10,padding:"10px 12px",fontSize:13,outline:"none",
@@ -1584,30 +1533,80 @@ function AdminEconomiaSec({sec, onBack, showToast}){
           {/* ── Tab Historial ───────────────────────────────── */}
           {premioTab==="historial"&&(
             <>
-              {prizeHistory.length===0&&(
-                <div style={{textAlign:"center",padding:32,color:"#aaa"}}>
-                  <div style={{fontSize:32,marginBottom:8}}>📭</div>
-                  <div style={{fontWeight:700}}>Sin historial todavía</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{fontSize:12,color:"#888",fontWeight:700}}>
+                  Últimas {prizeHistory.length} entregas
                 </div>
-              )}
-              {prizeHistory.map((h,i)=>(
-                <div key={i} style={{background:"white",borderRadius:12,padding:"10px 14px",
-                  marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:13}}>{h.alumno_nombre}</div>
-                      <div style={{fontSize:10,color:"#888"}}>
-                        Puesto {h.puesto} · {h.periodo} · {new Date(h.granted_at).toLocaleDateString("es-AR")}
-                      </div>
-                    </div>
-                    <span style={{fontSize:10,color:h.granted_by==="system"?"#10b981":"#f59e0b",
-                      fontWeight:700,background:h.granted_by==="system"?"#10b98122":"#f59e0b22",
-                      borderRadius:99,padding:"2px 8px"}}>
-                      {h.granted_by==="system"?"Auto":"Admin"}
-                    </span>
+                <button onClick={()=>{
+                  setLoading(true);
+                  api.prizeHistory().then(d=>setPrizeHistory(d.data||d||[])).catch(()=>{}).finally(()=>setLoading(false));
+                }} style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,
+                  padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:"#065f46",
+                  fontFamily:"Nunito,sans-serif"}}>
+                  🔄 Actualizar
+                </button>
+              </div>
+              {prizeHistory.length===0&&(
+                <div style={{textAlign:"center",padding:"40px 16px",color:"#aaa",
+                  background:"white",borderRadius:16,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
+                  <div style={{fontSize:40,marginBottom:10}}>📭</div>
+                  <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>Sin historial todavía</div>
+                  <div style={{fontSize:12}}>
+                    Los premios entregados aparecerán aquí.<br/>
+                    Ejecutá un período de ranking para ver resultados.
                   </div>
                 </div>
-              ))}
+              )}
+              {prizeHistory.map((h,i)=>{
+                const periodoLabels = {daily:"Diario",weekly:"Semanal",monthly:"Mensual"};
+                const premioData = typeof h.premio_data==="string"?JSON.parse(h.premio_data||"{}"):h.premio_data||{};
+                const itemCount = Array.isArray(premioData.items)?premioData.items.length:null;
+                const recipientes = premioData.count||1;
+                return(
+                  <div key={h.id||i} style={{background:"white",borderRadius:14,
+                    padding:"12px 14px",marginBottom:8,
+                    boxShadow:"0 1px 6px rgba(0,0,0,.05)",
+                    borderLeft:`4px solid ${h.granted_by==="system"?"#10b981":"#f59e0b"}`}}>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+                      <div style={{width:36,height:36,borderRadius:10,flexShrink:0,
+                        background:h.granted_by==="system"?"#f0fdf4":"#fffbeb",
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
+                        {h.granted_by==="system"?"🤖":"👤"}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {h.alumno_nombre||"Alumno"}
+                        </div>
+                        <div style={{fontSize:11,color:"#888",marginTop:2,lineHeight:1.4}}>
+                          <span style={{background:"#f1f5f9",borderRadius:99,padding:"1px 7px",
+                            fontWeight:700,color:"#475569"}}>
+                            #{h.puesto}° lugar
+                          </span>
+                          {" · "}
+                          <span style={{fontWeight:600}}>
+                            {periodoLabels[h.periodo]||h.periodo}
+                          </span>
+                          {itemCount&&<span style={{color:"#10b981",fontWeight:700}}> · {itemCount} premio{itemCount>1?"s":""}</span>}
+                          {recipientes>1&&<span style={{color:"#3b82f6"}}> · {recipientes} receptores</span>}
+                        </div>
+                        <div style={{fontSize:10,color:"#bbb",marginTop:3}}>
+                          {new Date(h.granted_at).toLocaleString("es-AR",{
+                            day:"numeric",month:"short",year:"numeric",
+                            hour:"2-digit",minute:"2-digit"
+                          })}
+                        </div>
+                      </div>
+                      <span style={{fontSize:10,fontWeight:800,flexShrink:0,
+                        color:h.granted_by==="system"?"#10b981":"#f59e0b",
+                        background:h.granted_by==="system"?"#f0fdf4":"#fffbeb",
+                        borderRadius:99,padding:"3px 9px",border:`1px solid ${h.granted_by==="system"?"#bbf7d0":"#fde68a"}`}}>
+                        {h.granted_by==="system"?"Auto":"Manual"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </>
           )}
         </div>
