@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { getLv, nextLv } from "../../constants";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
@@ -7,22 +8,35 @@ const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
 
 // Coins that burst upward when balance increases
 const COIN_CFG = [
-  {anim:"coinFloatL", delay:"0s",    size:26, left:"6%"},
-  {anim:"coinFloat",  delay:"0.5s",  size:32, left:"20%"},
-  {anim:"coinFloatR", delay:"0.2s",  size:22, left:"36%"},
-  {anim:"coinFloat",  delay:"1.0s",  size:28, left:"50%"},
-  {anim:"coinFloatL", delay:"0.35s", size:20, left:"65%"},
-  {anim:"coinFloatR", delay:"0.8s",  size:30, left:"78%"},
-  {anim:"coinFloat",  delay:"1.4s",  size:24, left:"12%"},
-  {anim:"coinFloatL", delay:"0.65s", size:18, left:"88%"},
-  {anim:"coinFloatR", delay:"1.2s",  size:26, left:"44%"},
-  {anim:"coinFloat",  delay:"0.9s",  size:20, left:"72%"},
+  {anim:"coinFloatL", delay:"0s",    size:28, left:"6%"},
+  {anim:"coinFloat",  delay:"0.5s",  size:34, left:"20%"},
+  {anim:"coinFloatR", delay:"0.2s",  size:24, left:"36%"},
+  {anim:"coinFloat",  delay:"1.0s",  size:30, left:"50%"},
+  {anim:"coinFloatL", delay:"0.35s", size:22, left:"65%"},
+  {anim:"coinFloatR", delay:"0.8s",  size:32, left:"78%"},
+  {anim:"coinFloat",  delay:"1.4s",  size:26, left:"12%"},
+  {anim:"coinFloatL", delay:"0.65s", size:20, left:"88%"},
+  {anim:"coinFloatR", delay:"1.2s",  size:28, left:"44%"},
+  {anim:"coinFloat",  delay:"0.9s",  size:22, left:"72%"},
+  {anim:"coinFloatL", delay:"0.6s",  size:18, left:"30%"},
+  {anim:"coinFloatR", delay:"1.1s",  size:20, left:"58%"},
 ];
-function CoinBurst({ burstKey }) {
+
+// Rendered via portal so overflow:hidden on the sticky header can never clip the coins
+function CoinBurst({ burstKey, anchorRef }) {
+  const [anchorY, setAnchorY] = useState(null);
+  useEffect(() => {
+    if (burstKey && anchorRef?.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setAnchorY(rect.top + rect.height / 2);
+    }
+  }, [burstKey]);
+
   if (!burstKey) return null;
-  return (
-    <div style={{position:"absolute",bottom:"100%",left:0,right:0,
-      pointerEvents:"none",zIndex:10,height:0,overflow:"visible"}}>
+  const top = anchorY ?? 120;
+  return createPortal(
+    <div style={{position:"fixed", left:0, right:0, top, height:0,
+      pointerEvents:"none", zIndex:99999, overflow:"visible"}}>
       {COIN_CFG.map((c,i) => (
         <span key={i} style={{
           position:"absolute", left:c.left, bottom:0,
@@ -31,7 +45,8 @@ function CoinBurst({ burstKey }) {
           display:"block", willChange:"transform,opacity",
         }}>🪙</span>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -44,10 +59,12 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
   // ── Coin burst: triggers when balance goes up, even after returning to this tab ─
   const [burstKey, setBurstKey] = useState(0);
   const prevBalRef = useRef(null);
+  const balRef = useRef(null); // anchor for portal positioning
   useEffect(() => {
+    if (balance === 0) return; // skip while loading
     const raw = localStorage.getItem("ec_last_seen_bal");
     const stored = raw !== null ? parseInt(raw) : null;
-    // First ever load (no stored value) — just seed without bursting
+    // First ever load with real balance — seed without bursting
     if (stored === null) {
       prevBalRef.current = balance;
       try { localStorage.setItem("ec_last_seen_bal", String(balance)); } catch {}
@@ -98,8 +115,8 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
           <div style={{background:"rgba(255,255,255,.18)",borderRadius:22,padding:"16px 20px 14px",
             border:"1.5px solid rgba(255,255,255,.25)",marginBottom:18,position:"relative",overflow:"visible"}}>
             <div style={{fontSize:11,opacity:.8,fontWeight:700,letterSpacing:".1em",marginBottom:4}}>CAJA DE AHORRO</div>
-            <div style={{position:"relative"}}>
-              <CoinBurst burstKey={burstKey}/>
+            <div ref={balRef} style={{position:"relative"}}>
+              <CoinBurst key={burstKey} burstKey={burstKey} anchorRef={balRef}/>
               <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1,
                 animation:balDir==="up"?"balUp 1.4s ease":balDir==="down"?"balDown 1.4s ease":"none",
                 display:"flex",alignItems:"center",gap:10}}>
