@@ -73,7 +73,7 @@ function ARanking({nameColorConfig}){
   useEffect(()=>{ load(); },[periodo, scope, selClass]);
 
   return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       {/* Header con tabs */}
       <div style={{background:accent,position:"sticky",top:0,zIndex:50,color:"white",
         paddingBottom:12}}>

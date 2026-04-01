@@ -69,7 +69,7 @@ function AEnviar({me,balance,showToast,refreshBalance}){
   const TABS=[["amigos","👥 Amigos"],["buscar","🔍 Buscar"],["manual","✏️ Manual"]];
 
   return(
-    <div style={{background:bg,minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:bg,transition:"background .3s"}}>
       <OHdrA title="Enviar 💸"
         extra={<div style={{marginTop:6,fontSize:13,opacity:.9,fontWeight:700}}>
           Saldo disponible: 🪙 {balance.toLocaleString("es-AR")}

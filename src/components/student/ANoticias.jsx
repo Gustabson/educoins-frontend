@@ -21,7 +21,7 @@ function ANoticias({me,onBack}){
   },[tagFilt]);
 
   if(sel) return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       <div style={{background:accent,padding:"22px 16px 20px",color:"white",
         display:"flex",alignItems:"flex-start",gap:12}}>
         <button onClick={()=>setSel(null)} style={{background:"rgba(255,255,255,.2)",border:"none",
@@ -46,7 +46,7 @@ function ANoticias({me,onBack}){
   );
 
   return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       <OHdrA title="📰 Noticias" onBack={onBack}/>
       {/* Filtro de tags */}
       <div style={{display:"flex",gap:6,padding:"10px 14px 0",overflowX:"auto"}}>

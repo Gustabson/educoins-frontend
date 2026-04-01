@@ -35,7 +35,7 @@ function ATienda({me,balance,showToast,refreshBalance}){
   if(loading) return <div style={{padding:40,textAlign:"center",color:subTxt}}>Cargando tienda...</div>;
 
   return(
-    <div style={{background:bg,minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:bg,transition:"background .3s"}}>
       <OHdrA title="Tienda"
         extra={<div style={{marginTop:8,fontSize:13,opacity:.9,fontWeight:700}}>
           Tu saldo: 🪙 {balance.toLocaleString("es-AR")}

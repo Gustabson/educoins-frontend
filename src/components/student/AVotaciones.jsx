@@ -307,7 +307,7 @@ function AVotaciones({me,showToast,onBack}){
 
   // ── Vista comentarios ─────────────────────────────────────
   if(selPoll) return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       <div style={{background:accent,position:"sticky",top:0,zIndex:50,
         padding:"16px 16px 20px",color:"white",
         textShadow:dark?"none":"0 1px 4px rgba(0,60,100,.4)"}}>
@@ -441,7 +441,7 @@ function AVotaciones({me,showToast,onBack}){
   // ── Vista lista de votaciones ─────────────────────────────
 
   return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       {/* Header con botón Proponer */}
       <div style={{background:accent,color:"white",padding:"16px 16px 0",
         position:"sticky",top:0,zIndex:50,

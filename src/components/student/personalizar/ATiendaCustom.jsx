@@ -128,7 +128,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
   // Modal de regalo
   if(giftOpen) return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       <OHdrA title="🎁 Regalar" onBack={()=>setGiftOpen(null)}/>
       <div style={{padding:"16px 14px"}}>
         <div style={{background:cardBg,borderRadius:20,padding:16,
@@ -162,7 +162,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   );
 
   return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       <OHdrA title="🎨 Personalización" onBack={handleBack}/>
 
       {/* Regalos pendientes */}

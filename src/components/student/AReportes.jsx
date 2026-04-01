@@ -91,7 +91,7 @@ function AReportes({ me, showToast, onBack }) {
     const estCol   = ESTADO_COLOR[reporteSel.estado] || "#94a3b8";
     const abierto  = !["resuelto","descartado"].includes(reporteSel.estado);
     return (
-      <div style={{ background:bg, minHeight:"100vh" }}>
+      <div style={{ background:bg, }}>
         <div style={{ background:accent, position:"sticky", top:0, zIndex:50,
           padding:"16px 16px 20px", color:"white" }}>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -216,7 +216,7 @@ function AReportes({ me, showToast, onBack }) {
     const tiposDelGrupo = grupoSel ? REPORTE_TIPOS.filter(t => t.grupo === grupoSel) : REPORTE_TIPOS;
     const grupoInfo     = grupoSel ? REPORTE_GRUPOS[grupoSel] : null;
     return (
-      <div style={{ background:bg, minHeight:"100vh" }}>
+      <div style={{ background:bg, }}>
         <OHdrA title="🚩 Nuevo Reporte" onBack={() => { setGrupoSel(null); setTipo(null); setVista("lista"); }}/>
         <div style={{ padding:"12px 14px 40px" }}>
 
@@ -371,7 +371,7 @@ function AReportes({ me, showToast, onBack }) {
 
   // ── Vista: lista de reportes ─────────────────────────────────
   return (
-    <div style={{ background:bg, minHeight:"100vh" }}>
+    <div style={{ background:bg, }}>
       <OHdrA title="🚩 Reportes" onBack={onBack}/>
       <div style={{ padding:"12px 14px 32px" }}>
 

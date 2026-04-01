@@ -237,7 +237,7 @@ function AMisPremios({ me, showToast, onEquip, onBack }) {
   );
 
   return (
-    <div style={{background:bg, minHeight:"100vh", fontFamily:"Nunito,sans-serif", paddingBottom:32}}>
+    <div style={{background:bg,  fontFamily:"Nunito,sans-serif", paddingBottom:32}}>
       {onBack && <OHdrA title="🏆 Mis Premios" onBack={onBack}/>}
 
       {/* Stats */}

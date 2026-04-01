@@ -870,7 +870,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
 
   // ── Render principal ──────────────────────────────────────────
   return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       <OHdrA title="💬 Chat" onBack={onBack}/>
 
       {/* Tabs */}

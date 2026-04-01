@@ -55,7 +55,7 @@ function AIngresar({me, onBack}){
   );
 
   return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       <OHdrA title="⬇️ Ingresar" onBack={onBack}
         extra={<div style={{fontSize:12,opacity:.85,marginTop:4,fontWeight:600}}>
           Tu código para recibir monedas

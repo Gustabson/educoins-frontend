@@ -44,7 +44,7 @@ function ANotificaciones({me,onBack,notifs=[],setNotifs}){
   ].slice(0,30);
 
   return(
-    <div style={{background:bg,minHeight:"100vh"}}>
+    <div style={{background:bg}}>
       <OHdrA title="🔔 Notificaciones" onBack={onBack}/>
       <div style={{padding:"10px 14px"}}>
         {loading&&<div style={{textAlign:"center",color:sub,padding:24}}>Cargando...</div>}

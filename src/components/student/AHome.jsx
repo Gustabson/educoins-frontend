@@ -21,7 +21,7 @@ function AHome({me,balance,displayBalance,balDir,onNav,badges={},nameColorConfig
   const arrow = sub;
 
   return(
-    <div style={{minHeight:"100vh",background:pageBg,transition:"background .3s"}}>
+    <div style={{background:pageBg,transition:"background .3s"}}>
       <div style={{background:accent,position:"sticky",top:0,zIndex:50,overflow:"hidden",
         paddingBottom:12,color:"white",transition:"background .3s"}}>
         <div style={{position:"absolute",width:260,height:260,borderRadius:"50%",

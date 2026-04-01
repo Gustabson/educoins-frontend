@@ -208,7 +208,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
   };
 
   return(
-    <div style={{background:pageBg,minHeight:"100vh"}}>
+    <div style={{background:pageBg}}>
       <style>{RARITY_CSS}</style>
       <OHdrA title="Mi Perfil 👤"/>
       <div style={{padding:"0 14px 32px",marginTop:12}}>

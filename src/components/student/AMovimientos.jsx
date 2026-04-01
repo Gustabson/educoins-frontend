@@ -38,7 +38,7 @@ function AMovimientos(){
   });
 
   if(loading) return(
-    <div style={{background:pageBg,minHeight:"100vh",
+    <div style={{background:pageBg,
       display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{textAlign:"center",color:sub}}>
         <div style={{fontSize:32,marginBottom:8}}>⏳</div>
@@ -48,7 +48,7 @@ function AMovimientos(){
   );
 
   return(
-    <div style={{background:pageBg,minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:pageBg,transition:"background .3s"}}>
       <OHdrA title="Movimientos 📊"/>
 
       {/* Buscador sticky */}

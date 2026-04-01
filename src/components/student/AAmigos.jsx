@@ -175,7 +175,7 @@ function AAmigos({ me, showToast, onBack, onOpenPerfil, onOpenChat }) {
   ];
 
   return (
-    <div style={{background:bg, minHeight:"100vh", fontFamily:"Nunito,sans-serif"}}>
+    <div style={{background:bg,  fontFamily:"Nunito,sans-serif"}}>
       <OHdrA title="👥 Amigos" onBack={onBack}/>
 
       {/* ── Buscador ──────────────────────────────────────── */}

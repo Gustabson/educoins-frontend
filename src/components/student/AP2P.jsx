@@ -420,13 +420,13 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
 
   // ── Guards ───────────────────────────────────────────────
   if (!config) return (
-    <div style={{background:bg, minHeight:"100vh"}}>
+    <div style={{background:bg,}}>
       <OHdrA title="💱 Exchange P2P" onBack={onBack}/>
     </div>
   );
 
   if (!config.activo) return (
-    <div style={{background:bg, minHeight:"100vh", fontFamily:"Nunito,sans-serif"}}>
+    <div style={{background:bg,  fontFamily:"Nunito,sans-serif"}}>
       <OHdrA title="💱 Exchange P2P" onBack={onBack}/>
       <div style={{textAlign:"center", padding:"60px 24px", color:sub}}>
         <div style={{fontSize:52, marginBottom:16}}>🔜</div>
@@ -437,7 +437,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
   );
 
   return (
-    <div style={{background:bg, minHeight:"100vh",
+    <div style={{background:bg, 
       fontFamily:"Nunito,sans-serif", paddingBottom:32}}>
       <OHdrA title="💱 Exchange P2P" onBack={onBack}/>
 

@@ -26,7 +26,7 @@ function AOpciones({me,logout,notifs=[]}){
   };
 
   return(
-    <div style={{background:pageBg,minHeight:"100vh",transition:"background .3s"}}>
+    <div style={{background:pageBg,transition:"background .3s"}}>
       <OHdrA title="☰ Opciones"/>
       <div style={{padding:"0 14px",marginTop:12}}>
 
