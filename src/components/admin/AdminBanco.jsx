@@ -32,6 +32,7 @@ function AdminBanco({me,showToast,onBack}){
   const [taxAmt,setTaxAmt]=useState("");
   const [taxMotivo,setTaxMotivo]=useState("");
   const [taxPer,setTaxPer]=useState("unico");
+  const [taxDias,setTaxDias]=useState(7);
   const [taxing,setTaxing]=useState(false);
 
   useEffect(()=>{
@@ -95,7 +96,8 @@ function AdminBanco({me,showToast,onBack}){
       const recipients=taxRMode==="individual"?[taxUser.id]:taxRMode==="classroom"?"classroom":"all";
       const d=await api.applyTax({
         recipients, classroom_id:taxClass?.id||null,
-        amount:parseInt(taxAmt), motivo:taxMotivo.trim(), periodicidad:taxPer
+        amount:parseInt(taxAmt), motivo:taxMotivo.trim(), periodicidad:taxPer,
+        dias: taxPer==="diario" ? taxDias : undefined
       });
       const r=d.data||d;
       showToast(`Impuesto aplicado a ${r.ok} alumno${r.ok!==1?"s":""}`);
@@ -360,14 +362,44 @@ function AdminBanco({me,showToast,onBack}){
                   padding:"10px 14px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",
                   color:"#1a1a1a",marginBottom:8}}/>
               <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:6}}>Periodicidad</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {[["unico","📌 Unico"],["diario","📅 Diario"],["semanal","📆 Semanal"],["mensual","🗓️ Mensual"]].map(([v,l])=>(
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                {[["unico","📌 Único"],["diario","📅 Diario"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setTaxPer(v)}
-                    style={{background:taxPer===v?"#f97316":"#f0f0f0",color:taxPer===v?"white":"#555",
-                      border:"none",borderRadius:99,padding:"6px 12px",fontSize:11,fontWeight:800,
+                    style={{flex:1,background:taxPer===v?"#f97316":"#f0f0f0",
+                      color:taxPer===v?"white":"#555",border:"none",borderRadius:12,
+                      padding:"10px",fontSize:12,fontWeight:800,
                       cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
                 ))}
               </div>
+              {taxPer==="diario"&&(
+                <div style={{background:"#fff7ed",borderRadius:12,padding:"12px 14px",
+                  border:"1.5px solid #fed7aa"}}>
+                  <div style={{fontWeight:700,fontSize:12,color:"#92400e",marginBottom:8}}>
+                    ¿Por cuántos días?
+                  </div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+                    {[3,7,14,21,30].map(n=>(
+                      <button key={n} onClick={()=>setTaxDias(n)}
+                        style={{background:taxDias===n?"#f97316":"white",
+                          color:taxDias===n?"white":"#555",
+                          border:"1.5px solid "+(taxDias===n?"#f97316":"#e8e8e8"),
+                          borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:800,
+                          cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                        {n}d
+                      </button>
+                    ))}
+                    <input type="number" min="1" max="365" value={taxDias}
+                      onChange={e=>setTaxDias(Math.max(1,parseInt(e.target.value)||1))}
+                      style={{width:60,border:"1.5px solid #fed7aa",borderRadius:8,
+                        padding:"5px 8px",fontSize:12,fontWeight:800,outline:"none",
+                        textAlign:"center",fontFamily:"Nunito,sans-serif",color:"#f97316"}}/>
+                  </div>
+                  <div style={{fontSize:11,color:"#92400e",fontWeight:600}}>
+                    Se cobrará 🪙{taxAmt||"?"} por día durante {taxDias} día{taxDias!==1?"s":""} →
+                    total estimado: 🪙{taxAmt?(parseInt(taxAmt)*taxDias).toLocaleString():"?"}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button onClick={cobrarImpuesto} disabled={taxing||!taxAmt||!taxMotivo}
