@@ -6,11 +6,11 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
 
-// Module-level: persists across AHome unmount/remount cycles.
-// Tracks the last burstTick value that was actually SHOWN to the user with an animation.
-let _lastShownBurstTick = 0;
+// Module-level: survive AHome unmount/remount (switching app sections)
+let _prevBalance       = null; // for direction detection
+let _lastShownBurstTick = 0;   // for burst dedup
 
-// Coins that burst upward when balance increases
+// ── Coin burst portal ────────────────────────────────────────
 const COIN_CFG = [
   {anim:"coinFloatL", delay:"0s",    size:28, left:"6%"},
   {anim:"coinFloat",  delay:"0.5s",  size:34, left:"20%"},
@@ -26,21 +26,11 @@ const COIN_CFG = [
   {anim:"coinFloatR", delay:"1.1s",  size:20, left:"58%"},
 ];
 
-// Rendered via portal so overflow:hidden on the sticky header can never clip the coins
-function CoinBurst({ burstKey, anchorRef }) {
-  const [anchorY, setAnchorY] = useState(null);
-  useEffect(() => {
-    if (burstKey && anchorRef?.current) {
-      const rect = anchorRef.current.getBoundingClientRect();
-      setAnchorY(rect.top + rect.height / 2);
-    }
-  }, [burstKey]);
-
+function CoinBurst({ burstKey }) {
   if (!burstKey) return null;
-  const top = anchorY ?? 120;
   return createPortal(
-    <div style={{position:"fixed", left:0, right:0, top, height:0,
-      pointerEvents:"none", zIndex:99999, overflow:"visible"}}>
+    <div style={{position:"fixed",left:0,right:0,top:155,height:0,
+      pointerEvents:"none",zIndex:99999,overflow:"visible"}}>
       {COIN_CFG.map((c,i) => (
         <span key={i} style={{
           position:"absolute", left:c.left, bottom:0,
@@ -54,46 +44,51 @@ function CoinBurst({ burstKey, anchorRef }) {
   );
 }
 
-function AHome({me,balance,displayBalance,balDir,burstTick=0,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
-  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg, navBord} = useTheme();
+function AHome({me,balance,displayBalance,burstTick=0,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg} = useTheme();
   const [gridMode, setGridMode] = useState(() => {
     try { return localStorage.getItem("accesos_grid") === "1"; } catch { return false; }
   });
 
+  // ── Balance direction — local, uses _prevBalance so it works after remount ──
+  const [balDir, setBalDir] = useState(null);
+  useEffect(() => {
+    if (!balance) return;
+    if (_prevBalance !== null && balance !== _prevBalance) {
+      const dir = balance > _prevBalance ? "up" : "down";
+      setBalDir(dir);
+      const t = setTimeout(() => setBalDir(null), 2200);
+      _prevBalance = balance;
+      return () => clearTimeout(t);
+    }
+    _prevBalance = balance;
+  }, [balance]);
+
   // ── Coin burst ───────────────────────────────────────────────
-  // burstTick comes from Alumno (always mounted) — increments every time balance goes up.
-  // _lastShownBurstTick is module-level — survives AHome unmount/remount.
-  // Rules:
-  //   • Only show if document is visible (user is actually looking at the screen).
-  //   • If tab was hidden when tick fired, defer until visibilitychange fires.
   const [burstKey, setBurstKey] = useState(0);
-  const balRef = useRef(null);
   const burstTickRef = useRef(burstTick);
-
-  const fireBurst = () => {
-    setBurstKey(k => k + 1);
-    _lastShownBurstTick = burstTickRef.current;
-  };
-
-  // Keep ref in sync so visibilitychange handler always sees fresh value
   useEffect(() => { burstTickRef.current = burstTick; }, [burstTick]);
 
-  // Fires when burstTick changes OR on first mount (catches "returned from app section")
+  // When on home and burstTick increases (or on mount after being away)
   useEffect(() => {
-    if (burstTick <= _lastShownBurstTick) return;
-    if (document.hidden) return; // browser tab not visible — handled by visibilitychange
-    fireBurst();
+    if (burstTick <= _lastShownBurstTick || document.hidden) return;
+    setBurstKey(k => k + 1);
+    _lastShownBurstTick = burstTick;
   }, [burstTick]); // eslint-disable-line
 
-  // Fires when user switches back to this browser tab
+  // When switching back to this browser tab
   useEffect(() => {
     const onVisible = () => {
       if (document.hidden) return;
-      if (burstTickRef.current > _lastShownBurstTick) fireBurst();
+      if (burstTickRef.current > _lastShownBurstTick) {
+        setBurstKey(k => k + 1);
+        _lastShownBurstTick = burstTickRef.current;
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []); // eslint-disable-line
+
   const toggleGrid = () => {
     const next = !gridMode;
     setGridMode(next);
@@ -132,19 +127,17 @@ function AHome({me,balance,displayBalance,balDir,burstTick=0,onNav,badges={},nam
           <div style={{background:"rgba(255,255,255,.18)",borderRadius:22,padding:"16px 20px 14px",
             border:"1.5px solid rgba(255,255,255,.25)",marginBottom:18,position:"relative",overflow:"visible"}}>
             <div style={{fontSize:11,opacity:.8,fontWeight:700,letterSpacing:".1em",marginBottom:4}}>CAJA DE AHORRO</div>
-            <div ref={balRef} style={{position:"relative"}}>
-              <CoinBurst key={burstKey} burstKey={burstKey} anchorRef={balRef}/>
-              <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1,
-                animation:balDir==="up"?"balUp 1.4s ease":balDir==="down"?"balDown 1.4s ease":"none",
-                display:"flex",alignItems:"center",gap:10}}>
-                🪙 {(displayBalance||balance).toLocaleString("es-AR")}
-                {balDir&&(
-                  <span style={{fontSize:18,fontWeight:900,animation:"fadeIn .2s ease",
-                    color:balDir==="up"?"#a7f3d0":"#fca5a5"}}>
-                    {balDir==="up"?"▲":"▼"}
-                  </span>
-                )}
-              </div>
+            <CoinBurst key={burstKey} burstKey={burstKey}/>
+            <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1,
+              animation:balDir==="up"?"balUp 1.4s ease":balDir==="down"?"balDown 1.4s ease":"none",
+              display:"flex",alignItems:"center",gap:10}}>
+              🪙 {(displayBalance||balance).toLocaleString("es-AR")}
+              {balDir&&(
+                <span style={{fontSize:18,fontWeight:900,animation:"fadeIn .2s ease",
+                  color:balDir==="up"?"#a7f3d0":"#fca5a5"}}>
+                  {balDir==="up"?"▲":"▼"}
+                </span>
+              )}
             </div>
             <div style={{marginTop:10}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:11,opacity:.8,fontWeight:700,marginBottom:4}}>
@@ -180,11 +173,7 @@ function AHome({me,balance,displayBalance,balDir,burstTick=0,onNav,badges={},nam
               borderRadius:8,padding:"5px 10px",cursor:"pointer",display:"flex",
               alignItems:"center",gap:5,fontFamily:"Nunito,sans-serif",
               fontSize:11,fontWeight:800,color:sub,transition:"background .2s"}}>
-            {gridMode ? (
-              <><span>▤</span> Lista</>
-            ) : (
-              <><span>⊞</span> Cuadros</>
-            )}
+            {gridMode ? (<><span>▤</span> Lista</>) : (<><span>⊞</span> Cuadros</>)}
           </button>
         </div>
 
