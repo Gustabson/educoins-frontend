@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { api, connectSocket } from "../../api";
 import { ThemeCtx, useTheme } from "../../ThemeContext";
 import { DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode, GS } from "../../constants";
-import { Av, OHdrA, WCard, CircBtn, Toast, useToast, useCountUp, displayName } from "../shared/index";
+import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 import PerfilModal from "../shared/PerfilModal";
 import AHome from "./AHome";
 import AMisiones from "./AMisiones";
@@ -217,16 +217,6 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         : customActive.name_color_config)
     : null;
 
-  // ── Balance animado ──────────────────────────────────────────
-  const displayBalance = useCountUp(balance, 2000);
-  const prevBal = useRef(balance);
-  // coinBurstTick increments every time balance goes UP — AHome listens to fire the burst
-  const [coinBurstTick, setCoinBurstTick] = useState(0);
-  useEffect(()=>{
-    if(balance===prevBal.current) return;
-    if(balance > prevBal.current && prevBal.current > 0) setCoinBurstTick(t => t + 1);
-    prevBal.current=balance;
-  },[balance]);
 
   const hideNav = ["chat","amigos","mispremios","p2p","noticias","votaciones","reportes","notificaciones"].includes(tab);
 
@@ -285,7 +275,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
-        {tab==="home"       && <AHome       me={me} balance={balance} displayBalance={displayBalance} burstTick={coinBurstTick} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} moodLoaded={moodLoaded} onOpenWellness={()=>setWellnessOpen(true)}/>}
+        {tab==="home"       && <AHome       me={me} balance={balance} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} moodLoaded={moodLoaded} onOpenWellness={()=>setWellnessOpen(true)}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}

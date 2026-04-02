@@ -7,8 +7,8 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
 
 // Module-level: survive AHome unmount/remount (switching app sections)
-let _prevBalance       = null; // for direction detection
-let _lastShownBurstTick = 0;   // for burst dedup
+let _prevBalance  = null; // last balance AHome saw — for direction + countup start
+let _pendingBurst = false; // burst deferred because browser tab was hidden
 
 // ── Coin burst portal ────────────────────────────────────────
 const COIN_CFG = [
@@ -44,45 +44,59 @@ function CoinBurst({ burstKey }) {
   );
 }
 
-function AHome({me,balance,displayBalance,burstTick=0,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
+function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg} = useTheme();
   const [gridMode, setGridMode] = useState(() => {
     try { return localStorage.getItem("accesos_grid") === "1"; } catch { return false; }
   });
 
-  // ── Balance direction — local, uses _prevBalance so it works after remount ──
-  const [balDir, setBalDir] = useState(null);
+  // ── Balance display, direction arrow, and coin burst — all self-contained ──
+  const [displayBal, setDisplayBal] = useState(balance || 0);
+  const [balDir,     setBalDir]     = useState(null);
+  const [burstKey,   setBurstKey]   = useState(0);
+  const countupRef = useRef(null);
+
   useEffect(() => {
     if (!balance) return;
-    if (_prevBalance !== null && balance !== _prevBalance) {
-      const dir = balance > _prevBalance ? "up" : "down";
-      setBalDir(dir);
-      const t = setTimeout(() => setBalDir(null), 2200);
-      _prevBalance = balance;
-      return () => clearTimeout(t);
-    }
+    const prev = _prevBalance;
     _prevBalance = balance;
-  }, [balance]);
 
-  // ── Coin burst ───────────────────────────────────────────────
-  const [burstKey, setBurstKey] = useState(0);
-  const burstTickRef = useRef(burstTick);
-  useEffect(() => { burstTickRef.current = burstTick; }, [burstTick]);
+    if (prev === null || balance === prev) { setDisplayBal(balance); return; }
 
-  // When on home and burstTick increases (or on mount after being away)
-  useEffect(() => {
-    if (burstTick <= _lastShownBurstTick || document.hidden) return;
-    setBurstKey(k => k + 1);
-    _lastShownBurstTick = burstTick;
-  }, [burstTick]); // eslint-disable-line
+    const isUp = balance > prev;
 
-  // When switching back to this browser tab
+    // Direction arrow (fresh 2.2s timer every time, even on remount)
+    setBalDir(isUp ? "up" : "down");
+    const dirTimer = setTimeout(() => setBalDir(null), 2200);
+
+    // Countup: always starts from prev → balance over 2s, fresh on remount
+    if (countupRef.current) clearInterval(countupRef.current);
+    const steps   = Math.min(Math.abs(balance - prev), 40);
+    const stepVal = (balance - prev) / steps;
+    const msPerStep = Math.max(8, 2000 / steps);
+    let current = prev, count = 0;
+    countupRef.current = setInterval(() => {
+      count++;
+      current += stepVal;
+      if (count >= steps) { setDisplayBal(balance); clearInterval(countupRef.current); }
+      else                { setDisplayBal(Math.round(current)); }
+    }, msPerStep);
+
+    // Burst: only if user can see it right now
+    if (isUp) {
+      if (!document.hidden) { setBurstKey(k => k + 1); }
+      else                  { _pendingBurst = true; }
+    }
+
+    return () => { clearTimeout(dirTimer); clearInterval(countupRef.current); };
+  }, [balance]); // eslint-disable-line
+
+  // Deferred burst when user switches back to this browser tab
   useEffect(() => {
     const onVisible = () => {
-      if (document.hidden) return;
-      if (burstTickRef.current > _lastShownBurstTick) {
+      if (!document.hidden && _pendingBurst) {
         setBurstKey(k => k + 1);
-        _lastShownBurstTick = burstTickRef.current;
+        _pendingBurst = false;
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -131,7 +145,7 @@ function AHome({me,balance,displayBalance,burstTick=0,onNav,badges={},nameColorC
             <div style={{fontWeight:900,fontSize:38,letterSpacing:"-1.5px",lineHeight:1,
               animation:balDir==="up"?"balUp 1.4s ease":balDir==="down"?"balDown 1.4s ease":"none",
               display:"flex",alignItems:"center",gap:10}}>
-              🪙 {(displayBalance||balance).toLocaleString("es-AR")}
+              🪙 {displayBal.toLocaleString("es-AR")}
               {balDir&&(
                 <span style={{fontSize:18,fontWeight:900,animation:"fadeIn .2s ease",
                   color:balDir==="up"?"#a7f3d0":"#fca5a5"}}>
