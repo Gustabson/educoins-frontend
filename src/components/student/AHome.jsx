@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { getLv, nextLv } from "../../constants";
 import { useTheme } from "../../ThemeContext";
@@ -6,8 +6,9 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 
 const MOOD_FACES = {1:"😞",2:"😟",3:"😐",4:"😊",5:"😄"};
 
-// Module-level: persists across AHome unmount/remount cycles (e.g. switching tabs)
-let _lastSeenBurstTick = 0;
+// Module-level: persists across AHome unmount/remount cycles.
+// Tracks the last burstTick value that was actually SHOWN to the user with an animation.
+let _lastShownBurstTick = 0;
 
 // Coins that burst upward when balance increases
 const COIN_CFG = [
@@ -60,18 +61,39 @@ function AHome({me,balance,displayBalance,balDir,burstTick=0,onNav,badges={},nam
   });
 
   // ── Coin burst ───────────────────────────────────────────────
-  // burstTick comes from Alumno (always mounted) so it increments even when AHome is away.
-  // _lastSeenBurstTick is module-level so it survives AHome unmount/remount.
-  // On mount: if burstTick > _lastSeenBurstTick, burst fired while we were away → show it now.
-  // On update: normal in-view burst.
+  // burstTick comes from Alumno (always mounted) — increments every time balance goes up.
+  // _lastShownBurstTick is module-level — survives AHome unmount/remount.
+  // Rules:
+  //   • Only show if document is visible (user is actually looking at the screen).
+  //   • If tab was hidden when tick fired, defer until visibilitychange fires.
   const [burstKey, setBurstKey] = useState(0);
   const balRef = useRef(null);
+  const burstTickRef = useRef(burstTick);
+
+  const fireBurst = () => {
+    setBurstKey(k => k + 1);
+    _lastShownBurstTick = burstTickRef.current;
+  };
+
+  // Keep ref in sync so visibilitychange handler always sees fresh value
+  useEffect(() => { burstTickRef.current = burstTick; }, [burstTick]);
+
+  // Fires when burstTick changes OR on first mount (catches "returned from app section")
   useEffect(() => {
-    if (burstTick > _lastSeenBurstTick) {
-      setBurstKey(k => k + 1);
-    }
-    _lastSeenBurstTick = burstTick;
-  }, [burstTick]);
+    if (burstTick <= _lastShownBurstTick) return;
+    if (document.hidden) return; // browser tab not visible — handled by visibilitychange
+    fireBurst();
+  }, [burstTick]); // eslint-disable-line
+
+  // Fires when user switches back to this browser tab
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.hidden) return;
+      if (burstTickRef.current > _lastShownBurstTick) fireBurst();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []); // eslint-disable-line
   const toggleGrid = () => {
     const next = !gridMode;
     setGridMode(next);
