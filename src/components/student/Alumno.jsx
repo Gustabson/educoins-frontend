@@ -21,8 +21,105 @@ import AP2P from "./AP2P";
 import ANoticias from "./ANoticias";
 import AVotaciones from "./AVotaciones";
 import AReportes from "./AReportes";
+import AVeredictos from "./AVeredictos";
 import ATiendaCustom from "./personalizar/ATiendaCustom";
 import AWellness from "./AWellness";
+
+const VERDICT_SEVERITY = {
+  advertencia: { label:"Advertencia",  color:"#f59e0b", icon:"⚠️", bg:"#78350f" },
+  sancion:     { label:"Sanción",      color:"#ef4444", icon:"🚔", bg:"#7f1d1d" },
+  grave:       { label:"Caso Grave",   color:"#dc2626", icon:"⛔", bg:"#450a0a" },
+};
+
+const SIREN_STYLE = `
+  @keyframes sirenPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.7), inset 0 0 80px rgba(220,38,38,.15); }
+    50%      { box-shadow: 0 0 0 24px rgba(220,38,38,0), inset 0 0 80px rgba(220,38,38,.35); }
+  }
+  @keyframes badgePop {
+    0%   { transform: scale(0) rotate(-10deg); opacity:0; }
+    60%  { transform: scale(1.15) rotate(3deg); }
+    100% { transform: scale(1) rotate(0deg); opacity:1; }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(60px); opacity:0; }
+    to   { transform: translateY(0);    opacity:1; }
+  }
+`;
+
+function VerdictModal({ verdict, onDismiss }) {
+  const cfg = VERDICT_SEVERITY[verdict.severity] || VERDICT_SEVERITY.advertencia;
+  return (
+    <>
+      <style>{SIREN_STYLE}</style>
+      <div style={{ position:"fixed", inset:0, zIndex:9999,
+        background:"rgba(0,0,0,.88)",
+        display:"flex", alignItems:"flex-end", justifyContent:"center",
+        fontFamily:"Nunito,sans-serif" }}>
+        <div style={{ width:"100%", maxWidth:480, background:"white",
+          borderRadius:"28px 28px 0 0", overflow:"hidden",
+          animation:"slideUp .35s ease" }}>
+
+          {/* Franja superior animada */}
+          <div style={{ background:cfg.bg, padding:"28px 24px 20px",
+            animation:"sirenPulse 1.4s ease-in-out infinite",
+            textAlign:"center", color:"white" }}>
+            <div style={{ fontSize:52, marginBottom:10,
+              animation:"badgePop .5s ease .1s both", display:"inline-block" }}>
+              {cfg.icon}
+            </div>
+            <div style={{ fontWeight:900, fontSize:22, letterSpacing:"-.5px",
+              textTransform:"uppercase", marginBottom:4 }}>
+              Veredicto Oficial
+            </div>
+            <div style={{ display:"inline-block", background:"rgba(255,255,255,.2)",
+              borderRadius:99, padding:"4px 14px", fontSize:12, fontWeight:800 }}>
+              {cfg.label}
+            </div>
+          </div>
+
+          {/* Cuerpo */}
+          <div style={{ padding:"22px 24px 10px" }}>
+            <div style={{ fontSize:15, color:"#1a1a1a", lineHeight:1.6,
+              fontWeight:700, marginBottom:verdict.coins_penalty>0?16:8 }}>
+              {verdict.mensaje}
+            </div>
+
+            {verdict.coins_penalty > 0 && (
+              <div style={{ background:"#fee2e2", borderRadius:14, padding:"12px 16px",
+                display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                <span style={{ fontSize:24 }}>🪙</span>
+                <div>
+                  <div style={{ fontWeight:900, fontSize:14, color:"#dc2626" }}>
+                    -{verdict.coins_penalty} EduCoins descontados
+                  </div>
+                  <div style={{ fontSize:11, color:"#ef4444", marginTop:2 }}>
+                    El monto fue debitado de tu cuenta automáticamente
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontSize:11, color:"#aaa", textAlign:"center", marginBottom:20 }}>
+              Emitido por la Administración · {new Date(verdict.created_at).toLocaleDateString("es-AR")}
+            </div>
+          </div>
+
+          {/* Botón */}
+          <div style={{ padding:"0 24px 40px" }}>
+            <button onClick={onDismiss} style={{ width:"100%",
+              background:cfg.bg, border:"none", borderRadius:50,
+              color:"white", padding:"15px", fontWeight:900, fontSize:15,
+              cursor:"pointer", fontFamily:"Nunito,sans-serif",
+              boxShadow:`0 4px 20px ${cfg.color}66` }}>
+              Entendido
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [tab,setTab]=useState("home");
@@ -32,7 +129,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [todayMood,setTodayMood]=useState(null);
   const [moodLoaded,setMoodLoaded]=useState(false);
   const [notifs,setNotifs]=useState([]);
-  const [badges,setBadges]=useState({chat:0,notifs:0});
+  const [badges,setBadges]=useState({chat:0,notifs:0,veredictos:0});
+  const [pendingVerdict,setPendingVerdict]=useState(null); // modal bloqueante
   const [perfilUserId,setPerfilUserId]=useState(null); // perfil modal global
   const [chatInitialFriend,setChatInitialFriend]=useState(null);
 
@@ -218,7 +316,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     : null;
 
 
-  const hideNav = ["chat","amigos","mispremios","p2p","noticias","votaciones","reportes","notificaciones"].includes(tab);
+  const hideNav = ["chat","amigos","mispremios","p2p","noticias","votaciones","reportes","notificaciones","veredictos"].includes(tab);
 
   // ── Socket notificaciones ────────────────────────────────────
   useEffect(()=>{
@@ -254,9 +352,18 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     };
     s.on('p2p_update', onP2P);
 
+    // Veredictos: modal bloqueante
+    const onVerdict = (v) => {
+      setPendingVerdict(v);
+      setBadges(b=>({...b,veredictos:b.veredictos+1}));
+      if (v.coins_penalty > 0) refreshBalance();
+    };
+    s.on('new_verdict', onVerdict);
+
     return()=>{
       s.off('notification',onNotif);
       s.off('p2p_update',onP2P);
+      s.off('new_verdict',onVerdict);
     };
   },[]);
 
@@ -265,6 +372,14 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     if(dest==="chat") setBadges(b=>({...b,chat:0}));
     if(dest==="amigos") setBadges(b=>({...b,amigos:0}));
     if(dest==="notificaciones"||dest==="opciones") setBadges(b=>({...b,notifs:0}));
+    if(dest==="veredictos") setBadges(b=>({...b,veredictos:0}));
+  };
+
+  const dismissVerdict = () => {
+    if (pendingVerdict?.id) {
+      api.readVerdict(pendingVerdict.id).catch(()=>{});
+    }
+    setPendingVerdict(null);
   };
 
   return(
@@ -274,7 +389,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       transition:"background .3s",position:"relative"}}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
-      <div style={{flex:1,overflowY:"auto",paddingBottom:hideNav?0:90,animation:"fadeIn .18s ease"}}>
+      <div style={{flex:1,overflowY:"auto",paddingBottom:0,animation:"fadeIn .18s ease"}}>
         {tab==="home"       && <AHome       me={me} balance={balance} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} moodLoaded={moodLoaded} onOpenWellness={()=>setWellnessOpen(true)}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
@@ -305,6 +420,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="noticias"   && <ANoticias   me={me} onBack={()=>navTo("home")}/>}
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="reportes"   && <AReportes   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
+        {tab==="veredictos" && <AVeredictos me={me} onBack={()=>navTo("home")}/>}
       </div>
 
       {/* Modal Bienestar */}
@@ -395,6 +511,11 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       )}
     </div>
     {perfilUserId&&<PerfilModal userId={perfilUserId} onClose={()=>setPerfilUserId(null)} showToast={showToast}/>}
+
+    {/* Modal bloqueante de veredicto */}
+    {pendingVerdict&&(
+      <VerdictModal verdict={pendingVerdict} onDismiss={dismissVerdict}/>
+    )}
     </ThemeCtx.Provider>
   );
 }

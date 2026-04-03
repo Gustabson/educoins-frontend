@@ -58,6 +58,7 @@ function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
     { icon:"🧠", title:"Psicología",         sub:"Bienestar, alertas y reportes de alumnos",  dest:"psicologia", col:"#8b5cf6" },
     { icon:"📋", title:"Audit Log",         sub:"Historial de todas las acciones",            dest:"audit",      col:"#64748b" },
     { icon:"📨", title:"Solicitudes",       sub:"Propuestas del equipo pendientes",           dest:"solicitudes",col:"#8b5cf6" },
+    { icon:"⚖️", title:"Veredictos",        sub:"Canal oficial de conducta y sanciones",      dest:"veredictos", col:"#7f1d1d" },
   ].filter(item => canSee(item.dest));
 
   return (

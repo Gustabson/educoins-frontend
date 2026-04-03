@@ -247,6 +247,11 @@ const api = {
   adminClassrooms:()                      => apiFetch("/admin/classrooms"),
   createClassroom:(data)                  => apiFetch("/admin/classrooms",     { method:"POST", body:data }),
   addClassroomMember:(id,data)            => apiFetch(`/admin/classrooms/${id}/members`, { method:"POST", body:data }),
+  // ── Veredictos ────────────────────────────────────────────
+  sendVerdict:    (data)  => apiFetch("/verdicts",      { method:"POST", body:data }),
+  allVerdicts:    ()      => apiFetch("/verdicts"),
+  myVerdicts:     ()      => apiFetch("/verdicts/mine"),
+  readVerdict:    (id)    => apiFetch(`/verdicts/${id}/read`, { method:"PATCH" }),
 };
 
 // ── GAMIFICACIÓN (local, solo visual) ────────────────────────

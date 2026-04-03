@@ -202,6 +202,7 @@ function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,
             ["🎨","Personalizar",  "Temas, emojis y más",         "#f59e0b","personalizar",  0],
             ["🔔","Notificaciones","Misiones, premios y más",     "#ef4444","notificaciones",badges.notifs],
             ["🚩","Reportes",      "Enviá un reporte",            "#64748b","reportes",      0],
+            ["⚖️","Veredictos",    "Comunicados oficiales",       "#7f1d1d","veredictos",    badges.veredictos||0],
           ];
 
           if (gridMode) {
