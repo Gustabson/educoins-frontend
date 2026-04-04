@@ -32,7 +32,7 @@ function AdminVeredictos({ showToast, onBack }) {
   useEffect(() => {
     api.adminUsers().then(u => {
       const arr = Array.isArray(u) ? u : u.data || [];
-      setStudents(arr.filter(x => x.rol === "alumno" && x.activo));
+      setStudents(arr.filter(x => x.rol === "student" && x.activo));
     }).catch(() => {});
   }, []);
 
