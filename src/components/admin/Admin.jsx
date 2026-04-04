@@ -20,6 +20,7 @@ import AdminSolicitudes from "./AdminSolicitudes";
 import AdminVeredictos  from "./AdminVeredictos";
 import AdminDocs        from "./AdminDocs";
 import AdminDiwy        from "./AdminDiwy";
+import AdminVincular    from "./AdminVincular";
 
 // ── Mapa de secciones → permiso requerido ─────────────────────
 // null = solo superadmin (rol='admin')
@@ -99,6 +100,7 @@ function Admin({ me, logout }) {
         {tab==="veredictos"   && canSee("veredictos")    && <AdminVeredictos  showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="aidocs"       && canSee("aidocs")        && <AdminDocs        showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="diwy"         && canSee("diwy")          && <AdminDiwy        showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="link-requests"                           && <AdminVincular    showToast={showToast} onBack={()=>setTab("home")}/>}
 
       </div>
 
