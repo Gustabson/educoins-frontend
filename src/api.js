@@ -280,6 +280,12 @@ const api = {
   parentBurn:          (amount)    => apiFetch("/parent/burn", { method:"POST", body:{amount} }),
   parentChatMessages:  ()          => apiFetch("/chat/parent-messages"),
   parentChatSend:      (texto)     => apiFetch("/chat/parent-messages", { method:"POST", body:{texto} }),
+  // ── Parent chat v2 (conversations infrastructure) ─────────────
+  parentGlobalInfo:    ()          => apiFetch("/chat/parent-global/info"),
+  parentGlobalMsgs:    ()          => apiFetch("/chat/parent-global/messages"),
+  parentClassroomInfo: ()          => apiFetch("/chat/parent-classroom/info"),
+  parentClassroomMsgs: ()          => apiFetch("/chat/parent-classroom/messages"),
+  parentUsersSearch:   (q)         => apiFetch(`/chat/parent-users/search?q=${encodeURIComponent(q)}`),
   adminLinkRequests:   ()          => apiFetch("/admin/link-requests"),
   adminLinkApprove:    (id)        => apiFetch(`/admin/link-requests/${id}/approve`, { method:"PATCH" }),
   adminLinkReject:     (id)        => apiFetch(`/admin/link-requests/${id}/reject`,  { method:"PATCH" }),

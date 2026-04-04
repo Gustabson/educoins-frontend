@@ -43,6 +43,7 @@ const SECTION_PERMS = {
   veredictos:  null,
   aidocs:      null,
   diwy:        "administracion",
+  "link-requests": "administracion",
 };
 
 function Admin({ me, logout }) {

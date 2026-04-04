@@ -70,6 +70,7 @@ function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
     { icon:"⚖️", title:"Veredictos",        sub:"Canal oficial de conducta y sanciones",      dest:"veredictos", col:"#7f1d1d" },
     { icon:"📚", title:"Documentos IA",     sub:"Reglamento e info del Asistente",            dest:"aidocs",     col:"#10b981" },
     { icon:"🐾", title:"Diwy",             sub:"Asistente preceptor IA — reportes para padres", dest:"diwy",    col:"#7c3aed" },
+    { icon:"🔗", title:"Vinculaciones",    sub:"Solicitudes y vínculos padre-alumno",            dest:"link-requests", col:"#f59e0b" },
   ].filter(item => canSee(item.dest));
 
   return (

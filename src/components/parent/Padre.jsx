@@ -9,11 +9,13 @@ import AAsistente    from "../student/AAsistente";
 import ATiendaCustom from "../student/personalizar/ATiendaCustom";
 import ANoticias     from "../student/ANoticias";
 import ARanking      from "../student/ARanking";
+import PChat2        from "./PChat2";
+import PAMigos       from "./PAMigos";
 
 // Sub-páginas que ocultan la barra de nav (tienen su propio botón ←)
 const HIDE_NAV = new Set([
   "diwy","veredictos-hijo","noticias","asistente",
-  "personalizar","exchange","quemar","vincular","chat",
+  "personalizar","exchange","quemar","vincular","chat","amigos",
 ]);
 
 // ─────────────────────────────────────────────────────────────
@@ -101,8 +103,9 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
 
         {tab==="home"            && <PHome me={me} balance={balance} refreshBalance={refreshBalance}
                                      showToast={showToast} setTab={setTab}/>}
-        {tab==="chat"            && <PChat me={me} showToast={showToast}
-                                     clearUnread={()=>setChatUnread(0)} onBack={()=>setTab("home")}/>}
+        {tab==="chat"            && <PChat2 me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="amigos"          && <PAMigos me={me} showToast={showToast} onBack={()=>setTab("home")}
+                                     onOpenChat={f=>{setTab("chat");}}/>}
         {tab==="ranking"         && <ARanking me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="votar"           && <AVotaciones me={me} showToast={showToast}
                                      onBack={()=>setTab("home")} parentMode={true}/>}
@@ -176,9 +179,9 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
             boxShadow:"0 -2px 16px rgba(0,0,0,.12)", transition:"background .3s" }}>
             {[
               { id:"home",    icon:"🏠", label:"Inicio"  },
-              { id:"chat",    icon:"💬", label:"Chat", badge:chatUnread },
+              { id:"chat",    icon:"💬", label:"Chat"    },
               { id:"_cam",    isCam:true },
-              { id:"ranking", icon:"🏆", label:"Ranking" },
+              { id:"amigos",  icon:"👥", label:"Amigos"  },
               { id:"perfil",  icon:"👤", label:"Perfil"  },
             ].map(item => {
               if (item.isCam) return <div key="_cam" style={{ width:68, flexShrink:0 }}/>;
