@@ -18,9 +18,14 @@ function fmt(iso) {
 function AdminVeredictos({ showToast, onBack }) {
   const [students, setStudents]     = useState([]);
   const [history,  setHistory]      = useState([]);
-  const [view,     setView]         = useState("send"); // "send" | "history"
+  const [view,     setView]         = useState("send"); // "send" | "ia" | "history"
   const [sending,  setSending]      = useState(false);
   const [loadingH, setLoadingH]     = useState(false);
+
+  // IA state
+  const [iaCaso,       setIaCaso]       = useState("");
+  const [iaSuggestion, setIaSuggestion] = useState(null);
+  const [iaLoading,    setIaLoading]    = useState(false);
 
   // Formulario
   const [selected,  setSelected]   = useState([]);
@@ -116,7 +121,7 @@ function AdminVeredictos({ showToast, onBack }) {
         </div>
         {/* Tabs */}
         <div style={{ display:"flex", gap:8 }}>
-          {[["send","Enviar"],["history","Historial"]].map(([v,lb]) => (
+          {[["send","Enviar"],["ia","✨ IA"],["history","Historial"]].map(([v,lb]) => (
             <button key={v} onClick={()=>handleViewChange(v)} style={{
               background: view===v ? "white" : "rgba(255,255,255,.2)",
               color:      view===v ? "#7f1d1d" : "white",
@@ -265,6 +270,115 @@ function AdminVeredictos({ showToast, onBack }) {
               boxShadow: selected.length&&mensaje.trim() ? `0 4px 20px ${sev.color}66` : "none" }}>
             {sending ? "Enviando..." : `${sev.icon} Emitir Veredicto${selected.length>1?` (${selected.length})`:""}` }
           </button>
+        </div>
+      )}
+
+      {/* ── ASISTENTE IA ── */}
+      {view === "ia" && (
+        <div style={{ padding:"16px 14px 100px" }}>
+          <WCard style={{ marginBottom:12, background:"#f0fdf4", border:"1.5px solid #86efac" }}>
+            <div style={{ fontSize:12, color:"#15803d", lineHeight:1.6 }}>
+              ✨ <strong>Asistente de IA</strong>: describí el caso y la IA sugerirá un veredicto basado en el reglamento.
+              Siempre podés editar la sugerencia antes de enviarla.
+            </div>
+          </WCard>
+
+          <WCard style={{ marginBottom:12 }}>
+            <div style={{ fontWeight:800, fontSize:13, color:"#333", marginBottom:8 }}>
+              Descripción del caso
+            </div>
+            <textarea
+              value={iaCaso}
+              onChange={e => setIaCaso(e.target.value)}
+              placeholder="Ej: Un alumno insultó reiteradamente a una compañera durante el recreo. Hay tres testigos. Es la segunda vez que ocurre este mes..."
+              rows={5}
+              style={{ width:"100%", border:"1.5px solid #e5e7eb", borderRadius:12,
+                padding:"10px 12px", fontSize:13, fontFamily:"Nunito,sans-serif",
+                resize:"none", outline:"none", boxSizing:"border-box",
+                color:"#1a1a1a", background:"#fafafa" }}
+            />
+            <button
+              onClick={async () => {
+                if (!iaCaso.trim()) return showToast("Describí el caso primero");
+                setIaLoading(true);
+                setIaSuggestion(null);
+                try {
+                  const d = await api.aiVerdictSuggest(iaCaso.trim());
+                  setIaSuggestion(d);
+                } catch(e) {
+                  showToast(e.message || "Error al consultar la IA");
+                } finally { setIaLoading(false); }
+              }}
+              disabled={iaLoading || !iaCaso.trim()}
+              style={{ width:"100%", marginTop:10,
+                background: (!iaCaso.trim()||iaLoading) ? "#ccc" : "#10b981",
+                border:"none", borderRadius:12, padding:"12px",
+                color:"white", fontWeight:800, fontSize:13,
+                cursor: iaLoading||!iaCaso.trim() ? "not-allowed":"pointer",
+                fontFamily:"Nunito,sans-serif", transition:"background .2s" }}>
+              {iaLoading ? "⏳ Analizando el caso..." : "✨ Sugerir veredicto con IA"}
+            </button>
+          </WCard>
+
+          {/* Resultado de la IA */}
+          {iaSuggestion && (() => {
+            const sugCfg = SEVERITY_CFG[iaSuggestion.severity] || SEVERITY_CFG.advertencia;
+            return (
+              <WCard style={{ marginBottom:12, borderLeft:`4px solid ${sugCfg.color}` }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                  <span style={{ fontSize:20 }}>{sugCfg.icon}</span>
+                  <div>
+                    <div style={{ fontWeight:900, fontSize:14, color:sugCfg.color }}>{sugCfg.label}</div>
+                    <div style={{ fontSize:11, color:"#aaa" }}>Sugerencia de la IA — revisá antes de enviar</div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize:11, fontWeight:700, color:"#aaa", marginBottom:4 }}>FUNDAMENTO LEGAL</div>
+                <div style={{ fontSize:12, color:"#555", background:"#f8fafc",
+                  borderRadius:8, padding:"8px 10px", marginBottom:12, lineHeight:1.5 }}>
+                  {iaSuggestion.fundamento || "No especificado"}
+                </div>
+
+                <div style={{ fontSize:11, fontWeight:700, color:"#aaa", marginBottom:4 }}>VEREDICTO SUGERIDO</div>
+                <div style={{ fontSize:13, color:"#1a1a1a", lineHeight:1.6, marginBottom:12 }}>
+                  {iaSuggestion.veredicto}
+                </div>
+
+                {iaSuggestion.coins_sugeridas > 0 && (
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:12,
+                    background:"#fee2e2", borderRadius:10, padding:"8px 12px" }}>
+                    <span style={{ fontSize:16 }}>🪙</span>
+                    <span style={{ fontSize:12, fontWeight:800, color:"#dc2626" }}>
+                      Penalización sugerida: {iaSuggestion.coins_sugeridas} EduCoins
+                    </span>
+                  </div>
+                )}
+
+                {iaSuggestion.nota_para_admin && (
+                  <div style={{ background:"#fef9c3", borderRadius:10, padding:"8px 12px", marginBottom:12 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:"#854d0e", marginBottom:2 }}>NOTA PARA ADMIN</div>
+                    <div style={{ fontSize:12, color:"#854d0e" }}>{iaSuggestion.nota_para_admin}</div>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    setSeverity(iaSuggestion.severity || "advertencia");
+                    setMensaje(iaSuggestion.veredicto || "");
+                    if (iaSuggestion.coins_sugeridas > 0) setPenalty(String(iaSuggestion.coins_sugeridas));
+                    setView("send");
+                    showToast("Sugerencia cargada — completá los destinatarios");
+                  }}
+                  style={{ width:"100%", background:"#7f1d1d", border:"none",
+                    borderRadius:12, padding:"12px", color:"white",
+                    fontWeight:800, fontSize:13, cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif",
+                    boxShadow:"0 4px 16px rgba(127,29,29,.4)" }}>
+                  ⚖️ Usar esta sugerencia → ir a Enviar
+                </button>
+              </WCard>
+            );
+          })()}
         </div>
       )}
 

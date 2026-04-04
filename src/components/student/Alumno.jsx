@@ -22,6 +22,7 @@ import ANoticias from "./ANoticias";
 import AVotaciones from "./AVotaciones";
 import AReportes from "./AReportes";
 import AVeredictos from "./AVeredictos";
+import AAsistente  from "./AAsistente";
 import ATiendaCustom from "./personalizar/ATiendaCustom";
 import AWellness from "./AWellness";
 
@@ -316,7 +317,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     : null;
 
 
-  const hideNav = ["chat","amigos","mispremios","p2p","noticias","votaciones","reportes","notificaciones","veredictos"].includes(tab);
+  const hideNav = ["chat","amigos","mispremios","p2p","noticias","votaciones","reportes","notificaciones","veredictos","asistente"].includes(tab);
 
   // ── Socket notificaciones ────────────────────────────────────
   useEffect(()=>{
@@ -421,6 +422,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="votaciones" && <AVotaciones me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="reportes"   && <AReportes   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="veredictos" && <AVeredictos me={me} onBack={()=>navTo("home")}/>}
+        {tab==="asistente"  && <AAsistente  me={me} onBack={()=>navTo("home")}/>}
       </div>
 
       {/* Modal Bienestar */}

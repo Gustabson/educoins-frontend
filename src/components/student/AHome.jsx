@@ -203,6 +203,7 @@ function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,
             ["🔔","Notificaciones","Misiones, premios y más",     "#ef4444","notificaciones",badges.notifs],
             ["🚩","Reportes",      "Enviá un reporte",            "#64748b","reportes",      0],
             ["⚖️","Veredictos",    "Comunicados oficiales",       "#7f1d1d","veredictos",    badges.veredictos||0],
+            ["🤖","Asistente IA", "Preguntas sobre reglas",      "#10b981","asistente",     0],
           ];
 
           if (gridMode) {

@@ -252,6 +252,14 @@ const api = {
   allVerdicts:    ()      => apiFetch("/verdicts"),
   myVerdicts:     ()      => apiFetch("/verdicts/mine"),
   readVerdict:    (id)    => apiFetch(`/verdicts/${id}/read`, { method:"PATCH" }),
+  // ── IA ────────────────────────────────────────────────────
+  aiQuery:           (pregunta) => apiFetch("/ai/query",          { method:"POST", body:{pregunta} }),
+  aiVerdictSuggest:  (caso)     => apiFetch("/ai/verdict-suggest", { method:"POST", body:{caso} }),
+  aiDocs:            ()         => apiFetch("/ai-docs"),
+  aiDoc:             (id)       => apiFetch(`/ai-docs/${id}`),
+  aiDocCreate:       (data)     => apiFetch("/ai-docs",            { method:"POST",   body:data }),
+  aiDocUpdate:       (id, data) => apiFetch(`/ai-docs/${id}`,      { method:"PATCH",  body:data }),
+  aiDocDelete:       (id)       => apiFetch(`/ai-docs/${id}`,      { method:"DELETE" }),
 };
 
 // ── GAMIFICACIÓN (local, solo visual) ────────────────────────

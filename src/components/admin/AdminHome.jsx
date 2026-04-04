@@ -59,6 +59,7 @@ function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
     { icon:"📋", title:"Audit Log",         sub:"Historial de todas las acciones",            dest:"audit",      col:"#64748b" },
     { icon:"📨", title:"Solicitudes",       sub:"Propuestas del equipo pendientes",           dest:"solicitudes",col:"#8b5cf6" },
     { icon:"⚖️", title:"Veredictos",        sub:"Canal oficial de conducta y sanciones",      dest:"veredictos", col:"#7f1d1d" },
+    { icon:"📚", title:"Documentos IA",     sub:"Reglamento e info del Asistente",            dest:"aidocs",     col:"#10b981" },
   ].filter(item => canSee(item.dest));
 
   return (

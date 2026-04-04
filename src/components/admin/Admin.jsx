@@ -18,6 +18,7 @@ import AdminEconomia   from "./AdminEconomia";
 import AdminPsicologia from "./AdminPsicologia";
 import AdminSolicitudes from "./AdminSolicitudes";
 import AdminVeredictos  from "./AdminVeredictos";
+import AdminDocs        from "./AdminDocs";
 
 // ── Mapa de secciones → permiso requerido ─────────────────────
 // null = solo superadmin (rol='admin')
@@ -38,6 +39,7 @@ const SECTION_PERMS = {
   config:      null,
   solicitudes: null,
   veredictos:  null,
+  aidocs:      null,
 };
 
 function Admin({ me, logout }) {
@@ -93,6 +95,7 @@ function Admin({ me, logout }) {
         {tab==="solicitudes"   && canSee("solicitudes")  && <AdminSolicitudes showToast={showToast} onBack={()=>setTab("home")} me={me} mode="review"/>}
         {tab==="_sendProposal" && !isSuperAdmin           && <AdminSolicitudes showToast={showToast} onBack={()=>setTab("home")} me={me} mode="send"/>}
         {tab==="veredictos"   && canSee("veredictos")    && <AdminVeredictos  showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="aidocs"       && canSee("aidocs")        && <AdminDocs        showToast={showToast} onBack={()=>setTab("home")}/>}
 
       </div>
 
