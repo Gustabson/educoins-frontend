@@ -768,10 +768,8 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
 
   // ── Render mensajes de sala (Aula o Global) ───────────────────
   const renderMessages = (msgs, type) => (
-    <div style={{display:"flex",flexDirection:"column",
-      height:"calc(100vh - 180px)", // altura fija, no crece
-      position:"relative"}}>
-      <div style={{flex:1,overflowY:"auto",padding:"10px 14px 80px",
+    <>
+      <div style={{flex:1,overflowY:"auto",padding:"10px 14px",
         display:"flex",flexDirection:"column",gap:8}}>
         {msgs.length===0&&(
           <div style={{textAlign:"center",color:sub,fontSize:13,marginTop:40}}>
@@ -813,8 +811,8 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
         {typing&&<div style={{fontSize:11,color:sub,paddingLeft:8}}>💬 {typing} esta escribiendo...</div>}
         <div ref={bottomRef}/>
       </div>
-      {/* Input fijo al fondo */}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,
+      {/* Input */}
+      <div style={{flexShrink:0,
         padding:"6px 14px 16px",
         background:cardBg,borderTop:`1px solid ${inputBg}`}}>
         {/* Panel de emojis */}
@@ -865,7 +863,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
             display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
         </div>
       </div>
-    </div>
+    </>
   );
 
   // ── Render principal ──────────────────────────────────────────
@@ -986,14 +984,14 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
 
       {/* AULA */}
       {sec===2&&(
-        <div>
+        <div style={{height:"calc(100vh - 120px)",display:"flex",flexDirection:"column"}}>
           {!classInfo?(
             <div style={{padding:32,textAlign:"center",color:sub,fontSize:13}}>
               No estas asignado a ningun aula aun
             </div>
           ):(
             <>
-              <div style={{padding:"8px 14px 0",display:"flex",alignItems:"center",gap:8}}>
+              <div style={{flexShrink:0,padding:"8px 14px 0",display:"flex",alignItems:"center",gap:8}}>
                 <div style={{fontWeight:800,color:txt,fontSize:13}}>{classInfo.nombre}</div>
                 <span style={{background:inputBg,color:sub,borderRadius:99,
                   padding:"2px 9px",fontSize:10,fontWeight:700}}>
@@ -1008,8 +1006,8 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
 
       {/* GLOBAL */}
       {sec===3&&(
-        <div>
-          <div style={{padding:"8px 14px 0"}}>
+        <div style={{height:"calc(100vh - 120px)",display:"flex",flexDirection:"column"}}>
+          <div style={{flexShrink:0,padding:"8px 14px 0"}}>
             <div style={{fontSize:11,color:sub}}>Toda la escuela puede leer y escribir</div>
           </div>
           {renderMessages(globalMsgs, 'global')}
