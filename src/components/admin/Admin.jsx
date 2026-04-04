@@ -19,6 +19,7 @@ import AdminPsicologia from "./AdminPsicologia";
 import AdminSolicitudes from "./AdminSolicitudes";
 import AdminVeredictos  from "./AdminVeredictos";
 import AdminDocs        from "./AdminDocs";
+import AdminDiwy        from "./AdminDiwy";
 
 // ── Mapa de secciones → permiso requerido ─────────────────────
 // null = solo superadmin (rol='admin')
@@ -40,6 +41,7 @@ const SECTION_PERMS = {
   solicitudes: null,
   veredictos:  null,
   aidocs:      null,
+  diwy:        "administracion",
 };
 
 function Admin({ me, logout }) {
@@ -96,6 +98,7 @@ function Admin({ me, logout }) {
         {tab==="_sendProposal" && !isSuperAdmin           && <AdminSolicitudes showToast={showToast} onBack={()=>setTab("home")} me={me} mode="send"/>}
         {tab==="veredictos"   && canSee("veredictos")    && <AdminVeredictos  showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="aidocs"       && canSee("aidocs")        && <AdminDocs        showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="diwy"         && canSee("diwy")          && <AdminDiwy        showToast={showToast} onBack={()=>setTab("home")}/>}
 
       </div>
 

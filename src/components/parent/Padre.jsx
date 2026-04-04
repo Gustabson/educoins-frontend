@@ -23,6 +23,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
         {tab === "wallet" && <PWallet    me={me} />}
         {tab === "votar"  && <AVotaciones me={me} showToast={showToast} onBack={() => setTab("home")} />}
         {tab === "p2p"    && <AP2P       me={me} showToast={showToast} onBack={() => setTab("home")} />}
+        {tab === "diwy"   && <PDiwy      me={me} showToast={showToast} />}
         {tab === "perfil" && <PPerfil    me={me} logout={logout} />}
       </div>
       {/* Bottom nav — ocultar cuando AVotaciones/AP2P tienen su propio header de back */}
@@ -35,6 +36,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
             { id: "wallet", icon: "🪙", label: "Billetera" },
             { id: "votar",  icon: "🗳️", label: "Votar"   },
             { id: "p2p",    icon: "📊", label: "P2P"     },
+            { id: "diwy",   icon: "🐾", label: "Diwy"    },
             { id: "perfil", icon: "👤", label: "Perfil"  },
           ].map(item => {
             const on = tab === item.id;
@@ -321,6 +323,163 @@ function PPerfil({ me, logout }) {
             fontSize: 14, cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
           Cerrar sesión
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// DIWY — Reportes de seguimiento IA para padres
+// ─────────────────────────────────────────────────────────────
+function PDiwy({ me, showToast }) {
+  const [reports, setReports]       = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
+  const [requesting, setRequesting] = useState({}); // studentId -> bool
+  const [rateLimited, setRateLimited] = useState({}); // studentId -> message
+
+  const accent = "#7c3aed";
+
+  useEffect(() => {
+    api.diwyParentReports()
+      .then(d => setReports(Array.isArray(d) ? d : []))
+      .catch(() => setReports([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Group by student
+  const byStudent = reports.reduce((acc, r) => {
+    if (!acc[r.student_id]) acc[r.student_id] = { nombre: r.alumno_nombre, reports: [] };
+    acc[r.student_id].reports.push(r);
+    return acc;
+  }, {});
+
+  const requestReport = async (studentId) => {
+    setRequesting(prev => ({ ...prev, [studentId]: true }));
+    setRateLimited(prev => ({ ...prev, [studentId]: null }));
+    try {
+      await api.diwyParentRequest(studentId);
+      showToast("Solicitud enviada. El equipo generará el reporte pronto.");
+    } catch (e) {
+      if (e.code === "RATE_LIMITED") {
+        setRateLimited(prev => ({ ...prev, [studentId]: e.message }));
+      } else {
+        showToast(e.message || "Error al enviar solicitud", "error");
+      }
+    } finally {
+      setRequesting(prev => ({ ...prev, [studentId]: false }));
+    }
+  };
+
+  const fmtDate = (d) => d
+    ? new Date(d).toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })
+    : "";
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#F0F0F0" }}>
+      {/* Header */}
+      <div style={{ background: accent, color: "white", padding: "52px 20px 28px",
+        position: "sticky", top: 0, zIndex: 50, overflow: "hidden",
+        textShadow: "0 1px 4px rgba(0,0,0,.3)" }}>
+        <div style={{ position: "absolute", width: 220, height: 220, borderRadius: "50%",
+          background: "rgba(255,255,255,.1)", top: -60, right: -50, pointerEvents: "none" }} />
+        <div style={{ fontWeight: 900, fontSize: 22, marginBottom: 4 }}>🐾 Diwy</div>
+        <div style={{ fontSize: 13, opacity: .85 }}>Reportes de seguimiento de tus hijos</div>
+      </div>
+
+      <div style={{ padding: "16px 14px" }}>
+        {loading && (
+          <div style={{ textAlign: "center", color: "#aaa", padding: 32 }}>Cargando reportes...</div>
+        )}
+
+        {!loading && Object.keys(byStudent).length === 0 && (
+          <WCard style={{ textAlign: "center", padding: 32 }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🐾</div>
+            <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1a1a", marginBottom: 8 }}>
+              Bienvenido a Diwy
+            </div>
+            <div style={{ fontSize: 13, color: "#888", lineHeight: 1.6, marginBottom: 16 }}>
+              Diwy es el asistente preceptor IA de la institución. Genera reportes semanales
+              personalizados sobre el progreso de tus hijos en la economía educativa.
+            </div>
+            <div style={{ fontSize: 12, color: "#aaa" }}>
+              Aún no hay reportes aprobados para tus hijos. Podés solicitar uno al equipo docente.
+            </div>
+          </WCard>
+        )}
+
+        {Object.entries(byStudent).map(([studentId, { nombre, reports: studentReports }]) => {
+          const latest = studentReports[0]; // already sorted by approved_at DESC
+          const isExpanded = expandedId === latest?.id;
+          const isRequesting = requesting[studentId];
+          const rateLimitMsg = rateLimited[studentId];
+
+          return (
+            <div key={studentId} style={{ marginBottom: 16 }}>
+              {/* Student header */}
+              <div style={{ fontWeight: 800, fontSize: 13, color: "#555", marginBottom: 8,
+                paddingLeft: 4 }}>
+                👧 {nombre}
+              </div>
+
+              {latest && (
+                <WCard style={{ marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between",
+                    alignItems: "flex-start", marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1a1a" }}>
+                        {latest.periodo_label}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>
+                        Publicado el {fmtDate(latest.approved_at)}
+                      </div>
+                    </div>
+                    <span style={{ background: "#7c3aed18", color: "#7c3aed",
+                      borderRadius: 99, padding: "2px 10px", fontSize: 11, fontWeight: 800 }}>
+                      Aprobado
+                    </span>
+                  </div>
+
+                  {/* Preview */}
+                  <div style={{ fontSize: 13, color: "#555", lineHeight: 1.6,
+                    overflow: "hidden", maxHeight: isExpanded ? "none" : 80,
+                    position: "relative" }}>
+                    <div style={{ whiteSpace: "pre-wrap" }}>{latest.reporte_final}</div>
+                    {!isExpanded && (
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0,
+                        height: 40, background: "linear-gradient(transparent, white)" }} />
+                    )}
+                  </div>
+
+                  <button onClick={() => setExpandedId(isExpanded ? null : latest.id)}
+                    style={{ background: "none", border: "none", color: accent,
+                      fontWeight: 800, fontSize: 12, cursor: "pointer",
+                      fontFamily: "Nunito,sans-serif", padding: "8px 0 0", display: "block" }}>
+                    {isExpanded ? "Ver menos ▲" : "Ver completo ▼"}
+                  </button>
+                </WCard>
+              )}
+
+              {/* Request new report */}
+              {rateLimitMsg && (
+                <div style={{ background: "#fef3c718", border: "1.5px solid #f59e0b33",
+                  borderRadius: 12, padding: "10px 14px", marginBottom: 8,
+                  fontSize: 12, color: "#92400e" }}>
+                  ⏳ {rateLimitMsg}
+                </div>
+              )}
+              <button
+                onClick={() => requestReport(studentId)}
+                disabled={isRequesting}
+                style={{ width: "100%", background: isRequesting ? "#ccc" : `${accent}18`,
+                  border: `1.5px dashed ${accent}55`,
+                  borderRadius: 14, padding: "12px", cursor: isRequesting ? "not-allowed" : "pointer",
+                  fontFamily: "Nunito,sans-serif", color: accent, fontWeight: 800, fontSize: 13 }}>
+                {isRequesting ? "Enviando solicitud..." : "📨 Solicitar nuevo reporte"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

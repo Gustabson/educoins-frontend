@@ -260,6 +260,17 @@ const api = {
   aiDocCreate:       (data)     => apiFetch("/ai-docs",            { method:"POST",   body:data }),
   aiDocUpdate:       (id, data) => apiFetch(`/ai-docs/${id}`,      { method:"PATCH",  body:data }),
   aiDocDelete:       (id)       => apiFetch(`/ai-docs/${id}`,      { method:"DELETE" }),
+  // ── Diwy ──────────────────────────────────────────────────────
+  diwyStudents:       ()          => apiFetch("/diwy/students"),
+  diwyAddObs:         (data)      => apiFetch("/diwy/observations",         { method:"POST",   body:data }),
+  diwyObservations:   (studentId) => apiFetch(`/diwy/observations/${studentId}`),
+  diwyDeleteObs:      (id)        => apiFetch(`/diwy/observations/${id}`,   { method:"DELETE" }),
+  diwyGenerate:       (studentId) => apiFetch(`/diwy/generate/${studentId}`,{ method:"POST" }),
+  diwyReports:        (studentId) => apiFetch(`/diwy/reports/${studentId}`),
+  diwyReview:         (id, data)  => apiFetch(`/diwy/reports/${id}/review`, { method:"PATCH",  body:data }),
+  diwyApprove:        (id)        => apiFetch(`/diwy/reports/${id}/approve`,{ method:"PATCH" }),
+  diwyParentReports:  ()          => apiFetch("/diwy/parent"),
+  diwyParentRequest:  (studentId) => apiFetch(`/diwy/parent/request/${studentId}`, { method:"POST" }),
 };
 
 // ── GAMIFICACIÓN (local, solo visual) ────────────────────────
