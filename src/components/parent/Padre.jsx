@@ -102,7 +102,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
         {tab==="home"            && <PHome me={me} balance={balance} refreshBalance={refreshBalance}
                                      showToast={showToast} setTab={setTab}/>}
         {tab==="chat"            && <PChat me={me} showToast={showToast}
-                                     clearUnread={()=>setChatUnread(0)}/>}
+                                     clearUnread={()=>setChatUnread(0)} onBack={()=>setTab("home")}/>}
         {tab==="ranking"         && <ARanking me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="votar"           && <AVotaciones me={me} showToast={showToast}
                                      onBack={()=>setTab("home")} parentMode={true}/>}
@@ -116,7 +116,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
                                      onClearPreview={clearPreview}
                                      onSetMode={setMode}/>}
         {tab==="vincular"        && <PVinculacion me={me} showToast={showToast} setTab={setTab}/>}
-        {tab==="exchange"        && <AP2P me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="exchange"        && <AP2P me={me} balance={balance} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="quemar"          && <PQuemar me={me} balance={balance}
                                      refreshBalance={refreshBalance} showToast={showToast} setTab={setTab}/>}
 
@@ -642,13 +642,12 @@ function PPerfil({ me, logout, setTab }) {
 // DIWY
 // ─────────────────────────────────────────────────────────────
 function PDiwy({ me, showToast, setTab }) {
-  const { txt, sub, cardBg, pageBg } = useTheme();
+  const { primary:accent, txt, sub, cardBg, pageBg } = useTheme();
   const [reports,     setReports]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [expandedId,  setExpandedId]  = useState(null);
   const [requesting,  setRequesting]  = useState({});
   const [rateLimited, setRateLimited] = useState({});
-  const accent = "#7c3aed";
 
   useEffect(() => {
     api.diwyParentReports()
@@ -888,7 +887,7 @@ function PVinculacion({ me, showToast, setTab }) {
   const [requests,    setRequests]    = useState([]);
   const [loadingReqs, setLoadingReqs] = useState(true);
   const [linked,      setLinked]      = useState([]);
-  const accent = "#3b82f6";
+  const accent = primary;
 
   useEffect(() => {
     Promise.all([
@@ -1144,8 +1143,8 @@ function PQuemar({ me, balance, refreshBalance, showToast, setTab }) {
 // ─────────────────────────────────────────────────────────────
 // CHAT DE PADRES
 // ─────────────────────────────────────────────────────────────
-function PChat({ me, showToast, clearUnread }) {
-  const { primary, txt, sub, cardBg, pageBg } = useTheme();
+function PChat({ me, showToast, clearUnread, onBack }) {
+  const { primary, isDark:dark, txt, sub, cardBg, pageBg, navBord } = useTheme();
   const [messages, setMessages] = useState([]);
   const [texto,    setTexto]    = useState("");
   const [sending,  setSending]  = useState(false);
@@ -1195,9 +1194,17 @@ function PChat({ me, showToast, clearUnread }) {
     <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:pageBg,
       transition:"background .3s" }}>
       <div style={{ background:primary, color:"white", padding:"52px 20px 20px",
-        flexShrink:0, transition:"background .3s" }}>
-        <div style={{ fontWeight:900, fontSize:20 }}>💬 Chat de Padres</div>
-        <div style={{ fontSize:12, opacity:.8 }}>Canal para toda la comunidad de padres</div>
+        flexShrink:0, transition:"background .3s", position:"sticky", top:0, zIndex:50 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:4 }}>
+          <button onClick={onBack} style={{ background:"rgba(255,255,255,.2)", border:"none",
+            borderRadius:50, color:"white", width:34, height:34, cursor:"pointer", fontSize:18,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+            fontFamily:"Nunito,sans-serif" }}>←</button>
+          <div>
+            <div style={{ fontWeight:900, fontSize:20 }}>💬 Chat de Padres</div>
+            <div style={{ fontSize:12, opacity:.8 }}>Canal para toda la comunidad de padres</div>
+          </div>
+        </div>
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
         {loading && <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>}

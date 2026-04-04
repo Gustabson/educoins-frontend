@@ -494,7 +494,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                     Tu saldo
                   </div>
                   <div style={{fontSize:20, fontWeight:900, color:accent}}>
-                    🪙 {balance.toLocaleString("es-AR")}
+                    🪙 {(balance ?? 0).toLocaleString("es-AR")}
                   </div>
                 </div>
                 <button onClick={() => setNewOffer(true)}
@@ -736,7 +736,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                 <div>
                   <div style={{fontSize:10, color:sub}}>Tu saldo</div>
                   <div style={{fontSize:22, fontWeight:900, color:accent}}>
-                    🪙 {balance.toLocaleString("es-AR")}
+                    🪙 {(balance ?? 0).toLocaleString("es-AR")}
                   </div>
                 </div>
                 <button onClick={() => setNewOffer(true)}
@@ -932,9 +932,9 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
             <div style={{display:"flex", flexDirection:"column", gap:12}}>
               <div>
                 <div style={{fontSize:12, fontWeight:700, color:sub, marginBottom:6}}>
-                  Cantidad a vender (tu saldo: 🪙{balance})
+                  Cantidad a vender (tu saldo: 🪙{balance ?? 0})
                 </div>
-                <input type="number" value={offerForm.amount} min="1" max={balance}
+                <input type="number" value={offerForm.amount} min="1" max={balance ?? 0}
                   onChange={e => setOfferForm(v => ({...v, amount:e.target.value}))}
                   placeholder="Ej: 100"
                   style={{width:"100%", background:inputBg, border:`1.5px solid ${inputBd}`,
