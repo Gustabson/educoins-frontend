@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../../api";
-import { GS } from "../../constants";
-import { useTheme } from "../../ThemeContext";
+import { GS, BUILTIN_SCREEN_MODES, normalizeMode } from "../../constants";
+import { ThemeCtx, useTheme } from "../../ThemeContext";
 import { Av, WCard, Toast, useToast, displayName, CircBtn } from "../shared/index";
 import AVotaciones    from "../student/AVotaciones";
 import AP2P          from "../student/AP2P";
@@ -13,7 +13,7 @@ import ARanking      from "../student/ARanking";
 // Sub-páginas que ocultan la barra de nav (tienen su propio botón ←)
 const HIDE_NAV = new Set([
   "diwy","veredictos-hijo","noticias","asistente",
-  "personalizar","exchange","quemar","vincular",
+  "personalizar","exchange","quemar","vincular","chat",
 ]);
 
 // ─────────────────────────────────────────────────────────────
@@ -22,12 +22,76 @@ const HIDE_NAV = new Set([
 function Padre({ me, balance, refreshBalance, logout, setMe }) {
   const [tab, setTab]         = useState("home");
   const [toast, showToast]    = useToast();
+  const [camOpen, setCamOpen] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
   const showNav = !HIDE_NAV.has(tab);
 
+  // ── Theme state machine (mirrors Alumno) ──────────────────────
+  const savedModeId  = localStorage.getItem("ec_mode_id") || "claro";
+  const savedPrimary = localStorage.getItem("ec_primary") || null;
+
+  const [activeModeId,  setActiveModeId]  = useState(savedModeId);
+  const [activePrimary, setActivePrimary] = useState(savedPrimary);
+  const [previewPrimary,setPreviewPrimary]= useState(null);
+  const [dbModeCfg, setDbModeCfg] = useState(() => {
+    try { const s = localStorage.getItem("ec_mode_cfg"); return s ? normalizeMode(JSON.parse(s)) : null; } catch { return null; }
+  });
+
+  const sm      = dbModeCfg || BUILTIN_SCREEN_MODES.find(m => m.id === activeModeId) || BUILTIN_SCREEN_MODES[0];
+  const isDark  = sm.isDark || false;
+  const primary = previewPrimary || activePrimary || "#00c1fc";
+
+  const theme = {
+    primary,
+    secondary: "#0369a1",
+    isDark,
+    pageBg:   sm.pageBg,
+    darkBg:   sm.bg || sm.pageBg,
+    cardBg:   sm.card,
+    navBg:    sm.nav,
+    navBord:  sm.navBord,
+    navPill:  sm.navPill,
+    navInact: sm.navInact,
+    navActiv: primary,
+    inputBg:  sm.inputBg,
+    inputBd:  sm.inputBd,
+    txt:      sm.txt,
+    sub:      sm.sub,
+  };
+
+  const setAccent = (p, isPreview = false) => {
+    if (isPreview) { setPreviewPrimary(p || null); }
+    else {
+      setPreviewPrimary(null);
+      setActivePrimary(p || null);
+      if (p) localStorage.setItem("ec_primary", p);
+      else localStorage.removeItem("ec_primary");
+    }
+  };
+
+  const setMode = (modeId, modeCfg = null) => {
+    setPreviewPrimary(null);
+    if (modeCfg) {
+      const normalized = normalizeMode({ ...modeCfg, id: modeCfg.id || modeId || "personalizado" });
+      setDbModeCfg(normalized);
+      setActiveModeId(normalized.id);
+      localStorage.setItem("ec_mode_id", normalized.id);
+      localStorage.setItem("ec_mode_cfg", JSON.stringify(normalized));
+    } else {
+      setDbModeCfg(null);
+      setActiveModeId(modeId || "claro");
+      localStorage.setItem("ec_mode_id", modeId || "claro");
+      localStorage.removeItem("ec_mode_cfg");
+    }
+  };
+
+  const clearPreview = () => { setPreviewPrimary(null); };
+
   return (
-    <div style={{ maxWidth:480, margin:"0 auto", height:"100vh", background:"#F0F0F0",
-      fontFamily:"Nunito,sans-serif", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <ThemeCtx.Provider value={theme}>
+    <div style={{ maxWidth:480, margin:"0 auto", height:"100vh", background:theme.pageBg,
+      fontFamily:"Nunito,sans-serif", display:"flex", flexDirection:"column", overflow:"hidden",
+      transition:"background .3s" }}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{ flex:1, overflowY:"auto", paddingBottom:showNav?90:0, animation:"fadeIn .18s ease" }}>
@@ -44,7 +108,10 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
         {tab==="veredictos-hijo" && <PVeredictos me={me} showToast={showToast} setTab={setTab}/>}
         {tab==="noticias"        && <ANoticias me={me} onBack={()=>setTab("home")} readOnly={true}/>}
         {tab==="asistente"       && <AAsistente me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="personalizar"    && <ATiendaCustom me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="personalizar"    && <ATiendaCustom me={me} showToast={showToast} onBack={()=>setTab("home")}
+                                     onPreviewAccent={p=>setAccent(p,true)}
+                                     onClearPreview={clearPreview}
+                                     onSetMode={setMode}/>}
         {tab==="vincular"        && <PVinculacion me={me} showToast={showToast} setTab={setTab}/>}
         {tab==="exchange"        && <AP2P me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="quemar"          && <PQuemar me={me} balance={balance}
@@ -52,41 +119,95 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
 
       </div>
 
+      {/* Modal QR Scanner */}
+      {camOpen && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.85)", zIndex:400,
+          display:"flex", alignItems:"flex-end", justifyContent:"center" }}
+          onClick={e=>{ if(e.target===e.currentTarget) setCamOpen(false); }}>
+          <div style={{ background:theme.cardBg, borderRadius:"24px 24px 0 0",
+            width:"100%", maxWidth:480, padding:"20px 24px 44px", animation:"slideUp .25s ease" }}>
+            <div style={{ width:36, height:4, background:theme.isDark?"#555":"#ddd",
+              borderRadius:2, margin:"0 auto 16px" }}/>
+            <div style={{ fontWeight:900, fontSize:18, color:theme.txt, marginBottom:4, textAlign:"center" }}>
+              Escanear QR
+            </div>
+            <div style={{ fontSize:12, color:theme.sub, textAlign:"center", marginBottom:16 }}>
+              Apuntá la cámara al QR de tu hijo/a
+            </div>
+            <label style={{ display:"block", cursor:"pointer" }}>
+              <input type="file" accept="image/*" capture="environment" style={{ display:"none" }}
+                onChange={()=>{ setCamOpen(false); showToast("Función disponible en la app móvil"); }}/>
+              <div style={{ width:200, height:200, margin:"0 auto 16px", borderRadius:20,
+                border:`3px solid ${theme.primary}`, display:"flex", flexDirection:"column",
+                alignItems:"center", justifyContent:"center",
+                background:theme.isDark?"#2d2a45":"#f0f9ff" }}>
+                <div style={{ fontSize:56, marginBottom:8 }}>📷</div>
+                <div style={{ fontSize:12, fontWeight:700, color:theme.primary }}>Toca para abrir cámara</div>
+              </div>
+            </label>
+            <button onClick={()=>setCamOpen(false)}
+              style={{ width:"100%", background:theme.primary, border:"none", borderRadius:50,
+                color:"white", padding:"13px", fontWeight:800, fontSize:14, cursor:"pointer",
+                fontFamily:"Nunito,sans-serif" }}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Nav */}
       {showNav && (
-        <div style={{ position:"sticky", bottom:0, width:"100%", background:"white",
-          borderTop:"1px solid #EFEFEF", padding:"6px 4px 20px", display:"flex",
-          justifyContent:"space-around", boxShadow:"0 -2px 16px rgba(0,0,0,.07)" }}>
-          {[
-            { id:"home",    icon:"🏠", label:"Inicio"  },
-            { id:"chat",    icon:"💬", label:"Chat", badge:chatUnread },
-            { id:"ranking", icon:"🏆", label:"Ranking" },
-            { id:"votar",   icon:"🗳️", label:"Votar"   },
-            { id:"perfil",  icon:"👤", label:"Perfil"  },
-          ].map(item => {
-            const on = tab === item.id;
-            return (
-              <button key={item.id} onClick={()=>setTab(item.id)} style={{
-                display:"flex", flexDirection:"column", alignItems:"center", gap:3, flex:1,
-                background:"none", border:"none", cursor:"pointer", color:on?"#00c1fc":"#777",
-                fontFamily:"Nunito,sans-serif", padding:"3px 2px", position:"relative" }}>
-                <div style={{ width:36, height:30, borderRadius:10,
-                  background:on?"#e0f7fe":"transparent",
-                  display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
-                  <span style={{ fontSize:19 }}>{item.icon}</span>
-                  {item.badge > 0 && (
-                    <span style={{ position:"absolute", top:-2, right:-2, background:"#ef4444",
-                      color:"white", borderRadius:99, fontSize:9, fontWeight:900,
-                      minWidth:16, height:16, display:"flex", alignItems:"center",
-                      justifyContent:"center", padding:"0 3px" }}>{item.badge}</span>
-                  )}
-                </div>
-                <span style={{ fontSize:9, fontWeight:800 }}>{item.label}</span>
-              </button>
-            );
-          })}
+        <div style={{ position:"sticky", bottom:0, width:"100%", zIndex:100 }}>
+          {/* Floating camera button */}
+          <div style={{ position:"absolute", top:-22, left:"50%", transform:"translateX(-50%)", zIndex:101 }}>
+            <button onClick={()=>setCamOpen(true)} style={{
+              width:68, height:68, borderRadius:"50%", background:theme.primary,
+              border:`4px solid ${theme.navBg}`, display:"flex", alignItems:"center",
+              justifyContent:"center", fontSize:26, cursor:"pointer",
+              boxShadow:`0 4px 20px ${theme.primary}66`, outline:"none", transition:"background .3s" }}>
+              📷
+            </button>
+          </div>
+          <div style={{ background:theme.navBg, borderTop:`1px solid ${theme.navBord}`,
+            padding:"6px 4px 20px", display:"flex", justifyContent:"space-around",
+            boxShadow:"0 -2px 16px rgba(0,0,0,.12)", transition:"background .3s" }}>
+            {[
+              { id:"home",    icon:"🏠", label:"Inicio"  },
+              { id:"chat",    icon:"💬", label:"Chat", badge:chatUnread },
+              { id:"_cam",    isCam:true },
+              { id:"ranking", icon:"🏆", label:"Ranking" },
+              { id:"perfil",  icon:"👤", label:"Perfil"  },
+            ].map(item => {
+              if (item.isCam) return <div key="_cam" style={{ width:68, flexShrink:0 }}/>;
+              const on = tab === item.id;
+              return (
+                <button key={item.id} onClick={()=>setTab(item.id)} style={{
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:3, flex:1,
+                  background:"none", border:"none", cursor:"pointer",
+                  color:on?theme.navActiv:theme.navInact,
+                  fontFamily:"Nunito,sans-serif", padding:"3px 2px",
+                  transition:"color .3s", position:"relative" }}>
+                  <div style={{ width:36, height:30, borderRadius:10,
+                    background:on?theme.navPill:"transparent",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    position:"relative", transition:"background .3s" }}>
+                    <span style={{ fontSize:19 }}>{item.icon}</span>
+                    {item.badge > 0 && (
+                      <span style={{ position:"absolute", top:-2, right:-2, background:"#ef4444",
+                        color:"white", borderRadius:99, fontSize:9, fontWeight:900,
+                        minWidth:16, height:16, display:"flex", alignItems:"center",
+                        justifyContent:"center", padding:"0 3px" }}>{item.badge}</span>
+                    )}
+                  </div>
+                  <span style={{ fontSize:9, fontWeight:800 }}>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
+    </ThemeCtx.Provider>
   );
 }
 
@@ -1068,8 +1189,8 @@ function PChat({ me, showToast, clearUnread }) {
   let lastDate = null;
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:pageBg,
-      transition:"background .3s", minHeight:"calc(100vh - 90px)" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:pageBg,
+      transition:"background .3s" }}>
       <div style={{ background:primary, color:"white", padding:"52px 20px 20px",
         flexShrink:0, transition:"background .3s" }}>
         <div style={{ fontWeight:900, fontSize:20 }}>💬 Chat de Padres</div>
