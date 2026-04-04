@@ -36,7 +36,7 @@ function AVeredictos({ me, onBack }) {
         title="⚖️ Veredictos"
         sub={unread > 0 ? `${unread} sin leer` : "Todo al día"}
         onBack={onBack}
-        color="#7f1d1d"
+        color={primary}
       />
 
       <div style={{ padding:"16px 14px 32px" }}>
