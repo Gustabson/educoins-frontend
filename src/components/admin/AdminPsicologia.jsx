@@ -100,14 +100,21 @@ function ExplorarView({ refreshTick }) {
   const [expanded,  setExpanded]  = useState(null);
   const [sortBy,    setSortBy]    = useState("mood"); // mood | alpha | recency
 
-  const load = () => {
-    setLoading(true);
+  const isFirstRefresh = useRef(true);
+  const load = (silent = false) => {
+    if (!silent) setLoading(true);
     api.wellnessAdminExplore(days)
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (!silent) setLoading(false); });
   };
-  useEffect(load, [days, refreshTick]);
+  // Cuando cambian los días: carga completa con spinner
+  useEffect(() => { load(false); }, [days]);
+  // Cuando llega socket: refresca en background sin desmontar el contenido
+  useEffect(() => {
+    if (isFirstRefresh.current) { isFirstRefresh.current = false; return; }
+    load(true);
+  }, [refreshTick]);
 
   let filtered = [...data];
   if (onlyNota)   filtered = filtered.filter(s => s.notes?.length > 0);
@@ -337,16 +344,21 @@ function SmartDashboard({ onNav, refreshTick }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const load = () => {
-    setLoading(true);
+  const isFirstRefresh = useRef(true);
+  const load = (silent = false) => {
+    if (!silent) setLoading(true);
     api.wellnessAdminDashboard()
       .then(setData)
       .catch(()=>{})
-      .finally(()=>setLoading(false));
+      .finally(()=>{ if (!silent) setLoading(false); });
   };
-
-  // Recargar cuando llegue un wellness_update (refreshTick cambia)
-  useEffect(load, [refreshTick]);
+  // Carga inicial con spinner
+  useEffect(() => { load(false); }, []);
+  // Socket: refresca datos en background sin mostrar spinner
+  useEffect(() => {
+    if (isFirstRefresh.current) { isFirstRefresh.current = false; return; }
+    load(true);
+  }, [refreshTick]);
 
   if (loading) return <Loader/>;
   if (!data) return <Empty msg="No se pudo cargar el dashboard"/>;

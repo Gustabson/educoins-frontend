@@ -49,6 +49,7 @@ const SIREN_STYLE = `
 `;
 
 function VerdictModal({ verdict, onDismiss }) {
+  const { cardBg, txt, sub, isDark } = useTheme();
   const cfg = VERDICT_SEVERITY[verdict.severity] || VERDICT_SEVERITY.advertencia;
   return (
     <>
@@ -57,9 +58,9 @@ function VerdictModal({ verdict, onDismiss }) {
         background:"rgba(0,0,0,.88)",
         display:"flex", alignItems:"flex-end", justifyContent:"center",
         fontFamily:"Nunito,sans-serif" }}>
-        <div style={{ width:"100%", maxWidth:480, background:"white",
+        <div style={{ width:"100%", maxWidth:480, background:cardBg,
           borderRadius:"28px 28px 0 0", overflow:"hidden",
-          animation:"slideUp .35s ease" }}>
+          animation:"slideUp .35s ease", transition:"background .3s" }}>
 
           {/* Franja superior animada */}
           <div style={{ background:cfg.bg, padding:"28px 24px 20px",
@@ -81,14 +82,17 @@ function VerdictModal({ verdict, onDismiss }) {
 
           {/* Cuerpo */}
           <div style={{ padding:"22px 24px 10px" }}>
-            <div style={{ fontSize:15, color:"#1a1a1a", lineHeight:1.6,
-              fontWeight:700, marginBottom:verdict.coins_penalty>0?16:8 }}>
+            <div style={{ fontSize:15, color:txt, lineHeight:1.6,
+              fontWeight:700, marginBottom:verdict.coins_penalty>0?16:8,
+              transition:"color .3s" }}>
               {verdict.mensaje}
             </div>
 
             {verdict.coins_penalty > 0 && (
-              <div style={{ background:"#fee2e2", borderRadius:14, padding:"12px 16px",
-                display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+              <div style={{ background:isDark?"rgba(239,68,68,.2)":"#fee2e2",
+                borderRadius:14, padding:"12px 16px",
+                display:"flex", alignItems:"center", gap:10, marginBottom:8,
+                transition:"background .3s" }}>
                 <span style={{ fontSize:24 }}>🪙</span>
                 <div>
                   <div style={{ fontWeight:900, fontSize:14, color:"#dc2626" }}>
@@ -101,7 +105,8 @@ function VerdictModal({ verdict, onDismiss }) {
               </div>
             )}
 
-            <div style={{ fontSize:11, color:"#aaa", textAlign:"center", marginBottom:20 }}>
+            <div style={{ fontSize:11, color:sub, textAlign:"center", marginBottom:20,
+              transition:"color .3s" }}>
               Emitido por la Administración · {new Date(verdict.created_at).toLocaleDateString("es-AR")}
             </div>
           </div>
@@ -357,7 +362,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     const onVerdict = (v) => {
       setPendingVerdict(v);
       setBadges(b=>({...b,veredictos:b.veredictos+1}));
-      if (v.coins_penalty > 0) refreshBalance();
+      // refreshBalance se llama al cerrar el modal para que la animación sea visible
     };
     s.on('new_verdict', onVerdict);
 
@@ -380,7 +385,10 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     if (pendingVerdict?.id) {
       api.readVerdict(pendingVerdict.id).catch(()=>{});
     }
+    const hadPenalty = pendingVerdict?.coins_penalty > 0;
     setPendingVerdict(null);
+    // Actualizar balance DESPUÉS de cerrar el modal → animación visible
+    if (hadPenalty) refreshBalance();
   };
 
   return(

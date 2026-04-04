@@ -28,16 +28,23 @@ function AdminVeredictos({ showToast, onBack }) {
   const [iaLoading,    setIaLoading]    = useState(false);
 
   // Formulario
-  const [selected,  setSelected]   = useState([]);
-  const [mensaje,   setMensaje]    = useState("");
-  const [severity,  setSeverity]   = useState("advertencia");
-  const [penalty,   setPenalty]    = useState("");
-  const [search,    setSearch]     = useState("");
+  const [selected,   setSelected]  = useState([]);
+  const [mensaje,    setMensaje]   = useState("");
+  const [severity,   setSeverity]  = useState("advertencia");
+  const [penalty,    setPenalty]   = useState("");
+  const [search,     setSearch]    = useState("");
+  const [classrooms, setClassrooms]= useState([]);
+  const [allStudents,setAllStudents]= useState([]); // copia completa para filtros por aula
 
   useEffect(() => {
     api.adminUsers().then(u => {
       const arr = Array.isArray(u) ? u : u.data || [];
-      setStudents(arr.filter(x => x.rol === "student" && x.activo));
+      const sts = arr.filter(x => x.rol === "student" && x.activo);
+      setStudents(sts);
+      setAllStudents(sts);
+    }).catch(() => {});
+    api.adminClassrooms().then(d => {
+      setClassrooms(Array.isArray(d) ? d : []);
     }).catch(() => {});
   }, []);
 
@@ -59,16 +66,33 @@ function AdminVeredictos({ showToast, onBack }) {
     );
   };
 
-  const selectAll = () => {
-    const filtered = students.filter(s =>
-      !search || s.nombre.toLowerCase().includes(search.toLowerCase())
+  const selectClassroom = (classroomId) => {
+    // Alumnos que pertenecen a esta aula (via classroom_members en backend)
+    // Como no tenemos los miembros del aula acá, usamos el nombre del aula para filtrar
+    // y seleccionamos los alumnos que matchean con la búsqueda del aula
+    const cls = classrooms.find(c => c.id === classroomId);
+    if (!cls) return;
+    // Filtramos alumnos cuyo aula_id coincide (si viene en el objeto) o por nombre del aula
+    const clsStudents = allStudents.filter(s => s.classroom_id === classroomId);
+    if (!clsStudents.length) {
+      showToast(`Sin alumnos en ${cls.nombre} — verificá que tengan aula asignada`);
+      return;
+    }
+    const ids = clsStudents.map(s => s.id);
+    const allIn = ids.every(id => selected.includes(id));
+    setSelected(prev => allIn
+      ? prev.filter(id => !ids.includes(id))
+      : [...new Set([...prev, ...ids])]
     );
-    const filteredIds = filtered.map(s => s.id);
-    const allSelected = filteredIds.every(id => selected.includes(id));
+  };
+
+  const selectAll = () => {
+    const filtered = filteredStudents;
+    const allSelected = filtered.every(s => selected.includes(s.id));
     if (allSelected) {
-      setSelected(prev => prev.filter(id => !filteredIds.includes(id)));
+      setSelected(prev => prev.filter(id => !filtered.map(s=>s.id).includes(id)));
     } else {
-      setSelected(prev => [...new Set([...prev, ...filteredIds])]);
+      setSelected(prev => [...new Set([...prev, ...filtered.map(s=>s.id)])]);
     }
   };
 
@@ -96,9 +120,9 @@ function AdminVeredictos({ showToast, onBack }) {
     }
   };
 
-  const filteredStudents = students.filter(s =>
-    !search || s.nombre.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredStudents = search.trim()
+    ? students.filter(s => s.nombre.toLowerCase().includes(search.toLowerCase()))
+    : [];
 
   const sev = SEVERITY_CFG[severity];
 
@@ -212,53 +236,91 @@ function AdminVeredictos({ showToast, onBack }) {
                 {selected.length > 0 && (
                   <span style={{ marginLeft:8, background:sev.color, color:"white",
                     borderRadius:99, fontSize:10, fontWeight:900, padding:"2px 8px" }}>
-                    {selected.length}
+                    {selected.length} seleccionado{selected.length > 1 ? "s" : ""}
                   </span>
                 )}
               </div>
-              <button onClick={selectAll} style={{ background:"none", border:"none",
-                color:"#7f1d1d", fontSize:11, fontWeight:800, cursor:"pointer",
-                fontFamily:"Nunito,sans-serif" }}>
-                {filteredStudents.every(s => selected.includes(s.id)) ? "Quitar todos" : "Todos"}
-              </button>
-            </div>
-            <input
-              type="text" value={search} onChange={e=>setSearch(e.target.value)}
-              placeholder="Buscar alumno..."
-              style={{ width:"100%", border:"1.5px solid #e5e7eb", borderRadius:10,
-                padding:"8px 12px", fontSize:12, fontFamily:"Nunito,sans-serif",
-                outline:"none", marginBottom:10, boxSizing:"border-box" }}
-            />
-            <div style={{ maxHeight:200, overflowY:"auto" }}>
-              {filteredStudents.map(s => {
-                const on = selected.includes(s.id);
-                return (
-                  <div key={s.id} onClick={()=>toggleStudent(s.id)}
-                    style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 4px",
-                      cursor:"pointer", borderBottom:"1px solid #f3f4f6",
-                      background: on ? sev.color+"10" : "transparent", borderRadius:8,
-                      transition:"background .15s" }}>
-                    <div style={{ width:22, height:22, borderRadius:6,
-                      border:`2px solid ${on ? sev.color : "#ddd"}`,
-                      background: on ? sev.color : "white",
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      flexShrink:0, fontSize:12, color:"white", fontWeight:900,
-                      transition:"all .15s" }}>
-                      {on && "✓"}
-                    </div>
-                    <div>
-                      <div style={{ fontSize:13, fontWeight:800, color:"#1a1a1a" }}>{s.nombre}</div>
-                      <div style={{ fontSize:10, color:"#aaa" }}>{s.email}</div>
-                    </div>
-                  </div>
-                );
-              })}
-              {filteredStudents.length === 0 && (
-                <div style={{ textAlign:"center", color:"#aaa", fontSize:12, padding:16 }}>
-                  Sin resultados
-                </div>
+              {search.trim() && filteredStudents.length > 0 && (
+                <button onClick={selectAll} style={{ background:"none", border:"none",
+                  color:"#7f1d1d", fontSize:11, fontWeight:800, cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif" }}>
+                  {filteredStudents.every(s => selected.includes(s.id)) ? "Quitar todos" : "Seleccionar todos"}
+                </button>
               )}
             </div>
+
+            {/* Chips de aulas */}
+            {classrooms.length > 0 && (
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
+                {classrooms.map(cls => {
+                  const clsStudentIds = allStudents.filter(s => s.classroom_id === cls.id).map(s => s.id);
+                  const allIn = clsStudentIds.length > 0 && clsStudentIds.every(id => selected.includes(id));
+                  return (
+                    <button key={cls.id} onClick={() => selectClassroom(cls.id)}
+                      style={{ border:`1.5px solid ${allIn ? sev.color : "#e5e7eb"}`,
+                        background: allIn ? sev.color : "white",
+                        color: allIn ? "white" : "#555",
+                        borderRadius:99, fontSize:10, fontWeight:800, padding:"3px 10px",
+                        cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                        transition:"all .15s" }}>
+                      🏫 {cls.nombre}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <input
+              type="text" value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Escribí un nombre para buscar alumnos..."
+              style={{ width:"100%", border:"1.5px solid #e5e7eb", borderRadius:10,
+                padding:"8px 12px", fontSize:12, fontFamily:"Nunito,sans-serif",
+                outline:"none", marginBottom:10, boxSizing:"border-box", color:"#1a1a1a" }}
+            />
+
+            {!search.trim() ? (
+              <div style={{ textAlign:"center", color:"#bbb", fontSize:12, padding:"18px 0",
+                display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                <span style={{ fontSize:28 }}>🔍</span>
+                <span>Escribí un nombre para buscar</span>
+                {selected.length > 0 && (
+                  <span style={{ color: sev.color, fontWeight:800, fontSize:11 }}>
+                    {selected.length} alumno{selected.length>1?"s":""} seleccionado{selected.length>1?"s":""}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div style={{ maxHeight:200, overflowY:"auto" }}>
+                {filteredStudents.map(s => {
+                  const on = selected.includes(s.id);
+                  return (
+                    <div key={s.id} onClick={()=>toggleStudent(s.id)}
+                      style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 4px",
+                        cursor:"pointer", borderBottom:"1px solid #f3f4f6",
+                        background: on ? sev.color+"15" : "transparent", borderRadius:8,
+                        transition:"background .15s" }}>
+                      <div style={{ width:22, height:22, borderRadius:6,
+                        border:`2px solid ${on ? sev.color : "#ddd"}`,
+                        background: on ? sev.color : "white",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        flexShrink:0, fontSize:12, color:"white", fontWeight:900,
+                        transition:"all .15s" }}>
+                        {on && "✓"}
+                      </div>
+                      <div>
+                        <div style={{ fontSize:13, fontWeight:800, color:"#1a1a1a" }}>{s.nombre}</div>
+                        <div style={{ fontSize:10, color:"#aaa" }}>{s.email}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filteredStudents.length === 0 && (
+                  <div style={{ textAlign:"center", color:"#aaa", fontSize:12, padding:16 }}>
+                    Sin resultados para "{search}"
+                  </div>
+                )}
+              </div>
+            )}
           </WCard>
 
           {/* Botón enviar */}
