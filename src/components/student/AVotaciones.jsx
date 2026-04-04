@@ -52,7 +52,7 @@ const LEGAL_INFO=`⚖️ QUÉ PUEDE DECIDIRSE EN UNA ESCUELA
   Las resoluciones DAO de esta app son CONSULTIVAS.
   La decisión final siempre queda en la dirección.`;
 
-function AVotaciones({me,showToast,onBack}){
+function AVotaciones({me,showToast,onBack,parentMode=false}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd} = useTheme();
   const [sec,setSec]         = useState("global"); // "global"|"aula"
   const [subSec,setSubSec]   = useState("activas"); // "activas"|"aprobadas"
@@ -454,31 +454,35 @@ function AVotaciones({me,showToast,onBack}){
                 display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
           )}
           <div style={{flex:1,fontWeight:900,fontSize:17}}>Votaciones</div>
-          <button onClick={()=>{
-            setPropModal(true);setPropScope(sec);setSnapshot(null);
-            api.pollSnapshot(sec, sec==="aula"?classInfo?.id:null)
-              .then(d=>setSnapshot(d)).catch(()=>{});
-          }}
-            style={{background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",
-              borderRadius:99,color:"white",padding:"7px 14px",
-              fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",
-              display:"flex",alignItems:"center",gap:5}}>
-            🏛️ Proponer
-          </button>
-        </div>
-        {/* Tabs Global / Aula */}
-        <div style={{display:"flex",gap:2}}>
-          {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([id,label])=>(
-            <button key={id} onClick={()=>{setSec(id);setSubSec("activas");setSearchQ("");}}
-              style={{flex:1,padding:"10px 4px",background:"none",border:"none",
-                fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"Nunito,sans-serif",
-                color:sec===id?"white":"rgba(255,255,255,.6)",
-                borderBottom:`2.5px solid ${sec===id?"white":"transparent"}`,
-                transition:"all .2s"}}>
-              {label}
+          {!parentMode && (
+            <button onClick={()=>{
+              setPropModal(true);setPropScope(sec);setSnapshot(null);
+              api.pollSnapshot(sec, sec==="aula"?classInfo?.id:null)
+                .then(d=>setSnapshot(d)).catch(()=>{});
+            }}
+              style={{background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",
+                borderRadius:99,color:"white",padding:"7px 14px",
+                fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                display:"flex",alignItems:"center",gap:5}}>
+              🏛️ Proponer
             </button>
-          ))}
+          )}
         </div>
+        {/* Tabs Global / Aula — en parentMode solo se muestra Global */}
+        {!parentMode && (
+          <div style={{display:"flex",gap:2}}>
+            {[["global","🌐 Global"],["aula","🏫 Aula"]].map(([id,label])=>(
+              <button key={id} onClick={()=>{setSec(id);setSubSec("activas");setSearchQ("");}}
+                style={{flex:1,padding:"10px 4px",background:"none",border:"none",
+                  fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                  color:sec===id?"white":"rgba(255,255,255,.6)",
+                  borderBottom:`2.5px solid ${sec===id?"white":"transparent"}`,
+                  transition:"all .2s"}}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Sub-tabs Activas / Aprobadas + Buscador */}

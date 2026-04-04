@@ -10,9 +10,10 @@ const DOMAIN_HDR = {
 };
 
 function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
-  const [treasury, setTreasury] = useState(null);
-  const [users,    setUsers]    = useState([]);
-  const [stats,    setStats]    = useState(null);
+  const [treasury,    setTreasury]    = useState(null);
+  const [users,       setUsers]       = useState([]);
+  const [stats,       setStats]       = useState(null);
+  const [pendingLinks,setPendingLinks] = useState(0);
 
   useEffect(() => {
     if (isSuperAdmin || hasPerm("economia")) {
@@ -25,6 +26,14 @@ function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
       const totalCoins = students.reduce((s, x) => s + (x.total_earned || 0), 0);
       setStats({ students, totalCoins });
     }).catch(() => {});
+    if (isSuperAdmin || hasPerm("administracion")) {
+      api.adminLinkRequests()
+        .then(reqs => {
+          const arr = Array.isArray(reqs) ? reqs : [];
+          setPendingLinks(arr.filter(r => r.estado === "pendiente").length);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const students = users.filter(u => u.rol === "student" && u.activo).length;
@@ -100,6 +109,26 @@ function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
                 <div style={{ fontSize:10, color:"#aaa", fontWeight:700, marginTop:2 }}>{s.label}</div>
               </WCard>
             ))}
+          </div>
+        )}
+
+        {/* Badge solicitudes de vinculación pendientes */}
+        {pendingLinks > 0 && (isSuperAdmin || hasPerm("administracion")) && (
+          <div onClick={() => onNav("link-requests")} style={{
+            background: "#fef3c7", border: "1.5px solid #f59e0b44", borderRadius: 14,
+            padding: "12px 16px", marginBottom: 10, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 22 }}>🔗</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: "#92400e" }}>
+                Solicitudes de vinculación
+              </div>
+              <div style={{ fontSize: 12, color: "#b45309" }}>
+                {pendingLinks} solicitud{pendingLinks !== 1 ? "es" : ""} pendiente{pendingLinks !== 1 ? "s" : ""}
+              </div>
+            </div>
+            <span style={{ background: "#f59e0b", color: "white", borderRadius: 99,
+              fontWeight: 900, fontSize: 12, padding: "2px 10px" }}>{pendingLinks}</span>
           </div>
         )}
 

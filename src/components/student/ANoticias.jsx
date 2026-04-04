@@ -4,7 +4,7 @@ import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 import { TAG_COLORS, TAG_LIST } from "../../constants";
 
-function ANoticias({me,onBack}){
+function ANoticias({me,onBack,readOnly=false}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, navBord} = useTheme();
   const [posts,setPosts]=useState([]);
   const [loading,setLoading]=useState(true);

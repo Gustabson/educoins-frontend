@@ -271,6 +271,18 @@ const api = {
   diwyApprove:        (id)        => apiFetch(`/diwy/reports/${id}/approve`,{ method:"PATCH" }),
   diwyParentReports:  ()          => apiFetch("/diwy/parent"),
   diwyParentRequest:  (studentId) => apiFetch(`/diwy/parent/request/${studentId}`, { method:"POST" }),
+  // ── Parent portal ─────────────────────────────────────────
+  parentLinkSearch:    (name)      => apiFetch(`/parent/link-search?q=${encodeURIComponent(name)}`),
+  parentLinkConfirm:   (studentId) => apiFetch("/parent/link-request/confirm", { method:"POST", body:{student_id:studentId} }),
+  parentLinkRequests:  ()          => apiFetch("/parent/link-requests"),
+  parentLinkCancel:    (id)        => apiFetch(`/parent/link-requests/${id}`, { method:"DELETE" }),
+  parentChildrenVerdicts: ()       => apiFetch("/parent/children-verdicts"),
+  parentBurn:          (amount)    => apiFetch("/parent/burn", { method:"POST", body:{amount} }),
+  parentChatMessages:  ()          => apiFetch("/chat/parent-messages"),
+  parentChatSend:      (texto)     => apiFetch("/chat/parent-messages", { method:"POST", body:{texto} }),
+  adminLinkRequests:   ()          => apiFetch("/admin/link-requests"),
+  adminLinkApprove:    (id)        => apiFetch(`/admin/link-requests/${id}/approve`, { method:"PATCH" }),
+  adminLinkReject:     (id)        => apiFetch(`/admin/link-requests/${id}/reject`,  { method:"PATCH" }),
 };
 
 // ── GAMIFICACIÓN (local, solo visual) ────────────────────────
