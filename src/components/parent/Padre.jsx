@@ -18,11 +18,14 @@ import PDiwy         from "./PDiwy";
 import PVeredictos   from "./PVeredictos";
 import PVinculacion  from "./PVinculacion";
 import PQuemar       from "./PQuemar";
+import PEnviar       from "./PEnviar";
+import PIngresar     from "./PIngresar";
 
 // Sub-páginas que ocultan la barra de nav (tienen su propio botón ←)
 const HIDE_NAV = new Set([
   "diwy","veredictos-hijo","noticias","asistente",
   "personalizar","exchange","quemar","vincular","chat","amigos",
+  "enviar","ingresar",
 ]);
 
 // ─────────────────────────────────────────────────────────────
@@ -107,8 +110,11 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{ flex:1, overflowY:"auto", paddingBottom:showNav?90:0, animation:"fadeIn .18s ease" }}>
 
-        {tab==="home"            && <PHome me={me} balance={balance} refreshBalance={refreshBalance}
+        {tab==="home"            && <PHome me={me} balance={balance}
                                      showToast={showToast} setTab={setTab}/>}
+        {tab==="enviar"          && <PEnviar me={me} balance={balance} showToast={showToast}
+                                     refreshBalance={refreshBalance} setTab={setTab}/>}
+        {tab==="ingresar"        && <PIngresar me={me} setTab={setTab}/>}
         {tab==="chat"            && <PChat2 me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="amigos"          && <PAMigos me={me} showToast={showToast} onBack={()=>setTab("home")}
                                      onOpenChat={()=>setTab("chat")}/>}

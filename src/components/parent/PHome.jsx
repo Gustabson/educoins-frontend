@@ -3,7 +3,7 @@ import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, WCard, displayName, CircBtn } from "../shared/index";
 
-export default function PHome({ me, balance, refreshBalance, showToast, setTab }) {
+export default function PHome({ me, balance, showToast, setTab }) {
   const { primary, isDark:dark, txt, sub, cardBg, pageBg } = useTheme();
 
   // localStorage namespaced por usuario
@@ -12,10 +12,6 @@ export default function PHome({ me, balance, refreshBalance, showToast, setTab }
   const [children,    setChildren]    = useState([]);
   const [loadingKids, setLoadingKids] = useState(true);
   const [showHijos,   setShowHijos]   = useState(false);
-  const [transferTo,  setTransferTo]  = useState(null);
-  const [amount,      setAmount]      = useState("");
-  const [desc,        setDesc]        = useState("");
-  const [sending,     setSending]     = useState(false);
   const [gridMode,    setGridMode]    = useState(() => {
     try { return localStorage.getItem(lk("padre_grid")) === "1"; } catch { return false; }
   });
@@ -26,23 +22,6 @@ export default function PHome({ me, balance, refreshBalance, showToast, setTab }
       .catch(() => setChildren([]))
       .finally(() => setLoadingKids(false));
   }, []);
-
-  const enviar = async () => {
-    const amt = parseInt(amount);
-    if (!amt || amt <= 0) { showToast("Ingresá un monto válido", "error"); return; }
-    if (!transferTo) return;
-    setSending(true);
-    try {
-      await api.parentTransfer(transferTo.id, amt, desc.trim() || undefined);
-      showToast(`Enviaste 🪙${amt} a ${displayName(transferTo)}`);
-      setChildren(cs => cs.map(c => c.id === transferTo.id
-        ? { ...c, balance: (c.balance || 0) - amt } : c));
-      setTransferTo(null); setAmount(""); setDesc("");
-      refreshBalance();
-    } catch (e) {
-      showToast(e.message || "Error al enviar", "error");
-    } finally { setSending(false); }
-  };
 
   const toggleGrid = () => {
     const next = !gridMode;
@@ -115,8 +94,8 @@ export default function PHome({ me, balance, refreshBalance, showToast, setTab }
 
           {/* Botones circulares de acciones rápidas */}
           <div style={{ display:"flex", justifyContent:"space-around", paddingBottom:4 }}>
-            <CircBtn icon="💸" label="Enviar"   onClick={()=>{ setShowHijos(true); }}/>
-            <CircBtn icon="💱" label="Exchange" onClick={()=>setTab("exchange")}/>
+            <CircBtn icon="💸" label="Enviar"   onClick={()=>setTab("enviar")}/>
+            <CircBtn icon="⬇️" label="Ingresar" onClick={()=>setTab("ingresar")}/>
             <CircBtn icon="💬" label="Chat"     onClick={()=>setTab("chat")}/>
             <CircBtn icon="🏆" label="Ranking"  onClick={()=>setTab("ranking")}/>
             <CircBtn icon="🔥" label="Quemar"   onClick={()=>setTab("quemar")}/>
@@ -176,12 +155,12 @@ export default function PHome({ me, balance, refreshBalance, showToast, setTab }
         )}
       </div>
 
-      {/* ── PANEL DE HIJOS (modal bottom sheet) ──────────────── */}
+      {/* ── PANEL DE HIJOS (modal bottom sheet — solo informativo) ─── */}
       {showHijos && (
         <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex",
           flexDirection:"column", justifyContent:"flex-end" }}>
           {/* Overlay */}
-          <div onClick={()=>{ setShowHijos(false); setTransferTo(null); setAmount(""); setDesc(""); }}
+          <div onClick={()=>setShowHijos(false)}
             style={{ position:"absolute", inset:0, background:"rgba(0,0,0,.45)" }}/>
           {/* Sheet */}
           <div style={{ position:"relative", background:cardBg, borderRadius:"24px 24px 0 0",
@@ -195,7 +174,7 @@ export default function PHome({ me, balance, refreshBalance, showToast, setTab }
               <div style={{ fontWeight:900, fontSize:17, color:txt, transition:"color .3s" }}>
                 👶 Tus hijos
               </div>
-              <button onClick={()=>{ setShowHijos(false); setTransferTo(null); }}
+              <button onClick={()=>setShowHijos(false)}
                 style={{ background:"none", border:"none", fontSize:20, cursor:"pointer",
                   color:sub, fontFamily:"Nunito,sans-serif" }}>✕</button>
             </div>
@@ -224,8 +203,7 @@ export default function PHome({ me, balance, refreshBalance, showToast, setTab }
               )}
 
               {children.map(child => (
-                <WCard key={child.id} style={{ marginBottom:10, cursor:"pointer" }}
-                  onClick={()=>setTransferTo(t => t?.id===child.id ? null : child)}>
+                <WCard key={child.id} style={{ marginBottom:10 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                     <Av user={child} sz={44} avatarBg={child?.avatar_bg||null}/>
                     <div style={{ flex:1 }}>
@@ -241,60 +219,25 @@ export default function PHome({ me, balance, refreshBalance, showToast, setTab }
                       <div style={{ fontSize:10, color:sub, transition:"color .3s" }}>saldo</div>
                     </div>
                   </div>
-
-                  {transferTo?.id === child.id && (
-                    <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid #f0f0f0" }}>
-                      <div style={{ fontWeight:800, fontSize:13, color:txt, marginBottom:10,
-                        transition:"color .3s" }}>
-                        Enviar monedas a {displayName(child)}
-                      </div>
-                      <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-                        <input type="number" value={amount} onChange={e=>setAmount(e.target.value)}
-                          placeholder="Cantidad" min="1"
-                          style={{ flex:1, border:"1.5px solid #e8e8e8", borderRadius:12,
-                            padding:"9px 12px", fontSize:16, fontWeight:800, outline:"none",
-                            color:primary, fontFamily:"Nunito,sans-serif",
-                            background:cardBg, transition:"background .3s, color .3s" }}/>
-                        <div style={{ display:"flex", gap:4 }}>
-                          {[5,10,25,50].map(n=>(
-                            <button key={n} onClick={e=>{e.stopPropagation();setAmount(String(n));}}
-                              style={{ background:amount===String(n)?primary:"#f0f0f0",
-                                color:amount===String(n)?"white":"#555",
-                                border:"none", borderRadius:8, padding:"6px 8px",
-                                fontSize:11, fontWeight:800, cursor:"pointer",
-                                fontFamily:"Nunito,sans-serif" }}>{n}</button>
-                          ))}
-                        </div>
-                      </div>
-                      <input value={desc} onChange={e=>setDesc(e.target.value)}
-                        placeholder="Mensaje (opcional)..."
-                        style={{ width:"100%", boxSizing:"border-box", border:"1.5px solid #e8e8e8",
-                          borderRadius:12, padding:"9px 12px", fontSize:13, outline:"none",
-                          fontFamily:"Nunito,sans-serif", marginBottom:10,
-                          background:cardBg, color:txt, transition:"background .3s, color .3s" }}/>
-                      <button onClick={e=>{e.stopPropagation();enviar();}}
-                        disabled={sending||!amount}
-                        style={{ width:"100%", background:sending||!amount?"#ccc":primary,
-                          border:"none", borderRadius:50, color:"white", padding:"12px",
-                          fontWeight:800, fontSize:14,
-                          cursor:sending?"not-allowed":"pointer",
-                          fontFamily:"Nunito,sans-serif", transition:"background .3s" }}>
-                        {sending ? "Enviando..." : `Enviar 🪙${amount||"..."}`}
-                      </button>
-                    </div>
-                  )}
                 </WCard>
               ))}
 
               {children.length > 0 && (
-                <button onClick={()=>{ setShowHijos(false); setTab("vincular"); }}
-                  style={{ width:"100%", background:"none",
-                    border:`1.5px dashed ${primary}66`, borderRadius:14,
-                    color:primary, padding:"12px", fontWeight:800, fontSize:13,
-                    cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                    marginTop:4, transition:"color .3s, border-color .3s" }}>
-                  + Vincular otro hijo
-                </button>
+                <div style={{ display:"flex", gap:8, marginTop:4 }}>
+                  <button onClick={()=>{ setShowHijos(false); setTab("enviar"); }}
+                    style={{ flex:1, background:primary, border:"none", borderRadius:50,
+                      color:"white", padding:"12px", fontWeight:800, fontSize:13,
+                      cursor:"pointer", fontFamily:"Nunito,sans-serif", transition:"background .3s" }}>
+                    💸 Enviar monedas
+                  </button>
+                  <button onClick={()=>{ setShowHijos(false); setTab("vincular"); }}
+                    style={{ background:"none", border:`1.5px dashed ${primary}66`, borderRadius:50,
+                      color:primary, padding:"12px 16px", fontWeight:800, fontSize:13,
+                      cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                      transition:"color .3s, border-color .3s" }}>
+                    + Vincular
+                  </button>
+                </div>
               )}
             </div>
           </div>
