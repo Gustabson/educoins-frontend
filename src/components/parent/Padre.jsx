@@ -9,6 +9,7 @@ import AAsistente    from "../student/AAsistente";
 import ATiendaCustom from "../student/personalizar/ATiendaCustom";
 import ANoticias     from "../student/ANoticias";
 import ARanking      from "../student/ARanking";
+import APerfil       from "../student/APerfil";
 import PChat2        from "./PChat2";
 import PAMigos       from "./PAMigos";
 
@@ -109,7 +110,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
         {tab==="ranking"         && <ARanking me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="votar"           && <AVotaciones me={me} showToast={showToast}
                                      onBack={()=>setTab("home")} parentMode={true}/>}
-        {tab==="perfil"          && <PPerfil me={me} logout={logout} setTab={setTab}/>}
+        {tab==="perfil"          && <APerfil me={me} balance={balance} logout={logout} showToast={showToast} setMe={setMe} refreshBalance={refreshBalance}/>}
         {tab==="diwy"            && <PDiwy me={me} showToast={showToast} setTab={setTab}/>}
         {tab==="veredictos-hijo" && <PVeredictos me={me} showToast={showToast} setTab={setTab}/>}
         {tab==="noticias"        && <ANoticias me={me} onBack={()=>setTab("home")} readOnly={true}/>}
@@ -594,53 +595,6 @@ function PWallet({ me }) {
 // ─────────────────────────────────────────────────────────────
 // PERFIL
 // ─────────────────────────────────────────────────────────────
-function PPerfil({ me, logout, setTab }) {
-  const { primary, txt, sub, cardBg, pageBg } = useTheme();
-  return (
-    <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s" }}>
-      <div style={{ background:primary, color:"white", padding:"52px 20px 28px",
-        textShadow:"0 1px 4px rgba(0,0,0,.3)", transition:"background .3s" }}>
-        <div style={{ fontWeight:900, fontSize:22, textAlign:"center" }}>Mi Perfil</div>
-      </div>
-      <div style={{ padding:"14px 14px" }}>
-        <WCard style={{ textAlign:"center", padding:28, marginBottom:12 }}>
-          <Av user={me} sz={64} avatarBg={me?.avatar_bg||null}/>
-          <div style={{ fontWeight:900, fontSize:20, color:txt, marginTop:10,
-            transition:"color .3s" }}>{me.nombre}</div>
-          <div style={{ fontSize:13, color:sub, transition:"color .3s" }}>{me.email}</div>
-          <div style={{ display:"inline-flex", alignItems:"center", gap:4,
-            background:primary+"18", borderRadius:99, padding:"3px 12px", marginTop:8 }}>
-            <span style={{ fontSize:11, fontWeight:800, color:primary,
-              transition:"color .3s" }}>👨‍👩‍👧 Padre / Madre</span>
-          </div>
-        </WCard>
-        <WCard style={{ marginBottom:8, cursor:"pointer", padding:"14px 16px" }}
-          onClick={()=>setTab("personalizar")}>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            <div style={{ width:40, height:40, borderRadius:12, background:"#f59e0b22",
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>🎨</div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontWeight:800, fontSize:14, color:txt, transition:"color .3s" }}>
-                Personalizar app
-              </div>
-              <div style={{ fontSize:12, color:sub, transition:"color .3s" }}>
-                Temas y colores
-              </div>
-            </div>
-            <span style={{ color:sub, fontSize:18 }}>›</span>
-          </div>
-        </WCard>
-        <button onClick={logout}
-          style={{ width:"100%", background:"white", border:"1.5px solid #E8E8E8",
-            borderRadius:50, color:"#888", padding:"14px", fontWeight:800,
-            fontSize:14, cursor:"pointer", fontFamily:"Nunito,sans-serif" }}>
-          Cerrar sesión
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────
 // DIWY
 // ─────────────────────────────────────────────────────────────
