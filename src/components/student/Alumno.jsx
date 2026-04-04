@@ -140,11 +140,14 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [perfilUserId,setPerfilUserId]=useState(null); // perfil modal global
   const [chatInitialFriend,setChatInitialFriend]=useState(null);
 
+  // ── localStorage namespaced por usuario ──────────────────────
+  const lk = k => `${me.id}_${k}`;
+
   // ── Sistema de tema unificado ────────────────────────────────
   // activeMode: objeto con todos los colores del modo activo (claro/oscuro/sepia/etc)
   // activePrimary: color de acento equipado (null = usa el default del modo)
-  const savedModeId  = localStorage.getItem("ec_mode_id")||"claro";
-  const savedPrimary = localStorage.getItem("ec_primary")||null;
+  const savedModeId  = localStorage.getItem(lk("ec_mode_id"))||"claro";
+  const savedPrimary = localStorage.getItem(lk("ec_primary"))||null;
 
   const [activeModeId,  setActiveModeId]  = useState(savedModeId);
   const [activePrimary, setActivePrimary] = useState(savedPrimary);
@@ -155,7 +158,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   // Resolver el modo activo: buscar en built-ins primero, luego puede venir de DB
   const [dbModeCfg, setDbModeCfg] = useState(()=>{
     // Lazy initializer — solo corre una vez al montar
-    try { const s=localStorage.getItem("ec_mode_cfg"); return s?normalizeMode(JSON.parse(s)):null; } catch{return null;}
+    try { const s=localStorage.getItem(lk("ec_mode_cfg")); return s?normalizeMode(JSON.parse(s)):null; } catch{return null;}
   });
 
   const sm = dbModeCfg || BUILTIN_SCREEN_MODES.find(m=>m.id===activeModeId) || BUILTIN_SCREEN_MODES[0];
@@ -221,8 +224,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     } else {
       setPreviewPrimary(null);
       setActivePrimary(primary||null);
-      if(primary) localStorage.setItem("ec_primary", primary);
-      else localStorage.removeItem("ec_primary");
+      if(primary) localStorage.setItem(lk("ec_primary"), primary);
+      else localStorage.removeItem(lk("ec_primary"));
     }
   };
 
@@ -234,14 +237,14 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       const normalized = normalizeMode({...modeCfg, id: modeCfg.id||modeId||"personalizado"});
       setDbModeCfg(normalized);
       setActiveModeId(normalized.id);
-      localStorage.setItem("ec_mode_id", normalized.id);
-      localStorage.setItem("ec_mode_cfg", JSON.stringify(normalized));
+      localStorage.setItem(lk("ec_mode_id"), normalized.id);
+      localStorage.setItem(lk("ec_mode_cfg"), JSON.stringify(normalized));
     } else {
       // Modo built-in (claro/oscuro)
       setDbModeCfg(null);
       setActiveModeId(modeId||"claro");
-      localStorage.setItem("ec_mode_id", modeId||"claro");
-      localStorage.removeItem("ec_mode_cfg");
+      localStorage.setItem(lk("ec_mode_id"), modeId||"claro");
+      localStorage.removeItem(lk("ec_mode_cfg"));
     }
   };
 
@@ -280,8 +283,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       } else {
         // Sin screen_mode en servidor — respetar lo que hay en localStorage
         // (puede ser claro, oscuro, o personalizado)
-        const savedId  = localStorage.getItem("ec_mode_id")||"claro";
-        const savedCfg = (() => { try { const s=localStorage.getItem("ec_mode_cfg"); return s?JSON.parse(s):null; } catch{return null;} })();
+        const savedId  = localStorage.getItem(lk("ec_mode_id"))||"claro";
+        const savedCfg = (() => { try { const s=localStorage.getItem(lk("ec_mode_cfg")); return s?JSON.parse(s):null; } catch{return null;} })();
         if(savedCfg && savedId==="personalizado"){
           // Restaurar modo personalizado desde localStorage
           setMode("personalizado", savedCfg);

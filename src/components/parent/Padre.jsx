@@ -26,15 +26,18 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
   const [chatUnread, setChatUnread] = useState(0);
   const showNav = !HIDE_NAV.has(tab);
 
+  // ── localStorage namespaced por usuario ──────────────────────
+  const lk = k => `${me.id}_${k}`;
+
   // ── Theme state machine (mirrors Alumno) ──────────────────────
-  const savedModeId  = localStorage.getItem("ec_mode_id") || "claro";
-  const savedPrimary = localStorage.getItem("ec_primary") || null;
+  const savedModeId  = localStorage.getItem(lk("ec_mode_id")) || "claro";
+  const savedPrimary = localStorage.getItem(lk("ec_primary")) || null;
 
   const [activeModeId,  setActiveModeId]  = useState(savedModeId);
   const [activePrimary, setActivePrimary] = useState(savedPrimary);
   const [previewPrimary,setPreviewPrimary]= useState(null);
   const [dbModeCfg, setDbModeCfg] = useState(() => {
-    try { const s = localStorage.getItem("ec_mode_cfg"); return s ? normalizeMode(JSON.parse(s)) : null; } catch { return null; }
+    try { const s = localStorage.getItem(lk("ec_mode_cfg")); return s ? normalizeMode(JSON.parse(s)) : null; } catch { return null; }
   });
 
   const sm      = dbModeCfg || BUILTIN_SCREEN_MODES.find(m => m.id === activeModeId) || BUILTIN_SCREEN_MODES[0];
@@ -64,8 +67,8 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
     else {
       setPreviewPrimary(null);
       setActivePrimary(p || null);
-      if (p) localStorage.setItem("ec_primary", p);
-      else localStorage.removeItem("ec_primary");
+      if (p) localStorage.setItem(lk("ec_primary"), p);
+      else localStorage.removeItem(lk("ec_primary"));
     }
   };
 
@@ -75,13 +78,13 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
       const normalized = normalizeMode({ ...modeCfg, id: modeCfg.id || modeId || "personalizado" });
       setDbModeCfg(normalized);
       setActiveModeId(normalized.id);
-      localStorage.setItem("ec_mode_id", normalized.id);
-      localStorage.setItem("ec_mode_cfg", JSON.stringify(normalized));
+      localStorage.setItem(lk("ec_mode_id"), normalized.id);
+      localStorage.setItem(lk("ec_mode_cfg"), JSON.stringify(normalized));
     } else {
       setDbModeCfg(null);
       setActiveModeId(modeId || "claro");
-      localStorage.setItem("ec_mode_id", modeId || "claro");
-      localStorage.removeItem("ec_mode_cfg");
+      localStorage.setItem(lk("ec_mode_id"), modeId || "claro");
+      localStorage.removeItem(lk("ec_mode_cfg"));
     }
   };
 
@@ -224,7 +227,7 @@ function PHome({ me, balance, refreshBalance, showToast, setTab }) {
   const [desc,        setDesc]        = useState("");
   const [sending,     setSending]     = useState(false);
   const [gridMode,    setGridMode]    = useState(() => {
-    try { return localStorage.getItem("padre_grid") === "1"; } catch { return false; }
+    try { return localStorage.getItem(lk("padre_grid")) === "1"; } catch { return false; }
   });
 
   useEffect(() => {
@@ -254,7 +257,7 @@ function PHome({ me, balance, refreshBalance, showToast, setTab }) {
   const toggleGrid = () => {
     const next = !gridMode;
     setGridMode(next);
-    try { localStorage.setItem("padre_grid", next ? "1" : "0"); } catch {}
+    try { localStorage.setItem(lk("padre_grid"), next ? "1" : "0"); } catch {}
   };
 
   const QUICK = [

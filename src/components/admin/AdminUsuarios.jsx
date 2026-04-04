@@ -34,7 +34,7 @@ function AdminUsuarios({showToast}){
   const [linkSearch,setLinkSearch]=useState("");
 
   useEffect(()=>{
-    api.adminUsers().then(setUsers).finally(()=>setLoading(false));
+    api.adminUsers().then(u=>setUsers(Array.isArray(u)?u:u?.data||[])).catch(()=>{}).finally(()=>setLoading(false));
     api.adminParentLinks().then(d=>setAllLinks(Array.isArray(d)?d:[])).catch(()=>{});
   },[]);
 

@@ -20,7 +20,8 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
   const [preview,setPreview]= useState(null); // item de paleta en preview
   // Modo personalizado — colores que el alumno elige
   // customMode solo guarda los campos editables — normalizeMode deriva el resto
-  const savedCustomMode = (() => { try { const s=localStorage.getItem("ec_custom_mode"); return s?JSON.parse(s):null; } catch{return null;} })();
+  const lk = k => `${me.id}_${k}`;
+  const savedCustomMode = (() => { try { const s=localStorage.getItem(lk("ec_custom_mode")); return s?JSON.parse(s):null; } catch{return null;} })();
   const [customMode,setCustomMode] = useState(savedCustomMode||{
     bg:"#1a1a2e", card:"#16213e", nav:"#16213e", inputBg:"#0f3460", isDark:true,
   });
@@ -297,8 +298,8 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                       onClick={()=>{
                         const cfg={...customMode, id:"personalizado", nombre:"Personalizado"};
                         if(onSetMode) onSetMode("personalizado", cfg);
-                        localStorage.setItem("ec_mode_id","personalizado");
-                        localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
+                        localStorage.setItem(lk("ec_mode_id"),"personalizado");
+                        localStorage.setItem(lk("ec_mode_cfg"),JSON.stringify(cfg));
                       }}
                       style={{borderRadius:16,overflow:"hidden",cursor:"pointer",
                         background:isActive?"#1f2937":bg,
@@ -554,8 +555,8 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
     // Aplicar en tiempo real
     const cfg={...newMode,id:"personalizado",nombre:"Personalizado"};
     if(onSetMode) onSetMode("personalizado",cfg);
-    localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
-    localStorage.setItem("ec_custom_mode",JSON.stringify(newMode));
+    localStorage.setItem(lk("ec_mode_cfg"),JSON.stringify(cfg));
+    localStorage.setItem(lk("ec_custom_mode"),JSON.stringify(newMode));
     setSaved(false);
   };
 
@@ -565,14 +566,14 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
       const cfg={...customMode,id:"personalizado",nombre:"Personalizado",custom:true};
       await api.saveCustomMode(cfg);
       // También actualizar localStorage
-      localStorage.setItem("ec_mode_cfg",JSON.stringify(cfg));
-      localStorage.setItem("ec_custom_mode",JSON.stringify(customMode));
+      localStorage.setItem(lk("ec_mode_cfg"),JSON.stringify(cfg));
+      localStorage.setItem(lk("ec_custom_mode"),JSON.stringify(customMode));
       setSaved(true);
       setTimeout(()=>setSaved(false),2500);
     }catch(e){
       // Fallback: guardar solo en localStorage
-      localStorage.setItem("ec_mode_cfg",JSON.stringify({...customMode,id:"personalizado",nombre:"Personalizado",custom:true}));
-      localStorage.setItem("ec_custom_mode",JSON.stringify(customMode));
+      localStorage.setItem(lk("ec_mode_cfg"),JSON.stringify({...customMode,id:"personalizado",nombre:"Personalizado",custom:true}));
+      localStorage.setItem(lk("ec_custom_mode"),JSON.stringify(customMode));
       setSaved(true);
       setTimeout(()=>setSaved(false),2500);
     }finally{setSaving(false);}

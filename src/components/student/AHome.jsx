@@ -47,7 +47,7 @@ function CoinBurst({ burstKey }) {
 function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,onOpenWellness}){
   const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg} = useTheme();
   const [gridMode, setGridMode] = useState(() => {
-    try { return localStorage.getItem("accesos_grid") === "1"; } catch { return false; }
+    try { return localStorage.getItem(`${me.id}_accesos_grid`) === "1"; } catch { return false; }
   });
 
   // ── Balance display, direction arrow, and coin burst — all self-contained ──
@@ -106,7 +106,7 @@ function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,
   const toggleGrid = () => {
     const next = !gridMode;
     setGridMode(next);
-    try { localStorage.setItem("accesos_grid", next ? "1" : "0"); } catch {}
+    try { localStorage.setItem(`${me.id}_accesos_grid`, next ? "1" : "0"); } catch {}
   };
   const lv=getLv(me.total_earned||0);
   const next=nextLv(me.total_earned||0);
