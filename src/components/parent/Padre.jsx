@@ -14,7 +14,7 @@ import APerfil       from "../student/APerfil";
 import PHome         from "./PHome";
 import PChat2        from "./PChat2";
 import PAMigos       from "./PAMigos";
-import PDiwy         from "./PDiwy";
+import DiwyHub       from "../diwy/DiwyHub";
 import PVeredictos   from "./PVeredictos";
 import PSugerencias  from "./PSugerencias";
 import PVinculacion  from "./PVinculacion";
@@ -124,7 +124,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
                                      onBack={()=>setTab("home")} parentMode={true}/>}
         {tab==="perfil"          && <APerfil me={me} balance={balance} logout={logout}
                                      showToast={showToast} setMe={setMe} refreshBalance={refreshBalance}/>}
-        {tab==="diwy"            && <PDiwy me={me} showToast={showToast} setTab={setTab}/>}
+        {tab==="diwy"            && <DiwyHub me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="veredictos-hijo" && <PVeredictos me={me} showToast={showToast} setTab={setTab}/>}
         {tab==="sugerencias"     && <PSugerencias setTab={setTab}/>}
         {tab==="noticias"        && <ANoticias me={me} onBack={()=>setTab("home")} readOnly={true}/>}

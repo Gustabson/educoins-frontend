@@ -20,7 +20,7 @@ import AdminPsicologia from "./AdminPsicologia";
 import AdminSolicitudes from "./AdminSolicitudes";
 import AdminVeredictos  from "./AdminVeredictos";
 import AdminDocs        from "./AdminDocs";
-import AdminDiwy        from "./AdminDiwy";
+import DiwyHub          from "../diwy/DiwyHub";
 import AdminVincular    from "./AdminVincular";
 
 // ── Mapa de secciones → permiso requerido ─────────────────────
@@ -102,7 +102,7 @@ function Admin({ me, logout }) {
         {tab==="_sendProposal" && !isSuperAdmin           && <AdminSolicitudes showToast={showToast} onBack={()=>setTab("home")} me={me} mode="send"/>}
         {tab==="veredictos"   && canSee("veredictos")    && <AdminVeredictos  showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="aidocs"       && canSee("aidocs")        && <AdminDocs        showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="diwy"         && canSee("diwy")          && <AdminDiwy        showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="diwy"         && canSee("diwy")          && <DiwyHub          me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="link-requests"                           && <AdminVincular    showToast={showToast} onBack={()=>setTab("home")}/>}
 
       </div>
