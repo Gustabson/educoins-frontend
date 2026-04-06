@@ -364,7 +364,7 @@ export default function DiwyPadre({ showToast, onBack }) {
                   color: msgsLeft > 0 ? primary : sub,
                   borderRadius:99, padding:"3px 10px", fontSize:11, fontWeight:800, flexShrink:0,
                 }}>
-                  {msgsLeft}/2 hoy
+                  {todayMsgCount}/2 usados
                 </div>
               </div>
 

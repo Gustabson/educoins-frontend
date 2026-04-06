@@ -16,9 +16,12 @@ import DiwyMaestra from "./DiwyMaestra";
 import DiwyPadre   from "./DiwyPadre";
 import DiwyLanding from "./DiwyLanding";
 
+// TODO: remove SHOW_LANDING_ALWAYS before V2 launch
+const SHOW_LANDING_ALWAYS = true;
+
 export default function DiwyHub({ me, onBack, showToast }) {
   const [subscribed, setSubscribed] = useState(
-    () => !!localStorage.getItem(`${me?.id}_diwy_premium`)
+    () => !SHOW_LANDING_ALWAYS && !!localStorage.getItem(`${me?.id}_diwy_premium`)
   );
 
   if (!me) return null;
