@@ -69,7 +69,7 @@ export default function PVeredictos({ me, showToast, setTab }) {
               return (
                 <div key={v.id} style={{ background:cardBg, borderRadius:20,
                   marginBottom:10, overflow:"hidden",
-                  boxShadow:"0 1px 8px rgba(0,0,0,.07)", border:`2px solid ${sev.color}`,
+                  border:`2px solid ${sev.color}`,
                   transition:"background .3s, border .3s" }}>
                   <div style={{ background:sev.color, padding:"8px 16px",
                     display:"flex", alignItems:"center", justifyContent:"space-between" }}>

@@ -92,7 +92,7 @@ function AVeredictos({ me, onBack }) {
                 <div style={{
                   fontSize:14, color:txt, lineHeight:1.5,
                   fontWeight: v.read_at ? 600 : 800,
-                  marginBottom: v.coins_penalty > 0 ? 10 : 0,
+                  marginBottom: (v.coins_penalty > 0 || v.coins_reward > 0) ? 10 : 0,
                   transition:"color .3s",
                 }}>
                   {v.mensaje}

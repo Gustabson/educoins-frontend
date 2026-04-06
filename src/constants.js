@@ -215,8 +215,8 @@ const VERDICT_SEVERITY = {
   advertencia:    { label:"Advertencia",    color:"#f59e0b", icon:"⚠️", bg:"#78350f", positive:false },
   sancion:        { label:"Sanción",        color:"#ef4444", icon:"🚔", bg:"#7f1d1d", positive:false },
   grave:          { label:"Caso Grave",     color:"#7f1d1d", icon:"⛔", bg:"#450a0a", positive:false },
-  felicitacion:   { label:"Felicitación",   color:"#10b981", icon:"🌟", bg:"#064e3b", positive:true  },
-  reconocimiento: { label:"Reconocimiento", color:"#8b5cf6", icon:"🏆", bg:"#2e1065", positive:true  },
+  absolucion:     { label:"Absolución",     color:"#64748b", icon:"⚖️", bg:"#1e293b", positive:false },
+  reconocimiento: { label:"Reconocimiento", color:"#8b5cf6", icon:"🏅", bg:"#2e1065", positive:true  },
 };
 
 const GS = `
