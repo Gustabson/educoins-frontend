@@ -8,19 +8,21 @@ const THEMES_DEFAULT = {
   isDark:    false,
 };
 
-// Tema fijo para el panel Admin (no tiene personalización de usuario)
+// Tema fijo para el panel Admin — usa modo claro para que todos los componentes
+// con estilos hardcodeados (AdminConfig, etc.) sigan con buen contraste.
+// AdminHome y otros con fondos oscuros propios siguen funcionando igual.
 const ADMIN_THEME = {
   primary:   '#00c1fc',
   secondary: '#52177f',
-  isDark:    true,
-  pageBg:    '#12101e',
-  cardBg:    '#1e1b2e',
-  navBg:     '#12101e',
-  navBord:   '#2a2740',
-  txt:       '#e8e8f0',
-  sub:       '#8884a8',
-  inputBg:   '#2a2740',
-  inputBd:   '#3a3760',
+  isDark:    false,
+  pageBg:    '#F0F0F0',
+  cardBg:    'white',
+  navBg:     'white',
+  navBord:   '#EFEFEF',
+  txt:       '#1a1a1a',
+  sub:       '#555555',
+  inputBg:   '#F7F7F7',
+  inputBd:   '#E8E8E8',
 };
 
 const DUAL_THEMES = [

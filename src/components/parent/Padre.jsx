@@ -109,7 +109,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
       transition:"background .3s" }}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
-      <div style={{ flex:1, overflowY:"auto", paddingBottom:showNav?90:0, animation:"fadeIn .18s ease" }}>
+      <div style={{ flex:1, overflowY:"auto", paddingBottom:0, animation:"fadeIn .18s ease" }}>
 
         {tab==="home"            && <PHome me={me} balance={balance}
                                      showToast={showToast} setTab={setTab}/>}
