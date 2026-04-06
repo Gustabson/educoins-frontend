@@ -3,7 +3,7 @@
 // Header unificado con tabs para evitar conflicto sticky con OHdrA.
 
 import { useState, useEffect, useRef } from "react";
-import { api } from "../../api";
+import { api, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { WCard, OHdrA } from "../shared/index";
 
@@ -80,20 +80,31 @@ export default function DiwyMaestra({ me }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Load + poll messages when on mensajes tab
+  // Load + poll messages when on mensajes tab + socket for new messages
   useEffect(() => {
-    if (activeTab !== "mensajes") return;
     let active = true;
-    const load = () => {
-      api.diwyTeacherMessages()
-        .then(d => { if (active) setMessages(Array.isArray(d) ? d : []); })
-        .catch(() => {});
+    const load = () => api.diwyTeacherMessages()
+      .then(d => { if (active) setMessages(Array.isArray(d) ? d : []); })
+      .catch(() => {});
+
+    if (activeTab === "mensajes") {
+      setLoadingMsgs(true);
+      load().finally(() => setLoadingMsgs(false));
+    }
+
+    // Socket: new parent messages arrive instantly regardless of active tab
+    const socket = getSocket();
+    const onDiwyMessage = () => load(); // backend emits 'diwy_message' to teachers
+    if (socket) socket.on("diwy_message", onDiwyMessage);
+
+    // Polling fallback (10s when on tab, 60s otherwise)
+    const iv = setInterval(load, activeTab === "mensajes" ? 10000 : 60000);
+
+    return () => {
+      active = false;
+      clearInterval(iv);
+      if (socket) socket.off("diwy_message", onDiwyMessage);
     };
-    setLoadingMsgs(true);
-    load();
-    setLoadingMsgs(false);
-    const iv = setInterval(load, 20000);
-    return () => { active = false; clearInterval(iv); };
   }, [activeTab]);
 
   // Load observations when student selected

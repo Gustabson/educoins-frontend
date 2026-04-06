@@ -7,8 +7,8 @@
 //   ✅ Ordenale a Diwy (parent→teacher messaging via AI, 2/day)
 //   ✅ Preview de clase (published by teacher each day)
 
-import { useState, useEffect } from "react";
-import { api } from "../../api";
+import { useState, useEffect, useRef } from "react";
+import { api, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { WCard } from "../shared/index";
 
@@ -97,32 +97,46 @@ export default function DiwyPadre({ showToast, onBack }) {
       .catch(() => {})
       .finally(() => setLoadingReports(false));
 
-    // Load + poll messages every 30s
     let active = true;
-    const loadMsgs = () => {
-      api.diwyParentMessages()
-        .then(d => { if (active) setMessages(Array.isArray(d) ? d : []); })
-        .catch(() => {});
-    };
+    const loadMsgs    = () => api.diwyParentMessages().then(d => { if (active) setMessages(Array.isArray(d) ? d : []); }).catch(() => {});
+    const loadPreview = () => api.diwyParentPreview().then(d => { if (active) setPreview(d || null); }).catch(() => {});
+
     loadMsgs();
-    const msgIv = setInterval(loadMsgs, 30000);
-
-    // Load + poll preview every 60s
-    const loadPreview = () => {
-      api.diwyParentPreview()
-        .then(d => { if (active) setPreview(d || null); })
-        .catch(() => {});
-    };
     loadPreview();
-    const prevIv = setInterval(loadPreview, 60000);
 
-    // Rotate etiquette tip every 8s
+    // Polling as fallback (10s msgs, 30s preview)
+    const msgIv  = setInterval(loadMsgs,    10000);
+    const prevIv = setInterval(loadPreview, 30000);
+
+    // Socket: instant updates
+    const socket = getSocket();
+    const onDiwyReply = (data) => {
+      setMessages(prev => prev.map(m =>
+        m.id === data.message_id
+          ? { ...m, estado:"replied", formatted_reply: data.formatted_reply, replied_at: data.replied_at }
+          : m
+      ));
+    };
+    const onDiwyPreview = (data) => {
+      setPreview(data);
+    };
+    if (socket) {
+      socket.on("diwy_reply",   onDiwyReply);
+      socket.on("diwy_preview", onDiwyPreview);
+    }
+
+    // Rotate tip every 8s
     const tipIv = setInterval(() => setShowTip(p => (p + 1) % ETIQUETTE_TIPS.length), 8000);
+
     return () => {
       active = false;
       clearInterval(msgIv);
       clearInterval(prevIv);
       clearInterval(tipIv);
+      if (socket) {
+        socket.off("diwy_reply",   onDiwyReply);
+        socket.off("diwy_preview", onDiwyPreview);
+      }
     };
   }, []);
 
