@@ -271,6 +271,8 @@ const api = {
   diwyApprove:        (id)        => apiFetch(`/diwy/reports/${id}/approve`,{ method:"PATCH" }),
   diwyParentReports:  ()          => apiFetch("/diwy/parent"),
   diwyParentRequest:  (studentId) => apiFetch(`/diwy/parent/request/${studentId}`, { method:"POST" }),
+  diwyParentSnapshot: ()          => apiFetch("/diwy/parent/snapshot"),
+  diwyParentAsk:      (data)      => apiFetch("/diwy/parent/ask",                  { method:"POST", body:data }),
   // ── Parent portal ─────────────────────────────────────────
   parentLinkSearch:    (name)      => apiFetch(`/parent/link-search?q=${encodeURIComponent(name)}`),
   parentLinkConfirm:   (studentId) => apiFetch("/parent/link-request/confirm", { method:"POST", body:{student_id:studentId} }),
