@@ -749,7 +749,6 @@ function MVotaciones({me, showToast}){
         })}
       </div>
     </div>
-    </ThemeCtx.Provider>
   );
 }
 
