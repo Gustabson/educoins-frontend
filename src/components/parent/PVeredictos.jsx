@@ -2,12 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { WCard } from "../shared/index";
-
-const SEV_CFG = {
-  advertencia:{ label:"Advertencia", color:"#f59e0b", icon:"⚠️" },
-  sancion:    { label:"Sanción",     color:"#ef4444", icon:"🚔" },
-  grave:      { label:"Caso Grave",  color:"#7f1d1d", icon:"⛔" },
-};
+import { VERDICT_SEVERITY } from "./data";
 
 export default function PVeredictos({ me, showToast, setTab }) {
   const { txt, sub, cardBg, pageBg } = useTheme();
@@ -67,7 +62,7 @@ export default function PVeredictos({ me, showToast, setTab }) {
             <div style={{ fontWeight:800, fontSize:13, color:sub, marginBottom:8,
               paddingLeft:4, transition:"color .3s" }}>👧 {nombre}</div>
             {cv.map(v => {
-              const sev = SEV_CFG[v.severity] || SEV_CFG.advertencia;
+              const sev = VERDICT_SEVERITY[v.severity] || VERDICT_SEVERITY.advertencia;
               return (
                 <div key={v.id} style={{ background:cardBg, borderRadius:20,
                   marginBottom:10, overflow:"hidden",

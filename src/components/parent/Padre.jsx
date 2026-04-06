@@ -16,6 +16,7 @@ import PChat2        from "./PChat2";
 import PAMigos       from "./PAMigos";
 import PDiwy         from "./PDiwy";
 import PVeredictos   from "./PVeredictos";
+import PSugerencias  from "./PSugerencias";
 import PVinculacion  from "./PVinculacion";
 import PQuemar       from "./PQuemar";
 import PEnviar       from "./PEnviar";
@@ -23,7 +24,7 @@ import PIngresar     from "./PIngresar";
 
 // Sub-páginas que ocultan la barra de nav (tienen su propio botón ←)
 const HIDE_NAV = new Set([
-  "diwy","veredictos-hijo","noticias","asistente",
+  "diwy","veredictos-hijo","sugerencias","noticias","asistente",
   "personalizar","exchange","quemar","vincular","chat","amigos",
   "enviar","ingresar",
 ]);
@@ -125,6 +126,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
                                      showToast={showToast} setMe={setMe} refreshBalance={refreshBalance}/>}
         {tab==="diwy"            && <PDiwy me={me} showToast={showToast} setTab={setTab}/>}
         {tab==="veredictos-hijo" && <PVeredictos me={me} showToast={showToast} setTab={setTab}/>}
+        {tab==="sugerencias"     && <PSugerencias setTab={setTab}/>}
         {tab==="noticias"        && <ANoticias me={me} onBack={()=>setTab("home")} readOnly={true}/>}
         {tab==="asistente"       && <AAsistente me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="personalizar"    && <ATiendaCustom me={me} showToast={showToast} onBack={()=>setTab("home")}

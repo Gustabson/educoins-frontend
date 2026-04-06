@@ -32,6 +32,7 @@ export default function PHome({ me, balance, showToast, setTab }) {
   const QUICK = [
     ["🐾","Diwy",          "Reportes IA de tus hijos",       "#7c3aed","diwy"           ],
     ["⚖️","Veredictos",    "Conducta de tus hijos",          "#7f1d1d","veredictos-hijo" ],
+    ["💡","Sugerencias",   "Cómo usar EduCoins efectivamente", "#00d084","sugerencias"     ],
     ["📰","Noticias",      "Publicaciones de la escuela",     "#00c1fc","noticias"        ],
     ["🤖","Asistente IA",  "Preguntas sobre reglas",          "#10b981","asistente"       ],
     ["🎨","Personalizar",  "Temas y colores de la app",       "#f59e0b","personalizar"    ],
