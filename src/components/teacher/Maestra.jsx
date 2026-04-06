@@ -29,7 +29,7 @@ function Maestra({me,logout}){
           {id:"home",       icon:"🏠", label:"Inicio"},
           {id:"misiones",   icon:"⚡", label:"Misiones"},
           {id:"aprobar",    icon:"📬", label:"Entregas"},
-          {id:"diwy",       icon:"🐾", label:"Diwy"},
+          {id:"votaciones", icon:"🗳️", label:"Votar"},
           {id:"perfil",     icon:"👤", label:"Perfil"},
         ].map(item=>{
           const on=tab===item.id;
@@ -111,6 +111,7 @@ function MHome({me,onNav}){
         {[
           {icon:"⚡",title:"Crear misión",   sub:"Nuevas actividades",         dest:"misiones",col:"#f59e0b"},
           {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,dest:"aprobar", col:"#10b981"},
+          {icon:"🐾",title:"Diwy",           sub:"Observaciones semanales",     dest:"diwy",    col:"#8b5cf6"},
           {icon:"👨‍🎓",title:"Ver alumnos",   sub:`${students.length} en tu aula`,dest:null,    col:"#3b82f6",
            action:()=>setShowStudents(s=>!s)},
         ].map(item=>(
