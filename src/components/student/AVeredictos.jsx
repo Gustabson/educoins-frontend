@@ -29,9 +29,12 @@ function AVeredictos({ me, onBack }) {
     <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s" }}>
       <OHdrA
         title="⚖️ Veredictos"
-        sub={unread > 0 ? `${unread} sin leer` : "Todo al día"}
+        extra={
+          <div style={{ fontSize:12, opacity:.8, marginTop:2 }}>
+            {unread > 0 ? `${unread} sin leer` : "Todo al día"}
+          </div>
+        }
         onBack={onBack}
-        color={primary}
       />
 
       <div style={{ padding:"16px 14px 32px" }}>
@@ -56,34 +59,33 @@ function AVeredictos({ me, onBack }) {
 
         {list.map(v => {
           const sev = SEVERITY_CFG[v.severity] || SEVERITY_CFG.advertencia;
+          const unread = !v.read_at;
           return (
             <div key={v.id} style={{
               background:cardBg, borderRadius:20, marginBottom:12,
-              border: v.read_at
-                ? `1.5px solid ${navBord}`
-                : `2px solid ${sev.color}`,
+              border: unread ? `2px solid ${primary}` : `1.5px solid ${navBord}`,
               overflow:"hidden",
-              boxShadow: v.read_at
-                ? "0 1px 8px rgba(0,0,0,.06)"
-                : `0 4px 20px ${sev.color}44`,
+              boxShadow: unread ? `0 4px 16px ${primary}33` : "none",
               transition:"background .3s, border .3s, box-shadow .3s",
             }}>
-              {/* Franja de severidad */}
-              <div style={{ background:sev.color, padding:"8px 16px",
-                display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              {/* Cabecera */}
+              <div style={{ padding:"12px 16px", display:"flex", alignItems:"center",
+                justifyContent:"space-between",
+                borderBottom:`1px solid ${navBord}`, transition:"border-color .3s" }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8,
-                  fontWeight:900, color:"white", fontSize:13 }}>
+                  fontWeight:900, fontSize:13,
+                  color: unread ? primary : sub, transition:"color .3s" }}>
                   <span style={{ fontSize:16 }}>{sev.icon}</span>
                   {sev.label}
-                  {!v.read_at && (
-                    <span style={{ background:cardBg, color:sev.color, borderRadius:99,
-                      fontSize:9, fontWeight:900, padding:"2px 7px",
-                      transition:"background .3s" }}>
+                  {unread && (
+                    <span style={{ background:`${primary}20`, color:primary,
+                      borderRadius:99, fontSize:9, fontWeight:900, padding:"2px 7px",
+                      transition:"background .3s, color .3s" }}>
                       NUEVO
                     </span>
                   )}
                 </div>
-                <span style={{ color:"rgba(255,255,255,.75)", fontSize:11 }}>
+                <span style={{ color:sub, fontSize:11, transition:"color .3s" }}>
                   {fmt(v.created_at)}
                 </span>
               </div>
@@ -92,7 +94,7 @@ function AVeredictos({ me, onBack }) {
               <div style={{ padding:"14px 16px" }}>
                 <div style={{
                   fontSize:14, color:txt, lineHeight:1.5,
-                  fontWeight: v.read_at ? 600 : 800,
+                  fontWeight: unread ? 800 : 600,
                   marginBottom: (v.coins_penalty > 0 || v.coins_reward > 0) ? 10 : 0,
                   transition:"color .3s",
                 }}>
@@ -101,15 +103,17 @@ function AVeredictos({ me, onBack }) {
 
                 {v.coins_penalty > 0 && (
                   <div style={{ display:"inline-flex", alignItems:"center", gap:6,
-                    background:`${sev.color}22`, borderRadius:10, padding:"5px 12px",
-                    fontSize:12, fontWeight:800, color:sev.color }}>
+                    background:`${primary}15`, borderRadius:10, padding:"5px 12px",
+                    fontSize:12, fontWeight:800, color:primary,
+                    transition:"background .3s, color .3s" }}>
                     🪙 Penalización: -{v.coins_penalty} EduCoins descontados
                   </div>
                 )}
                 {v.coins_reward > 0 && (
                   <div style={{ display:"inline-flex", alignItems:"center", gap:6,
-                    background:`${sev.color}22`, borderRadius:10, padding:"5px 12px",
-                    fontSize:12, fontWeight:800, color:sev.color }}>
+                    background:`${primary}15`, borderRadius:10, padding:"5px 12px",
+                    fontSize:12, fontWeight:800, color:primary,
+                    transition:"background .3s, color .3s" }}>
                     🪙 +{v.coins_reward} EduCoins acreditados
                   </div>
                 )}
