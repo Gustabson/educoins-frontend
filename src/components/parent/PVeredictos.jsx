@@ -29,7 +29,7 @@ export default function PVeredictos({ me, showToast, setTab }) {
   return (
     <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s" }}>
       <div style={{ background:primary, color:"white", padding:"52px 20px 28px",
-        position:"sticky", top:0, zIndex:50, overflow:"hidden" }}>
+        position:"sticky", top:0, zIndex:50, overflow:"hidden", transition:"background .3s" }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
           background:"rgba(255,255,255,.08)", top:-50, right:-40, pointerEvents:"none" }}/>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -43,8 +43,12 @@ export default function PVeredictos({ me, showToast, setTab }) {
           </div>
         </div>
       </div>
+
       <div style={{ padding:"16px 14px" }}>
-        {loading && <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>}
+        {loading && (
+          <div style={{ textAlign:"center", color:sub, padding:32,
+            transition:"color .3s" }}>Cargando...</div>
+        )}
         {!loading && verdicts.length === 0 && (
           <WCard style={{ textAlign:"center", padding:32 }}>
             <div style={{ fontSize:40 }}>✅</div>
@@ -66,7 +70,7 @@ export default function PVeredictos({ me, showToast, setTab }) {
                 <div key={v.id} style={{ background:cardBg, borderRadius:20,
                   marginBottom:10, overflow:"hidden",
                   boxShadow:"0 1px 8px rgba(0,0,0,.07)", border:`2px solid ${sev.color}`,
-                  transition:"background .3s" }}>
+                  transition:"background .3s, border .3s" }}>
                   <div style={{ background:sev.color, padding:"8px 16px",
                     display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8,

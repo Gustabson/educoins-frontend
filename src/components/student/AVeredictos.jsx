@@ -12,7 +12,7 @@ function fmt(iso) {
 }
 
 function AVeredictos({ me, onBack }) {
-  const { primary, isDark:dark, txt, sub, cardBg, pageBg } = useTheme();
+  const { primary, txt, sub, cardBg, pageBg, navBord } = useTheme();
   const [list, setList]       = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,11 +60,11 @@ function AVeredictos({ me, onBack }) {
             <div key={v.id} style={{
               background:cardBg, borderRadius:20, marginBottom:12,
               border: v.read_at
-                ? `1.5px solid ${dark ? "#333" : "#eee"}`
+                ? `1.5px solid ${navBord}`
                 : `2px solid ${sev.color}`,
               overflow:"hidden",
               boxShadow: v.read_at
-                ? (dark ? "0 1px 8px rgba(0,0,0,.4)" : "0 1px 8px rgba(0,0,0,.06)")
+                ? "0 1px 8px rgba(0,0,0,.06)"
                 : `0 4px 20px ${sev.color}44`,
               transition:"background .3s, border .3s, box-shadow .3s",
             }}>
