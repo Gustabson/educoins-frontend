@@ -76,8 +76,9 @@ function AVeredictos({ me, onBack }) {
                   <span style={{ fontSize:16 }}>{sev.icon}</span>
                   {sev.label}
                   {!v.read_at && (
-                    <span style={{ background:"white", color:sev.color, borderRadius:99,
-                      fontSize:9, fontWeight:900, padding:"2px 7px" }}>
+                    <span style={{ background:cardBg, color:sev.color, borderRadius:99,
+                      fontSize:9, fontWeight:900, padding:"2px 7px",
+                      transition:"background .3s" }}>
                       NUEVO
                     </span>
                   )}

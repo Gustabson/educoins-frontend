@@ -122,9 +122,10 @@ function Inp({val,set,ph,type,icon}){
   );
 }
 function WCard({children,style,onClick}){
+  const {cardBg} = useTheme();
   return(
-    <div onClick={onClick} style={{background:"white",borderRadius:20,padding:16,
-      boxShadow:"0 1px 8px rgba(0,0,0,.06)",...style}}>{children}</div>
+    <div onClick={onClick} style={{background:cardBg,borderRadius:20,padding:16,
+      transition:"background .3s",...style}}>{children}</div>
   );
 }
 function Sheet({title,onClose,children}){
