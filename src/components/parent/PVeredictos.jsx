@@ -93,6 +93,14 @@ export default function PVeredictos({ me, showToast, setTab }) {
                         🪙 Penalización: -{v.coins_penalty} EduCoins
                       </div>
                     )}
+                    {v.coins_reward > 0 && (
+                      <div style={{ display:"inline-flex", alignItems:"center", gap:6,
+                        background:`${sev.color}20`, borderRadius:10,
+                        padding:"5px 12px", marginTop:8,
+                        fontSize:12, fontWeight:800, color:sev.color }}>
+                        🪙 +{v.coins_reward} EduCoins acreditados
+                      </div>
+                    )}
                   </div>
                 </div>
               );

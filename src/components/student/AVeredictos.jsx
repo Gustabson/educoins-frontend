@@ -99,13 +99,17 @@ function AVeredictos({ me, onBack }) {
                 </div>
 
                 {v.coins_penalty > 0 && (
-                  <div style={{
-                    display:"inline-flex", alignItems:"center", gap:6,
-                    background:`${sev.color}22`,
-                    borderRadius:10, padding:"5px 12px",
-                    fontSize:12, fontWeight:800, color:sev.color,
-                  }}>
+                  <div style={{ display:"inline-flex", alignItems:"center", gap:6,
+                    background:`${sev.color}22`, borderRadius:10, padding:"5px 12px",
+                    fontSize:12, fontWeight:800, color:sev.color }}>
                     🪙 Penalización: -{v.coins_penalty} EduCoins descontados
+                  </div>
+                )}
+                {v.coins_reward > 0 && (
+                  <div style={{ display:"inline-flex", alignItems:"center", gap:6,
+                    background:`${sev.color}22`, borderRadius:10, padding:"5px 12px",
+                    fontSize:12, fontWeight:800, color:sev.color }}>
+                    🪙 +{v.coins_reward} EduCoins acreditados
                   </div>
                 )}
 
