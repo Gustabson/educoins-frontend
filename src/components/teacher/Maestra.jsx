@@ -51,6 +51,7 @@ function Maestra({me,logout}){
         })}
       </div>
     </div>
+    </ThemeCtx.Provider>
   );
 }
 
