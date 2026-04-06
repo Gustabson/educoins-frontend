@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { api, connectSocket } from "../../api";
 import { ThemeCtx, useTheme } from "../../ThemeContext";
-import { DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode, GS } from "../../constants";
+import { DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode, GS, VERDICT_SEVERITY } from "../../constants";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 import PerfilModal from "../shared/PerfilModal";
 import AHome from "./AHome";
@@ -25,12 +25,6 @@ import AVeredictos from "./AVeredictos";
 import AAsistente  from "./AAsistente";
 import ATiendaCustom from "./personalizar/ATiendaCustom";
 import AWellness from "./AWellness";
-
-const VERDICT_SEVERITY = {
-  advertencia: { label:"Advertencia",  color:"#f59e0b", icon:"⚠️", bg:"#78350f" },
-  sancion:     { label:"Sanción",      color:"#ef4444", icon:"🚔", bg:"#7f1d1d" },
-  grave:       { label:"Caso Grave",   color:"#dc2626", icon:"⛔", bg:"#450a0a" },
-};
 
 const SIREN_STYLE = `
   @keyframes sirenPulse {

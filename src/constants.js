@@ -208,6 +208,14 @@ const TIPO_ICON=Object.fromEntries(REPORTE_TIPOS.map(t=>[t.id,t.icon]));
 
 const CHAT_SECTIONS = ["Personal","Grupos","Aula","Global"];
 
+// ── VEREDICTOS ────────────────────────────────────────────────
+// Shared by AdminVeredictos, AVeredictos, Alumno (socket toasts), PVeredictos
+const VERDICT_SEVERITY = {
+  advertencia: { label:"Advertencia", color:"#f59e0b", icon:"⚠️", bg:"#78350f" },
+  sancion:     { label:"Sanción",     color:"#ef4444", icon:"🚔", bg:"#7f1d1d" },
+  grave:       { label:"Caso Grave",  color:"#7f1d1d", icon:"⛔", bg:"#450a0a" },
+};
+
 const GS = `
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -235,5 +243,5 @@ export {
   TAG_COLORS, TAG_LIST,
   REPORTE_TIPOS, REPORTE_GRUPOS, ESTADO_LABEL, ESTADO_COLOR,
   ESTADO_COL, ESTADO_LABEL2, TIPO_ICON,
-  CHAT_SECTIONS
+  CHAT_SECTIONS, VERDICT_SEVERITY
 };

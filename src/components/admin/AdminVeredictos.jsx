@@ -1,12 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../../api";
 import { WCard } from "../shared/index";
-
-const SEVERITY_CFG = {
-  advertencia: { label:"Advertencia",  color:"#f59e0b", icon:"⚠️" },
-  sancion:     { label:"Sanción",      color:"#ef4444", icon:"🚔" },
-  grave:       { label:"Caso Grave",   color:"#7f1d1d", icon:"⛔" },
-};
+import { VERDICT_SEVERITY as SEVERITY_CFG } from "../../constants";
 
 function fmt(iso) {
   if (!iso) return "";

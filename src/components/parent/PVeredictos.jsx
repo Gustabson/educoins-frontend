@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { WCard } from "../shared/index";
-import { VERDICT_SEVERITY } from "./data";
+import { VERDICT_SEVERITY } from "../../constants";
 
 export default function PVeredictos({ me, showToast, setTab }) {
   const { txt, sub, cardBg, pageBg } = useTheme();
