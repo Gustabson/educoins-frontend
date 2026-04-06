@@ -5,10 +5,9 @@ import { WCard } from "../shared/index";
 import { VERDICT_SEVERITY } from "../../constants";
 
 export default function PVeredictos({ me, showToast, setTab }) {
-  const { txt, sub, cardBg, pageBg } = useTheme();
+  const { primary, txt, sub, cardBg, pageBg } = useTheme();
   const [verdicts, setVerdicts] = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const accent = "#7f1d1d";
 
   useEffect(() => {
     api.parentChildrenVerdicts()
@@ -29,7 +28,7 @@ export default function PVeredictos({ me, showToast, setTab }) {
 
   return (
     <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s" }}>
-      <div style={{ background:accent, color:"white", padding:"52px 20px 28px",
+      <div style={{ background:primary, color:"white", padding:"52px 20px 28px",
         position:"sticky", top:0, zIndex:50, overflow:"hidden" }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
           background:"rgba(255,255,255,.08)", top:-50, right:-40, pointerEvents:"none" }}/>
@@ -84,9 +83,9 @@ export default function PVeredictos({ me, showToast, setTab }) {
                       transition:"color .3s" }}>{v.mensaje}</div>
                     {v.coins_penalty > 0 && (
                       <div style={{ display:"inline-flex", alignItems:"center", gap:6,
-                        background:"rgba(239,68,68,.12)", borderRadius:10,
+                        background:`${sev.color}20`, borderRadius:10,
                         padding:"5px 12px", marginTop:8,
-                        fontSize:12, fontWeight:800, color:"#dc2626" }}>
+                        fontSize:12, fontWeight:800, color:sev.color }}>
                         🪙 Penalización: -{v.coins_penalty} EduCoins
                       </div>
                     )}

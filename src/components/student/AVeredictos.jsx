@@ -101,9 +101,9 @@ function AVeredictos({ me, onBack }) {
                 {v.coins_penalty > 0 && (
                   <div style={{
                     display:"inline-flex", alignItems:"center", gap:6,
-                    background: dark ? "rgba(239,68,68,.18)" : "#fee2e2",
+                    background:`${sev.color}22`,
                     borderRadius:10, padding:"5px 12px",
-                    fontSize:12, fontWeight:800, color:"#dc2626",
+                    fontSize:12, fontWeight:800, color:sev.color,
                   }}>
                     🪙 Penalización: -{v.coins_penalty} EduCoins descontados
                   </div>
