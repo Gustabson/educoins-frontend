@@ -97,17 +97,33 @@ export default function DiwyPadre({ showToast, onBack }) {
       .catch(() => {})
       .finally(() => setLoadingReports(false));
 
-    api.diwyParentMessages()
-      .then(d => setMessages(Array.isArray(d) ? d : []))
-      .catch(() => {});
+    // Load + poll messages every 30s
+    let active = true;
+    const loadMsgs = () => {
+      api.diwyParentMessages()
+        .then(d => { if (active) setMessages(Array.isArray(d) ? d : []); })
+        .catch(() => {});
+    };
+    loadMsgs();
+    const msgIv = setInterval(loadMsgs, 30000);
 
-    api.diwyParentPreview()
-      .then(d => setPreview(d || null))
-      .catch(() => {});
+    // Load + poll preview every 60s
+    const loadPreview = () => {
+      api.diwyParentPreview()
+        .then(d => { if (active) setPreview(d || null); })
+        .catch(() => {});
+    };
+    loadPreview();
+    const prevIv = setInterval(loadPreview, 60000);
 
     // Rotate etiquette tip every 8s
-    const t = setInterval(() => setShowTip(p => (p + 1) % ETIQUETTE_TIPS.length), 8000);
-    return () => clearInterval(t);
+    const tipIv = setInterval(() => setShowTip(p => (p + 1) % ETIQUETTE_TIPS.length), 8000);
+    return () => {
+      active = false;
+      clearInterval(msgIv);
+      clearInterval(prevIv);
+      clearInterval(tipIv);
+    };
   }, []);
 
   const child        = snapshot.find(c => c.id === selectedChild);
@@ -239,9 +255,9 @@ export default function DiwyPadre({ showToast, onBack }) {
                   borderRadius:14, padding:"14px 16px",
                   transition:"background .3s",
                 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <span style={{ fontSize:28 }}>🗓️</span>
-                    <div>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                    <span style={{ fontSize:28, flexShrink:0 }}>🗓️</span>
+                    <div style={{ flex:1 }}>
                       <div style={{ fontWeight:900, fontSize:14, color:txt }}>{preview.tema}</div>
                       {preview.detalle && (
                         <div style={{ fontSize:12, color:sub, marginTop:3, lineHeight:1.5 }}>{preview.detalle}</div>
@@ -251,6 +267,11 @@ export default function DiwyPadre({ showToast, onBack }) {
                       </div>
                     </div>
                   </div>
+                  {preview.imagen && (
+                    <img src={preview.imagen} alt="clase"
+                      style={{ width:"100%", borderRadius:10, marginTop:12,
+                        maxHeight:200, objectFit:"cover", display:"block" }}/>
+                  )}
                 </div>
               </div>
             ) : (
