@@ -1,11 +1,11 @@
 // DiwyPadre.jsx — Full parent dashboard for Diwy.
-// Delivers on every promise made in DiwyLanding:
 //   ✅ Reportes IA semanales
 //   ✅ Solicitar análisis cuando quieras
-//   ✅ Preguntale a Diwy (AI Q&A with child's real data)
-//   ✅ Datos únicos en tiempo real (balance, mood, streak, activity)
+//   ✅ Preguntale a Diwy (AI Q&A)
+//   ✅ Datos en tiempo real (balance, mood, streak, activity)
 //   ✅ Alertas de conducta (verdicts)
-//   🔜 Preview de clase (marked coming soon)
+//   ✅ Ordenale a Diwy (parent→teacher messaging via AI, 2/day)
+//   ✅ Preview de clase (published by teacher each day)
 
 import { useState, useEffect } from "react";
 import { api } from "../../api";
@@ -14,6 +14,9 @@ import { WCard } from "../shared/index";
 
 const fmtDate = d => d
   ? new Date(d).toLocaleDateString("es-AR", { day:"numeric", month:"long" }) : "";
+
+const fmtTime = d => d
+  ? new Date(d).toLocaleTimeString("es-AR", { hour:"2-digit", minute:"2-digit" }) : "";
 
 const moodEmoji = avg => {
   if (!avg) return "—";
@@ -24,25 +27,39 @@ const moodEmoji = avg => {
 };
 
 const SEVERITY_ICON = {
-  advertencia:    "⚠️",
-  sancion:        "🚔",
-  grave:          "⛔",
-  absolucion:     "⚖️",
-  reconocimiento: "🏅",
+  advertencia:"⚠️", sancion:"🚔", grave:"⛔",
+  absolucion:"⚖️", reconocimiento:"🏅",
 };
 
-const SUGGESTIONS = [
+const ASK_SUGGESTIONS = [
   "¿Cómo estuvo esta semana?",
   "¿Está bien emocionalmente?",
   "¿Tiene algo pendiente?",
   "¿Cómo fue su comportamiento?",
 ];
 
+const ORDER_SUGGESTIONS = [
+  "¿Tiene tarea para hoy?",
+  "¿Cómo se portó en clase?",
+  "¿Viene bien con los contenidos?",
+  "¿Necesita algún material especial?",
+];
+
+const ETIQUETTE_TIPS = [
+  "Diwy entrega tu mensaje en momentos libres de la clase, sin interrumpir al docente.",
+  "Usá este canal para consultas puntuales. Para temas importantes, coordiná una reunión.",
+  "Tenés 2 mensajes por día. Usálos para lo que realmente importa.",
+  "La maestra puede tardar en responder si está en clase. Diwy te avisa cuando llegue la respuesta.",
+];
+
 export default function DiwyPadre({ showToast, onBack }) {
   const { primary, txt, sub, cardBg, pageBg, navBord, inputBg, inputBd, isDark } = useTheme();
 
+  // Data
   const [snapshot,       setSnapshot]       = useState([]);
   const [reports,        setReports]        = useState([]);
+  const [messages,       setMessages]       = useState([]);
+  const [preview,        setPreview]        = useState(null);
   const [loadingSnap,    setLoadingSnap]    = useState(true);
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedChild,  setSelectedChild]  = useState(null);
@@ -53,7 +70,14 @@ export default function DiwyPadre({ showToast, onBack }) {
   const [lastAnswer,  setLastAnswer]  = useState(null);
   const [answerIsErr, setAnswerIsErr] = useState(false);
 
-  // Report actions
+  // Ordenale a Diwy
+  const [orderMsg,      setOrderMsg]      = useState("");
+  const [ordering,      setOrdering]      = useState(false);
+  const [orderSent,     setOrderSent]     = useState(null);  // { formatted_msg }
+  const [orderRateErr,  setOrderRateErr]  = useState(null);
+  const [showTip,       setShowTip]       = useState(0);
+
+  // Report
   const [expandedId,  setExpandedId]  = useState(null);
   const [requesting,  setRequesting]  = useState(false);
   const [rateMsg,     setRateMsg]     = useState(null);
@@ -72,48 +96,74 @@ export default function DiwyPadre({ showToast, onBack }) {
       .then(d => setReports(Array.isArray(d) ? d : []))
       .catch(() => {})
       .finally(() => setLoadingReports(false));
+
+    api.diwyParentMessages()
+      .then(d => setMessages(Array.isArray(d) ? d : []))
+      .catch(() => {});
+
+    api.diwyParentPreview()
+      .then(d => setPreview(d || null))
+      .catch(() => {});
+
+    // Rotate etiquette tip every 8s
+    const t = setInterval(() => setShowTip(p => (p + 1) % ETIQUETTE_TIPS.length), 8000);
+    return () => clearInterval(t);
   }, []);
 
   const child        = snapshot.find(c => c.id === selectedChild);
   const childReports = reports.filter(r => r.student_id === selectedChild);
   const latestReport = childReports[0] || null;
+  const childMessages = messages.filter(m => m.student_id === selectedChild);
+  const todayMsgCount = messages.filter(m => {
+    const d = new Date(m.created_at);
+    const now = new Date();
+    return d.toDateString() === now.toDateString();
+  }).length;
 
   const handleAsk = async () => {
     if (!question.trim() || !selectedChild || asking) return;
-    setAsking(true);
-    setLastAnswer(null);
-    setAnswerIsErr(false);
+    setAsking(true); setLastAnswer(null); setAnswerIsErr(false);
     try {
       const d = await api.diwyParentAsk({ studentId: selectedChild, question: question.trim() });
-      setLastAnswer(d?.answer || "");
-      setQuestion("");
+      setLastAnswer(d?.answer || ""); setQuestion("");
     } catch (e) {
       setAnswerIsErr(true);
       setLastAnswer(e.message || "Error al consultar Diwy");
-    } finally {
-      setAsking(false);
-    }
+    } finally { setAsking(false); }
+  };
+
+  const handleOrder = async () => {
+    if (!orderMsg.trim() || !selectedChild || ordering) return;
+    setOrdering(true); setOrderSent(null); setOrderRateErr(null);
+    try {
+      const d = await api.diwyParentMessage({ studentId: selectedChild, message: orderMsg.trim() });
+      setOrderSent(d);
+      setMessages(prev => [{ ...d, student_id: selectedChild, estado:"pending", original_msg: orderMsg.trim() }, ...prev]);
+      setOrderMsg("");
+    } catch (e) {
+      if (e.code === "RATE_LIMITED") setOrderRateErr(e.message);
+      else showToast?.(e.message || "Error al enviar mensaje", "error");
+    } finally { setOrdering(false); }
   };
 
   const handleRequest = async () => {
     if (!selectedChild || requesting) return;
-    setRequesting(true);
-    setRateMsg(null);
+    setRequesting(true); setRateMsg(null);
     try {
       await api.diwyParentRequest(selectedChild);
       showToast?.("Solicitud enviada. El equipo generará el reporte pronto.");
     } catch (e) {
       if (e.code === "RATE_LIMITED") setRateMsg(e.message);
       else showToast?.(e.message || "Error", "error");
-    } finally {
-      setRequesting(false);
-    }
+    } finally { setRequesting(false); }
   };
+
+  const msgsLeft = Math.max(0, 2 - todayMsgCount);
 
   return (
     <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s" }}>
 
-      {/* ── Header ─────────────────────────────────────────── */}
+      {/* ── Header ── */}
       <div style={{
         background:`linear-gradient(135deg, ${primary} 0%, #7c3aed 100%)`,
         padding:"52px 20px 20px", position:"sticky", top:0, zIndex:50, overflow:"hidden",
@@ -130,18 +180,17 @@ export default function DiwyPadre({ showToast, onBack }) {
             <div style={{ fontSize:12, color:"rgba(255,255,255,.8)" }}>Tu espía en el aula</div>
           </div>
         </div>
-        {/* Child switcher */}
         {snapshot.length > 1 && (
           <div style={{ display:"flex", gap:8, marginTop:14, overflowX:"auto", paddingBottom:2 }}>
             {snapshot.map(c => (
-              <button key={c.id} onClick={() => { setSelectedChild(c.id); setLastAnswer(null); setExpandedId(null); }}
+              <button key={c.id}
+                onClick={() => { setSelectedChild(c.id); setLastAnswer(null); setOrderSent(null); setExpandedId(null); }}
                 style={{
                   background: c.id === selectedChild ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.18)",
                   border:"none", borderRadius:99, padding:"5px 16px",
                   color: c.id === selectedChild ? primary : "white",
                   fontWeight:800, fontSize:12, cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif", whiteSpace:"nowrap", flexShrink:0,
-                  transition:"all .2s",
+                  fontFamily:"Nunito,sans-serif", whiteSpace:"nowrap", flexShrink:0, transition:"all .2s",
                 }}>
                 {c.nombre.split(" ")[0]}
               </button>
@@ -153,248 +202,328 @@ export default function DiwyPadre({ showToast, onBack }) {
       <div style={{ padding:"16px 14px 48px" }}>
 
         {loadingSnap ? (
-          <div style={{ textAlign:"center", color:sub, padding:48, transition:"color .3s" }}>
-            Cargando...
-          </div>
+          <div style={{ textAlign:"center", color:sub, padding:48 }}>Cargando...</div>
         ) : !child ? (
           <WCard style={{ textAlign:"center", padding:36, marginTop:8 }}>
             <div style={{ fontSize:44, marginBottom:10 }}>🔗</div>
-            <div style={{ fontWeight:800, fontSize:16, color:txt, marginBottom:6,
-              transition:"color .3s" }}>Sin hijos vinculados</div>
-            <div style={{ fontSize:13, color:sub, lineHeight:1.6, transition:"color .3s" }}>
+            <div style={{ fontWeight:800, fontSize:16, color:txt, marginBottom:6 }}>Sin hijos vinculados</div>
+            <div style={{ fontSize:13, color:sub, lineHeight:1.6 }}>
               Vinculá tu cuenta con la de tu hijo/a<br/>desde el menú de inicio → Vincular.
             </div>
           </WCard>
         ) : (
           <>
-            {/* ── Quick Stats ─────────────────────────────── */}
+            {/* ── Quick Stats ── */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:14 }}>
-              <WCard style={{ padding:"14px 10px", textAlign:"center" }}>
-                <div style={{ fontSize:22, marginBottom:3 }}>🪙</div>
-                <div style={{ fontWeight:900, fontSize:17, color:primary,
-                  transition:"color .3s" }}>
-                  {child.balance ?? "—"}
-                </div>
-                <div style={{ fontSize:10, color:sub, marginTop:2,
-                  transition:"color .3s" }}>Balance</div>
-              </WCard>
-              <WCard style={{ padding:"14px 10px", textAlign:"center" }}>
-                <div style={{ fontSize:22, marginBottom:3 }}>
-                  {moodEmoji(child.mood_avg)}
-                </div>
-                <div style={{ fontWeight:900, fontSize:17, color:primary,
-                  transition:"color .3s" }}>
-                  {child.mood_avg ? `${child.mood_avg}/5` : "—"}
-                </div>
-                <div style={{ fontSize:10, color:sub, marginTop:2,
-                  transition:"color .3s" }}>Estado</div>
-              </WCard>
-              <WCard style={{ padding:"14px 10px", textAlign:"center" }}>
-                <div style={{ fontSize:22, marginBottom:3 }}>🔥</div>
-                <div style={{ fontWeight:900, fontSize:17, color:primary,
-                  transition:"color .3s" }}>
-                  {child.checkin_streak ?? 0}d
-                </div>
-                <div style={{ fontSize:10, color:sub, marginTop:2,
-                  transition:"color .3s" }}>Racha</div>
-              </WCard>
+              {[
+                { icon:"🪙", val: child.balance ?? "—",                label:"Balance" },
+                { icon: moodEmoji(child.mood_avg), val: child.mood_avg ? `${child.mood_avg}/5` : "—", label:"Estado" },
+                { icon:"🔥", val: `${child.checkin_streak ?? 0}d`,     label:"Racha"   },
+              ].map(s => (
+                <WCard key={s.label} style={{ padding:"14px 10px", textAlign:"center" }}>
+                  <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
+                  <div style={{ fontWeight:900, fontSize:17, color:primary }}>{s.val}</div>
+                  <div style={{ fontSize:10, color:sub, marginTop:2 }}>{s.label}</div>
+                </WCard>
+              ))}
             </div>
 
-            {/* ── Preguntale a Diwy ───────────────────────── */}
+            {/* ── Preview de clase ── */}
+            {preview ? (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontWeight:800, fontSize:11, color:sub, letterSpacing:".07em",
+                  marginBottom:8, paddingLeft:4 }}>CLASE DE HOY</div>
+                <div style={{
+                  background:`linear-gradient(135deg, ${primary}18, #7c3aed18)`,
+                  border:`1.5px solid ${primary}44`,
+                  borderRadius:14, padding:"14px 16px",
+                  transition:"background .3s",
+                }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <span style={{ fontSize:28 }}>🗓️</span>
+                    <div>
+                      <div style={{ fontWeight:900, fontSize:14, color:txt }}>{preview.tema}</div>
+                      {preview.detalle && (
+                        <div style={{ fontSize:12, color:sub, marginTop:3, lineHeight:1.5 }}>{preview.detalle}</div>
+                      )}
+                      <div style={{ fontSize:10, color:sub, marginTop:4, opacity:.7 }}>
+                        Publicado por {preview.docente_nombre}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginBottom:14, border:`1.5px dashed ${navBord}`, borderRadius:14,
+                padding:"12px 16px", display:"flex", alignItems:"center", gap:10,
+                opacity:.5, transition:"border-color .3s" }}>
+                <span style={{ fontSize:24 }}>🗓️</span>
+                <div style={{ fontSize:12, color:sub }}>
+                  La maestra no publicó el tema de hoy todavía.
+                </div>
+              </div>
+            )}
+
+            {/* ── Preguntale a Diwy ── */}
             <WCard style={{ marginBottom:14 }}>
               <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
                 <div style={{ width:40, height:40, borderRadius:12,
                   background:`linear-gradient(135deg, ${primary}, #7c3aed)`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:20, flexShrink:0 }}>🤔</div>
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>🤔</div>
                 <div>
-                  <div style={{ fontWeight:900, fontSize:14, color:txt,
-                    transition:"color .3s" }}>Preguntale a Diwy</div>
-                  <div style={{ fontSize:11, color:sub, transition:"color .3s" }}>
-                    IA responde con datos reales de {child.nombre.split(" ")[0]}
-                  </div>
+                  <div style={{ fontWeight:900, fontSize:14, color:txt }}>Preguntale a Diwy</div>
+                  <div style={{ fontSize:11, color:sub }}>IA responde con datos reales de {child.nombre.split(" ")[0]}</div>
                 </div>
               </div>
-
-              {/* Quick suggestions */}
-              <div style={{ display:"flex", gap:6, overflowX:"auto",
-                marginBottom:10, paddingBottom:2 }}>
-                {SUGGESTIONS.map(s => (
-                  <button key={s} onClick={() => setQuestion(s)}
-                    style={{
-                      background:`${primary}15`, border:`1px solid ${primary}40`,
-                      borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:700,
-                      color:primary, cursor:"pointer", whiteSpace:"nowrap",
-                      fontFamily:"Nunito,sans-serif", flexShrink:0,
-                      transition:"background .2s, color .3s",
-                    }}>{s}</button>
+              <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:10, paddingBottom:2 }}>
+                {ASK_SUGGESTIONS.map(s => (
+                  <button key={s} onClick={() => setQuestion(s)} style={{
+                    background:`${primary}15`, border:`1px solid ${primary}40`,
+                    borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:700,
+                    color:primary, cursor:"pointer", whiteSpace:"nowrap",
+                    fontFamily:"Nunito,sans-serif", flexShrink:0,
+                  }}>{s}</button>
                 ))}
               </div>
-
               <div style={{ display:"flex", gap:8 }}>
-                <input
-                  value={question}
-                  onChange={e => setQuestion(e.target.value)}
+                <input value={question} onChange={e => setQuestion(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAsk()}
                   placeholder="¿Qué querés saber sobre tu hijo/a?"
-                  style={{
-                    flex:1, border:`1.5px solid ${question.trim() ? primary : inputBd}`,
+                  style={{ flex:1, border:`1.5px solid ${question.trim() ? primary : inputBd}`,
                     borderRadius:12, padding:"10px 12px", fontSize:13,
                     fontFamily:"Nunito,sans-serif", outline:"none",
-                    color:txt, background:inputBg,
-                    transition:"border-color .2s, background .3s, color .3s",
-                  }}
-                />
-                <button onClick={handleAsk}
-                  disabled={asking || !question.trim()}
-                  style={{
-                    background: (!question.trim() || asking)
-                      ? navBord
-                      : `linear-gradient(135deg, ${primary}, #7c3aed)`,
-                    border:"none", borderRadius:12, padding:"0 18px",
-                    color:"white", fontWeight:900, fontSize:16,
-                    cursor:(!question.trim() || asking) ? "not-allowed" : "pointer",
-                    fontFamily:"Nunito,sans-serif", transition:"all .2s",
-                    flexShrink:0,
-                  }}>
-                  {asking ? "·  ·  ·" : "→"}
-                </button>
+                    color:txt, background:inputBg, transition:"border-color .2s, background .3s, color .3s" }}/>
+                <button onClick={handleAsk} disabled={asking || !question.trim()} style={{
+                  background:(!question.trim()||asking) ? navBord : `linear-gradient(135deg, ${primary}, #7c3aed)`,
+                  border:"none", borderRadius:12, padding:"0 18px", color:"white",
+                  fontWeight:900, fontSize:16, cursor:(!question.trim()||asking)?"not-allowed":"pointer",
+                  fontFamily:"Nunito,sans-serif", transition:"all .2s", flexShrink:0,
+                }}>{asking ? "·  ·  ·" : "→"}</button>
               </div>
-
               {lastAnswer && (
-                <div style={{
-                  marginTop:12,
-                  background: answerIsErr
-                    ? (isDark ? "#422" : "#fef3c7")
-                    : `${primary}12`,
-                  border:`1px solid ${answerIsErr ? "#f59e0b55" : primary + "33"}`,
-                  borderRadius:12, padding:"12px 14px",
-                  transition:"background .3s",
-                }}>
-                  <div style={{
-                    fontSize:11, fontWeight:800, marginBottom:6,
-                    color: answerIsErr ? "#92400e" : primary,
-                    transition:"color .3s",
-                  }}>
+                <div style={{ marginTop:12,
+                  background: answerIsErr ? (isDark?"#422":"#fef3c7") : `${primary}12`,
+                  border:`1px solid ${answerIsErr ? "#f59e0b55" : primary+"33"}`,
+                  borderRadius:12, padding:"12px 14px" }}>
+                  <div style={{ fontSize:11, fontWeight:800, marginBottom:6,
+                    color: answerIsErr ? "#92400e" : primary }}>
                     {answerIsErr ? "⏳ Aviso" : "🐾 Diwy dice:"}
                   </div>
-                  <div style={{ fontSize:13, color:txt, lineHeight:1.65,
-                    whiteSpace:"pre-wrap", transition:"color .3s" }}>
-                    {lastAnswer}
-                  </div>
+                  <div style={{ fontSize:13, color:txt, lineHeight:1.65, whiteSpace:"pre-wrap" }}>{lastAnswer}</div>
                 </div>
               )}
             </WCard>
 
-            {/* ── Último reporte ──────────────────────────── */}
+            {/* ── Ordenale a Diwy ── */}
             <WCard style={{ marginBottom:14 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
                 <div style={{ width:40, height:40, borderRadius:12,
-                  background:`${primary}18`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:20, flexShrink:0, transition:"background .3s" }}>📊</div>
-                <div>
-                  <div style={{ fontWeight:900, fontSize:14, color:txt,
-                    transition:"color .3s" }}>Último reporte IA</div>
-                  <div style={{ fontSize:11, color:sub, transition:"color .3s" }}>
-                    Generado y revisado por el equipo docente
-                  </div>
+                  background:`linear-gradient(135deg, #7c3aed, #a855f7)`,
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>📨</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:900, fontSize:14, color:txt }}>Ordenale a Diwy</div>
+                  <div style={{ fontSize:11, color:sub }}>Diwy le pregunta a la maestra por vos</div>
+                </div>
+                <div style={{
+                  background: msgsLeft > 0 ? `${primary}20` : `${navBord}`,
+                  color: msgsLeft > 0 ? primary : sub,
+                  borderRadius:99, padding:"3px 10px", fontSize:11, fontWeight:800, flexShrink:0,
+                }}>
+                  {msgsLeft}/2 hoy
                 </div>
               </div>
 
+              {/* Etiquette tip */}
+              <div style={{ background: isDark ? "rgba(255,255,255,.05)" : "#f8f5ff",
+                borderRadius:10, padding:"8px 12px", marginBottom:10,
+                border:`1px solid #7c3aed22`, transition:"background .3s" }}>
+                <div style={{ fontSize:11, color:"#7c3aed", lineHeight:1.5 }}>
+                  💡 {ETIQUETTE_TIPS[showTip]}
+                </div>
+              </div>
+
+              {msgsLeft === 0 ? (
+                <div style={{ background: isDark?"#2a2a2a":"#fef3c7", borderRadius:12,
+                  padding:"12px 14px", fontSize:13, color: isDark ? "#f59e0b" : "#92400e",
+                  textAlign:"center", fontWeight:700 }}>
+                  ⏳ Usaste tus 2 mensajes del día. Volvé mañana.
+                </div>
+              ) : (
+                <>
+                  <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:10, paddingBottom:2 }}>
+                    {ORDER_SUGGESTIONS.map(s => (
+                      <button key={s} onClick={() => setOrderMsg(s)} style={{
+                        background:"#7c3aed18", border:"1px solid #7c3aed40",
+                        borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:700,
+                        color:"#7c3aed", cursor:"pointer", whiteSpace:"nowrap",
+                        fontFamily:"Nunito,sans-serif", flexShrink:0,
+                      }}>{s}</button>
+                    ))}
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <input value={orderMsg} onChange={e => setOrderMsg(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleOrder()}
+                      placeholder="Decile algo a Diwy para pasarle a la maestra..."
+                      style={{ flex:1, border:`1.5px solid ${orderMsg.trim() ? "#7c3aed" : inputBd}`,
+                        borderRadius:12, padding:"10px 12px", fontSize:13,
+                        fontFamily:"Nunito,sans-serif", outline:"none",
+                        color:txt, background:inputBg, transition:"border-color .2s, background .3s, color .3s" }}/>
+                    <button onClick={handleOrder} disabled={ordering || !orderMsg.trim()} style={{
+                      background:(!orderMsg.trim()||ordering) ? navBord : "linear-gradient(135deg, #7c3aed, #a855f7)",
+                      border:"none", borderRadius:12, padding:"0 18px", color:"white",
+                      fontWeight:900, fontSize:16, cursor:(!orderMsg.trim()||ordering)?"not-allowed":"pointer",
+                      fontFamily:"Nunito,sans-serif", transition:"all .2s", flexShrink:0,
+                    }}>{ordering ? "·  ·  ·" : "→"}</button>
+                  </div>
+
+                  {orderRateErr && (
+                    <div style={{ marginTop:10, background:"#fef3c7", borderRadius:10,
+                      padding:"8px 12px", fontSize:12, color:"#92400e" }}>
+                      ⏳ {orderRateErr}
+                    </div>
+                  )}
+
+                  {orderSent && (
+                    <div style={{ marginTop:10, background:"#7c3aed12",
+                      border:"1px solid #7c3aed33", borderRadius:12, padding:"12px 14px" }}>
+                      <div style={{ fontSize:11, fontWeight:800, color:"#7c3aed", marginBottom:6 }}>
+                        ✅ Diwy lo pasó a la maestra:
+                      </div>
+                      <div style={{ fontSize:13, color:txt, lineHeight:1.55, fontStyle:"italic" }}>
+                        "{orderSent.formatted_msg}"
+                      </div>
+                      <div style={{ fontSize:11, color:sub, marginTop:6 }}>
+                        Te avisamos cuando la maestra responda.
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </WCard>
+
+            {/* ── Historial de mensajes a la maestra ── */}
+            {childMessages.length > 0 && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontWeight:800, fontSize:11, color:sub,
+                  letterSpacing:".07em", marginBottom:8, paddingLeft:4 }}>
+                  MENSAJES A LA MAESTRA
+                </div>
+                {childMessages.slice(0, 5).map(m => (
+                  <div key={m.id} style={{
+                    background:cardBg, border:`1.5px solid ${navBord}`,
+                    borderLeft:`3px solid #7c3aed`,
+                    borderRadius:12, padding:"12px 14px", marginBottom:8,
+                    transition:"background .3s, border .3s",
+                  }}>
+                    <div style={{ display:"flex", justifyContent:"space-between",
+                      alignItems:"flex-start", marginBottom:6 }}>
+                      <div style={{ fontSize:11, color:sub }}>
+                        {fmtDate(m.created_at)} {fmtTime(m.created_at)}
+                      </div>
+                      <span style={{
+                        background: m.estado === "replied" ? "#10b98120" : "#f59e0b20",
+                        color: m.estado === "replied" ? "#10b981" : "#f59e0b",
+                        borderRadius:99, padding:"2px 8px", fontSize:9, fontWeight:900,
+                      }}>
+                        {m.estado === "replied" ? "✓ Respondido" : "⏳ Pendiente"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize:12, color:sub, fontStyle:"italic",
+                      marginBottom:6, lineHeight:1.5 }}>
+                      "{m.formatted_msg || m.original_msg}"
+                    </div>
+                    {m.estado === "replied" && m.formatted_reply && (
+                      <div style={{ background: isDark?"rgba(255,255,255,.06)":"#f0fdf4",
+                        border:"1px solid #10b98133",
+                        borderRadius:10, padding:"8px 12px", marginTop:4 }}>
+                        <div style={{ fontSize:10, fontWeight:800, color:"#10b981", marginBottom:4 }}>
+                          🐾 Diwy (de {m.docente_nombre || "la maestra"}):
+                        </div>
+                        <div style={{ fontSize:13, color:txt, lineHeight:1.55 }}>
+                          {m.formatted_reply}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Último reporte ── */}
+            <WCard style={{ marginBottom:14 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                <div style={{ width:40, height:40, borderRadius:12,
+                  background:`${primary}18`, display:"flex", alignItems:"center",
+                  justifyContent:"center", fontSize:20, flexShrink:0 }}>📊</div>
+                <div>
+                  <div style={{ fontWeight:900, fontSize:14, color:txt }}>Último reporte IA</div>
+                  <div style={{ fontSize:11, color:sub }}>Generado y revisado por el equipo docente</div>
+                </div>
+              </div>
               {loadingReports ? (
-                <div style={{ color:sub, fontSize:13, padding:"4px 0",
-                  transition:"color .3s" }}>Cargando...</div>
+                <div style={{ color:sub, fontSize:13, padding:"4px 0" }}>Cargando...</div>
               ) : !latestReport ? (
-                <div style={{ fontSize:13, color:sub, padding:"4px 0",
-                  lineHeight:1.55, transition:"color .3s" }}>
+                <div style={{ fontSize:13, color:sub, padding:"4px 0", lineHeight:1.55 }}>
                   Todavía no hay reportes publicados para {child.nombre.split(" ")[0]}.<br/>
                   Solicitá uno abajo y el equipo lo generará pronto.
                 </div>
               ) : (
                 <>
-                  <div style={{ fontSize:11, color:sub, marginBottom:8,
-                    transition:"color .3s" }}>
+                  <div style={{ fontSize:11, color:sub, marginBottom:8 }}>
                     {latestReport.periodo_label} · Publicado el {fmtDate(latestReport.approved_at)}
                   </div>
-                  <div style={{
-                    fontSize:13, color:txt, lineHeight:1.65, position:"relative",
-                    overflow:"hidden",
-                    maxHeight: expandedId === latestReport.id ? "none" : 80,
-                    transition:"color .3s",
-                  }}>
+                  <div style={{ fontSize:13, color:txt, lineHeight:1.65, position:"relative",
+                    overflow:"hidden", maxHeight: expandedId === latestReport.id ? "none" : 80 }}>
                     <div style={{ whiteSpace:"pre-wrap" }}>{latestReport.reporte_final}</div>
                     {expandedId !== latestReport.id && (
                       <div style={{ position:"absolute", bottom:0, left:0, right:0, height:36,
-                        background:`linear-gradient(transparent, ${cardBg})`,
-                        transition:"background .3s" }}/>
+                        background:`linear-gradient(transparent, ${cardBg})` }}/>
                     )}
                   </div>
-                  <button
-                    onClick={() => setExpandedId(expandedId === latestReport.id ? null : latestReport.id)}
+                  <button onClick={() => setExpandedId(expandedId === latestReport.id ? null : latestReport.id)}
                     style={{ background:"none", border:"none", color:primary, fontWeight:800,
                       fontSize:12, cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                      padding:"6px 0 0", display:"block", transition:"color .3s" }}>
+                      padding:"6px 0 0", display:"block" }}>
                     {expandedId === latestReport.id ? "Ver menos ▲" : "Ver completo ▼"}
                   </button>
                 </>
               )}
-
-              <div style={{ marginTop:12, paddingTop:10,
-                borderTop:`1px solid ${navBord}`, transition:"border-color .3s" }}>
+              <div style={{ marginTop:12, paddingTop:10, borderTop:`1px solid ${navBord}` }}>
                 {rateMsg && (
                   <div style={{ background:"#fef3c7", borderRadius:10, padding:"8px 12px",
-                    fontSize:12, color:"#92400e", marginBottom:8 }}>
-                    ⏳ {rateMsg}
-                  </div>
+                    fontSize:12, color:"#92400e", marginBottom:8 }}>⏳ {rateMsg}</div>
                 )}
-                <button onClick={handleRequest} disabled={requesting}
-                  style={{
-                    width:"100%",
-                    background: requesting ? navBord : `${primary}15`,
-                    border:`1.5px dashed ${primary}55`, borderRadius:12, padding:"11px",
-                    cursor:requesting ? "not-allowed" : "pointer",
-                    fontFamily:"Nunito,sans-serif", color:primary,
-                    fontWeight:800, fontSize:13, transition:"all .2s",
-                  }}>
+                <button onClick={handleRequest} disabled={requesting} style={{
+                  width:"100%", background:requesting ? navBord : `${primary}15`,
+                  border:`1.5px dashed ${primary}55`, borderRadius:12, padding:"11px",
+                  cursor:requesting?"not-allowed":"pointer", fontFamily:"Nunito,sans-serif",
+                  color:primary, fontWeight:800, fontSize:13, transition:"all .2s",
+                }}>
                   {requesting ? "Enviando..." : "📨 Solicitar nuevo reporte"}
                 </button>
               </div>
             </WCard>
 
-            {/* ── Actividad reciente ──────────────────────── */}
+            {/* ── Actividad reciente ── */}
             {child.recent_txns?.length > 0 && (
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontWeight:800, fontSize:11, color:sub,
-                  letterSpacing:".07em", marginBottom:8, paddingLeft:4,
-                  transition:"color .3s" }}>
-                  ACTIVIDAD RECIENTE
-                </div>
+                  letterSpacing:".07em", marginBottom:8, paddingLeft:4 }}>ACTIVIDAD RECIENTE</div>
                 <WCard style={{ padding:"4px 0" }}>
                   {child.recent_txns.map((tx, i) => (
-                    <div key={i} style={{
-                      display:"flex", alignItems:"center", gap:10,
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:10,
                       padding:"10px 14px",
-                      borderBottom: i < child.recent_txns.length - 1
-                        ? `1px solid ${navBord}` : "none",
-                      transition:"border-color .3s",
-                    }}>
+                      borderBottom: i < child.recent_txns.length-1 ? `1px solid ${navBord}` : "none" }}>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, color:txt, fontWeight:600,
-                          transition:"color .3s" }}>
+                        <div style={{ fontSize:13, color:txt, fontWeight:600 }}>
                           {tx.descripcion || tx.tipo || "Transacción"}
                         </div>
-                        <div style={{ fontSize:10, color:sub, marginTop:1,
-                          transition:"color .3s" }}>
-                          {new Date(tx.created_at).toLocaleDateString("es-AR",{
-                            day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"
-                          })}
+                        <div style={{ fontSize:10, color:sub, marginTop:1 }}>
+                          {new Date(tx.created_at).toLocaleDateString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
                         </div>
                       </div>
-                      <div style={{
-                        fontWeight:900, fontSize:14, flexShrink:0,
-                        color: tx.direccion === "ingreso" ? "#10b981" : "#ef4444",
-                      }}>
+                      <div style={{ fontWeight:900, fontSize:14, flexShrink:0,
+                        color: tx.direccion === "ingreso" ? "#10b981" : "#ef4444" }}>
                         {tx.direccion === "ingreso" ? "+" : "−"}{Math.abs(tx.amount)} 🪙
                       </div>
                     </div>
@@ -403,55 +532,28 @@ export default function DiwyPadre({ showToast, onBack }) {
               </div>
             )}
 
-            {/* ── Veredictos ──────────────────────────────── */}
+            {/* ── Alertas de conducta ── */}
             {child.recent_verdicts?.length > 0 && (
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontWeight:800, fontSize:11, color:sub,
-                  letterSpacing:".07em", marginBottom:8, paddingLeft:4,
-                  transition:"color .3s" }}>
-                  ALERTAS DE CONDUCTA
-                </div>
+                  letterSpacing:".07em", marginBottom:8, paddingLeft:4 }}>ALERTAS DE CONDUCTA</div>
                 {child.recent_verdicts.map((v, i) => (
-                  <div key={i} style={{
-                    background:cardBg,
-                    border:`1.5px solid ${navBord}`,
-                    borderLeft:`3px solid ${primary}`,
-                    borderRadius:12, padding:"10px 14px", marginBottom:7,
-                    display:"flex", gap:10, alignItems:"center",
-                    transition:"background .3s, border .3s",
-                  }}>
-                    <span style={{ fontSize:22, flexShrink:0 }}>
-                      {SEVERITY_ICON[v.severity] || "📋"}
-                    </span>
+                  <div key={i} style={{ background:cardBg, border:`1.5px solid ${navBord}`,
+                    borderLeft:`3px solid ${primary}`, borderRadius:12, padding:"10px 14px",
+                    marginBottom:7, display:"flex", gap:10, alignItems:"center" }}>
+                    <span style={{ fontSize:22, flexShrink:0 }}>{SEVERITY_ICON[v.severity] || "📋"}</span>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:800, fontSize:13, color:txt,
-                        textTransform:"capitalize", transition:"color .3s" }}>
+                      <div style={{ fontWeight:800, fontSize:13, color:txt, textTransform:"capitalize" }}>
                         {v.severity}
                       </div>
-                      <div style={{ fontSize:11, color:sub, marginTop:2,
-                        transition:"color .3s" }}>
-                        {fmtDate(v.created_at)}
-                        {v.coins_penalty ? ` · −${Math.abs(v.coins_penalty)} 🪙` : ""}
+                      <div style={{ fontSize:11, color:sub, marginTop:2 }}>
+                        {fmtDate(v.created_at)}{v.coins_penalty ? ` · −${Math.abs(v.coins_penalty)} 🪙` : ""}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* ── Preview de clase · Próximamente ─────────── */}
-            <div style={{
-              border:`1.5px dashed ${navBord}`,
-              borderRadius:14, padding:"18px 20px", textAlign:"center",
-              opacity:.55, transition:"border-color .3s",
-            }}>
-              <div style={{ fontSize:30, marginBottom:6 }}>🗓️</div>
-              <div style={{ fontWeight:900, fontSize:13, color:txt, marginBottom:4,
-                transition:"color .3s" }}>Preview de clase · Próximamente</div>
-              <div style={{ fontSize:12, color:sub, transition:"color .3s" }}>
-                Sabé de qué se trata la próxima clase antes de que empiece.
-              </div>
-            </div>
           </>
         )}
       </div>
