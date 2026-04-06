@@ -153,14 +153,14 @@ function AdminVeredictos({ showToast, onBack }) {
                 <button key={k} onClick={()=>{ setSeverity(k); setPenalty(""); setReward(""); }}
                   style={{
                     flex:1, minWidth:60,
-                    border:`2px solid ${severity===k ? cfg.color : navBord}`,
-                    background: severity===k ? `${cfg.color}18` : "transparent",
+                    border:`2px solid ${severity===k ? primary : navBord}`,
+                    background: severity===k ? `${primary}18` : "transparent",
                     borderRadius:12, padding:"10px 4px", cursor:"pointer",
                     fontFamily:"Nunito,sans-serif", transition:"all .2s",
                     display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
                   <span style={{ fontSize:20 }}>{cfg.icon}</span>
                   <span style={{ fontSize:10, fontWeight:800,
-                    color: severity===k ? cfg.color : sub,
+                    color: severity===k ? primary : sub,
                     transition:"color .3s" }}>{cfg.label}</span>
                 </button>
               ))}
@@ -177,7 +177,7 @@ function AdminVeredictos({ showToast, onBack }) {
               placeholder="Redactá el veredicto oficial..."
               maxLength={600}
               rows={4}
-              style={{ width:"100%", border:`1.5px solid ${sev.color}`,
+              style={{ width:"100%", border:`1.5px solid ${inputBd}`,
                 borderRadius:12, padding:"10px 12px", fontSize:13,
                 fontFamily:"Nunito,sans-serif", resize:"none", outline:"none",
                 color:txt, background:inputBg, boxSizing:"border-box",
@@ -209,7 +209,8 @@ function AdminVeredictos({ showToast, onBack }) {
                   />
                 </div>
                 {reward > 0 && (
-                  <div style={{ fontSize:11, color:"#10b981", marginTop:6, fontWeight:700 }}>
+                  <div style={{ fontSize:11, color:primary, marginTop:6, fontWeight:700,
+                    transition:"color .3s" }}>
                     Se acreditarán {reward} EduCoins a cada destinatario seleccionado
                   </div>
                 )}
@@ -234,7 +235,8 @@ function AdminVeredictos({ showToast, onBack }) {
                   />
                 </div>
                 {penalty > 0 && (
-                  <div style={{ fontSize:11, color:sev.color, marginTop:6, fontWeight:700 }}>
+                  <div style={{ fontSize:11, color:sub, marginTop:6, fontWeight:700,
+                    transition:"color .3s" }}>
                     Se descontarán {penalty} EduCoins de cada destinatario seleccionado
                   </div>
                 )}
@@ -248,7 +250,7 @@ function AdminVeredictos({ showToast, onBack }) {
               <div style={{ fontWeight:800, fontSize:13, color:txt, transition:"color .3s" }}>
                 Destinatarios
                 {selected.length > 0 && (
-                  <span style={{ marginLeft:8, background:sev.color, color:"white",
+                  <span style={{ marginLeft:8, background:primary, color:"white",
                     borderRadius:99, fontSize:10, fontWeight:900, padding:"2px 8px" }}>
                     {selected.length} seleccionado{selected.length > 1 ? "s" : ""}
                   </span>
@@ -270,8 +272,8 @@ function AdminVeredictos({ showToast, onBack }) {
                   const active = selectedClassroom?.id === cls.id;
                   return (
                     <button key={cls.id} onClick={() => selectClassroom(cls)}
-                      style={{ border:`1.5px solid ${active ? sev.color : navBord}`,
-                        background: active ? sev.color : "transparent",
+                      style={{ border:`1.5px solid ${active ? primary : navBord}`,
+                        background: active ? primary : "transparent",
                         color: active ? "white" : sub,
                         borderRadius:99, fontSize:10, fontWeight:800,
                         padding:"4px 12px", cursor:"pointer",
@@ -303,7 +305,7 @@ function AdminVeredictos({ showToast, onBack }) {
                 <span style={{ fontSize:30 }}>🏫</span>
                 <span>Seleccioná un curso o buscá por nombre</span>
                 {selected.length > 0 && (
-                  <span style={{ color:sev.color, fontWeight:800, fontSize:11 }}>
+                  <span style={{ color:primary, fontWeight:800, fontSize:11, transition:"color .3s" }}>
                     {selected.length} alumno{selected.length>1?"s":""} confirmado{selected.length>1?"s":""}
                   </span>
                 )}
@@ -321,11 +323,11 @@ function AdminVeredictos({ showToast, onBack }) {
                     <div key={s.id} onClick={() => toggleStudent(s.id)}
                       style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 4px",
                         cursor:"pointer", borderBottom:`1px solid ${navBord}`,
-                        background: on ? `${sev.color}18` : "transparent", borderRadius:8,
+                        background: on ? `${primary}15` : "transparent", borderRadius:8,
                         transition:"background .15s" }}>
                       <div style={{ width:22, height:22, borderRadius:6,
-                        border:`2px solid ${on ? sev.color : navBord}`,
-                        background: on ? sev.color : "transparent",
+                        border:`2px solid ${on ? primary : navBord}`,
+                        background: on ? primary : "transparent",
                         display:"flex", alignItems:"center", justifyContent:"center",
                         flexShrink:0, fontSize:12, color:"white", fontWeight:900,
                         transition:"all .15s" }}>
@@ -347,11 +349,11 @@ function AdminVeredictos({ showToast, onBack }) {
           {/* Botón enviar */}
           <button onClick={handleSend} disabled={sending || !SEND_READY}
             style={{ width:"100%",
-              background: !SEND_READY ? navBord : sev.color,
+              background: !SEND_READY ? navBord : primary,
               border:"none", borderRadius:14, padding:"15px", color:"white",
               fontWeight:900, fontSize:15, cursor: sending ? "not-allowed" : "pointer",
               fontFamily:"Nunito,sans-serif", transition:"background .2s",
-              boxShadow: SEND_READY ? `0 4px 20px ${sev.color}55` : "none" }}>
+              boxShadow: SEND_READY ? `0 4px 20px ${primary}55` : "none" }}>
             {sending ? "Enviando..." : `${sev.icon} Emitir Veredicto${selected.length>1?` (${selected.length})`:""}`}
           </button>
         </div>
@@ -407,11 +409,12 @@ function AdminVeredictos({ showToast, onBack }) {
           {iaSuggestion && (() => {
             const sugCfg = SEVERITY_CFG[iaSuggestion.severity] || SEVERITY_CFG.advertencia;
             return (
-              <WCard style={{ marginBottom:12, borderLeft:`4px solid ${sugCfg.color}` }}>
+              <WCard style={{ marginBottom:12, borderLeft:`4px solid ${primary}` }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
                   <span style={{ fontSize:20 }}>{sugCfg.icon}</span>
                   <div>
-                    <div style={{ fontWeight:900, fontSize:14, color:sugCfg.color }}>{sugCfg.label}</div>
+                    <div style={{ fontWeight:900, fontSize:14, color:primary,
+                      transition:"color .3s" }}>{sugCfg.label}</div>
                     <div style={{ fontSize:11, color:sub, transition:"color .3s" }}>
                       Sugerencia de la IA — revisá antes de enviar
                     </div>
@@ -433,9 +436,10 @@ function AdminVeredictos({ showToast, onBack }) {
 
                 {iaSuggestion.coins_sugeridas > 0 && (
                   <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:12,
-                    background:`${sugCfg.color}18`, borderRadius:10, padding:"8px 12px" }}>
+                    background:`${primary}15`, borderRadius:10, padding:"8px 12px" }}>
                     <span style={{ fontSize:16 }}>🪙</span>
-                    <span style={{ fontSize:12, fontWeight:800, color:sugCfg.color }}>
+                    <span style={{ fontSize:12, fontWeight:800, color:primary,
+                      transition:"color .3s" }}>
                       Penalización sugerida: {iaSuggestion.coins_sugeridas} EduCoins
                     </span>
                   </div>
@@ -490,12 +494,12 @@ function AdminVeredictos({ showToast, onBack }) {
           {history.map(v => {
             const cfg = SEVERITY_CFG[v.severity] || SEVERITY_CFG.advertencia;
             return (
-              <WCard key={v.id} style={{ marginBottom:10, borderLeft:`4px solid ${cfg.color}`,
+              <WCard key={v.id} style={{ marginBottom:10, borderLeft:`4px solid ${primary}`,
                 padding:"12px 14px" }}>
                 <div style={{ display:"flex", alignItems:"center",
                   justifyContent:"space-between", marginBottom:6 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:6,
-                    fontSize:12, fontWeight:800, color:cfg.color }}>
+                    fontSize:12, fontWeight:800, color:primary, transition:"color .3s" }}>
                     <span>{cfg.icon}</span>{cfg.label}
                   </div>
                   <div style={{ fontSize:11, color:sub, transition:"color .3s" }}>
@@ -509,12 +513,14 @@ function AdminVeredictos({ showToast, onBack }) {
                 <div style={{ fontSize:12, color:sub, lineHeight:1.5,
                   transition:"color .3s" }}>{v.mensaje}</div>
                 {v.coins_penalty > 0 && (
-                  <div style={{ fontSize:11, color:cfg.color, fontWeight:700, marginTop:6 }}>
+                  <div style={{ fontSize:11, color:sub, fontWeight:700, marginTop:6,
+                    transition:"color .3s" }}>
                     🪙 -{v.coins_penalty} EduCoins · {v.read_at ? "✓ Leído" : "⏳ Sin leer"}
                   </div>
                 )}
                 {v.coins_reward > 0 && (
-                  <div style={{ fontSize:11, color:"#10b981", fontWeight:700, marginTop:6 }}>
+                  <div style={{ fontSize:11, color:primary, fontWeight:700, marginTop:6,
+                    transition:"color .3s" }}>
                     🪙 +{v.coins_reward} EduCoins · {v.read_at ? "✓ Leído" : "⏳ Sin leer"}
                   </div>
                 )}

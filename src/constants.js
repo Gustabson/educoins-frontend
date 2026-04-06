@@ -8,6 +8,21 @@ const THEMES_DEFAULT = {
   isDark:    false,
 };
 
+// Tema fijo para el panel Admin (no tiene personalización de usuario)
+const ADMIN_THEME = {
+  primary:   '#00c1fc',
+  secondary: '#52177f',
+  isDark:    true,
+  pageBg:    '#12101e',
+  cardBg:    '#1e1b2e',
+  navBg:     '#12101e',
+  navBord:   '#2a2740',
+  txt:       '#e8e8f0',
+  sub:       '#8884a8',
+  inputBg:   '#2a2740',
+  inputBd:   '#3a3760',
+};
+
 const DUAL_THEMES = [
   { id:'oceano',   name:'Océano',        primary:'#00c1fc', secondary:'#0369a1', dark:false, icon:'🌊' },
   { id:'noche',    name:'Noche Violeta', primary:'#7c3aed', secondary:'#c084fc', dark:true,  icon:'🌌' },
@@ -212,11 +227,11 @@ const CHAT_SECTIONS = ["Personal","Grupos","Aula","Global"];
 // Shared by AdminVeredictos, AVeredictos, Alumno (socket toasts), PVeredictos
 // positive:true → coins_reward field; positive:false → coins_penalty field
 const VERDICT_SEVERITY = {
-  advertencia:    { label:"Advertencia",    color:"#f59e0b", icon:"⚠️", bg:"#78350f", positive:false },
-  sancion:        { label:"Sanción",        color:"#ef4444", icon:"🚔", bg:"#7f1d1d", positive:false },
-  grave:          { label:"Caso Grave",     color:"#7f1d1d", icon:"⛔", bg:"#450a0a", positive:false },
-  absolucion:     { label:"Absolución",     color:"#64748b", icon:"⚖️", bg:"#1e293b", positive:false },
-  reconocimiento: { label:"Reconocimiento", color:"#8b5cf6", icon:"🏅", bg:"#2e1065", positive:true  },
+  advertencia:    { label:"Advertencia",    icon:"⚠️", positive:false },
+  sancion:        { label:"Sanción",        icon:"🚔", positive:false },
+  grave:          { label:"Caso Grave",     icon:"⛔", positive:false },
+  absolucion:     { label:"Absolución",     icon:"⚖️", positive:false },
+  reconocimiento: { label:"Reconocimiento", icon:"🏅", positive:true  },
 };
 
 const GS = `
@@ -239,7 +254,7 @@ input::placeholder{color:#bbb;}
 // ── COMPONENTES BASE ──────────────────────────────────────────
 
 export {
-  THEMES_DEFAULT, DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode,
+  THEMES_DEFAULT, ADMIN_THEME, DUAL_THEMES, BUILTIN_SCREEN_MODES, normalizeMode,
   LEVELS, getLv, nextLv,
   SKINS, BORDERS, TITLES, RARITIES, RARITY_CSS, AVATAR_BACKGROUNDS,
   DIFCOL, GS,

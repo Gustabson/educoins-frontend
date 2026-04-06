@@ -57,7 +57,7 @@ function VerdictModal({ verdict, onDismiss }) {
           animation:"slideUp .35s ease", transition:"background .3s" }}>
 
           {/* Franja superior animada */}
-          <div style={{ background:cfg.bg, padding:"28px 24px 20px",
+          <div style={{ background:primary, padding:"28px 24px 20px",
             animation:"sirenPulse 1.4s ease-in-out infinite",
             textAlign:"center", color:"white" }}>
             <div style={{ fontSize:52, marginBottom:10,
@@ -108,10 +108,10 @@ function VerdictModal({ verdict, onDismiss }) {
           {/* Botón */}
           <div style={{ padding:"0 24px 40px" }}>
             <button onClick={onDismiss} style={{ width:"100%",
-              background:cfg.bg, border:"none", borderRadius:50,
+              background:primary, border:"none", borderRadius:50,
               color:"white", padding:"15px", fontWeight:900, fontSize:15,
               cursor:"pointer", fontFamily:"Nunito,sans-serif",
-              boxShadow:`0 4px 20px ${cfg.color}66` }}>
+              boxShadow:`0 4px 20px ${primary}66` }}>
               Entendido
             </button>
           </div>

@@ -1,6 +1,7 @@
-import { GS } from "../../constants";
+import { GS, ADMIN_THEME } from "../../constants";
 import { useState } from "react";
 import { useToast, Toast } from "../shared/index";
+import { ThemeCtx } from "../../ThemeContext";
 
 import AdminHome       from "./AdminHome";
 import AdminUsuarios   from "./AdminUsuarios";
@@ -75,7 +76,8 @@ function Admin({ me, logout }) {
   const hideNav  = !navTabs.includes(tab) || tab === "_sendProposal";
 
   return (
-    <div style={{ maxWidth:480, margin:"0 auto", height:"100vh", background:"#F0F0F0",
+    <ThemeCtx.Provider value={ADMIN_THEME}>
+    <div style={{ maxWidth:480, margin:"0 auto", height:"100vh", background:ADMIN_THEME.pageBg,
       fontFamily:"Nunito,sans-serif", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
@@ -106,19 +108,19 @@ function Admin({ me, logout }) {
       </div>
 
       {!hideNav && (
-        <div style={{ position:"sticky", bottom:0, width:"100%", background:"white",
-          borderTop:"1px solid #EFEFEF", padding:"6px 4px 20px", display:"flex",
-          justifyContent:"space-around", boxShadow:"0 -2px 16px rgba(0,0,0,.07)" }}>
+        <div style={{ position:"sticky", bottom:0, width:"100%", background:ADMIN_THEME.navBg,
+          borderTop:`1px solid ${ADMIN_THEME.navBord}`, padding:"6px 4px 20px", display:"flex",
+          justifyContent:"space-around", boxShadow:"0 -2px 16px rgba(0,0,0,.3)" }}>
           {NAV_ITEMS.map(item => {
             const on = tab === item.id;
             return (
               <button key={item.id} onClick={()=>setTab(item.id)} style={{
                 display:"flex", flexDirection:"column", alignItems:"center", gap:3, flex:1,
                 background:"none", border:"none", cursor:"pointer",
-                color:on?"#00c1fc":"#777777",
+                color:on ? ADMIN_THEME.primary : ADMIN_THEME.sub,
                 fontFamily:"Nunito,sans-serif", padding:"3px 2px" }}>
                 <div style={{ width:36, height:30, borderRadius:10,
-                  background:on?"#e0f7fe":"transparent",
+                  background: on ? `${ADMIN_THEME.primary}22` : "transparent",
                   display:"flex", alignItems:"center", justifyContent:"center" }}>
                   <span style={{ fontSize:19 }}>{item.icon}</span>
                 </div>
@@ -129,6 +131,7 @@ function Admin({ me, logout }) {
         </div>
       )}
     </div>
+    </ThemeCtx.Provider>
   );
 }
 
