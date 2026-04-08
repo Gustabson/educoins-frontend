@@ -3,13 +3,15 @@ import { DIFCOL, GS, TIPO_ICON, ADMIN_THEME } from "../../constants";
 import { api, getSocket } from "../../api";
 import { ThemeCtx, useTheme } from "../../ThemeContext";
 import { Av, Inp, OHdr, OHdrA, PBtn, Pill, Sheet, Toast, WCard, displayName, useToast } from "../shared/index";
-import DiwyHub from "../diwy/DiwyHub";
+import DiwyHub           from "../diwy/DiwyHub";
+import TeacherAsistencias from "./TeacherAsistencias";
+import TeacherReportes    from "./TeacherReportes";
 
 
 function Maestra({me,logout}){
   const [tab,setTab]=useState("home");
   const [toast,showToast]=useToast();
-  const showNav = tab !== "diwy";
+  const showNav = !["diwy","asistencias","reportes"].includes(tab);
 
   return(
     <ThemeCtx.Provider value={ADMIN_THEME}>
@@ -18,12 +20,14 @@ function Maestra({me,logout}){
       <style>{GS}</style>
       <Toast msg={toast?.msg} type={toast?.type}/>
       <div style={{flex:1,overflowY:"auto",paddingBottom:showNav?90:0,animation:"fadeIn .18s ease"}}>
-        {tab==="home"       && <MHome       me={me} onNav={setTab}/>}
-        {tab==="misiones"   && <MMisiones   me={me} showToast={showToast}/>}
-        {tab==="aprobar"    && <MAprobar    me={me} showToast={showToast}/>}
-        {tab==="votaciones" && <MVotaciones me={me} showToast={showToast}/>}
-        {tab==="diwy"       && <DiwyHub     me={me} onBack={()=>setTab("home")}/>}
-        {tab==="perfil"     && <MPerfilSimple me={me} logout={logout}/>}
+        {tab==="home"        && <MHome          me={me} onNav={setTab}/>}
+        {tab==="misiones"    && <MMisiones      me={me} showToast={showToast}/>}
+        {tab==="aprobar"     && <MAprobar       me={me} showToast={showToast}/>}
+        {tab==="votaciones"  && <MVotaciones    me={me} showToast={showToast}/>}
+        {tab==="diwy"        && <DiwyHub        me={me} onBack={()=>setTab("home")}/>}
+        {tab==="asistencias" && <TeacherAsistencias onBack={()=>setTab("home")} showToast={showToast}/>}
+        {tab==="reportes"    && <TeacherReportes    me={me} onBack={()=>setTab("home")}/>}
+        {tab==="perfil"      && <MPerfilSimple  me={me} logout={logout}/>}
       </div>
       <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
         borderTop:"1px solid #EFEFEF",padding:"6px 4px 20px",display:"flex",
@@ -125,10 +129,12 @@ function MHome({me,onNav}){
       </div>
       <div style={{padding:"14px 14px"}}>
         {[
-          {icon:"⚡",title:"Crear misión",   sub:"Nuevas actividades",         dest:"misiones",col:"#f59e0b"},
-          {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,dest:"aprobar", col:"#10b981"},
-          {icon:"🐾",title:"Diwy",sub:diwyPending>0?`${diwyPending} mensaje${diwyPending>1?"s":""} nuevo${diwyPending>1?"s":""}!`:"Observaciones semanales",dest:"diwy",col:"#8b5cf6",badge:diwyPending},
-          {icon:"👨‍🎓",title:"Ver alumnos",   sub:`${students.length} en tu aula`,dest:null,    col:"#3b82f6",
+          {icon:"⚡",title:"Crear misión",    sub:"Nuevas actividades",                dest:"misiones",   col:"#f59e0b"},
+          {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,     dest:"aprobar",    col:"#10b981"},
+          {icon:"📋",title:"Asistencias",    sub:"Registrá y consultá asistencia",    dest:"asistencias",col:"#3b82f6"},
+          {icon:"🐾",title:"Reportes",       sub:"Observaciones semanales por alumno",dest:"reportes",   col:"#8b5cf6"},
+          {icon:"💬",title:"Diwy",           sub:diwyPending>0?`${diwyPending} mensaje${diwyPending>1?"s":""} de padres!`:"Mensajes y clase del día",dest:"diwy",col:"#7c3aed",badge:diwyPending},
+          {icon:"👨‍🎓",title:"Ver alumnos",   sub:`${students.length} en tu aula`,    dest:null,         col:"#00c1fc",
            action:()=>setShowStudents(s=>!s)},
         ].map(item=>(
           <WCard key={item.title} onClick={item.action||(()=>onNav(item.dest))}
