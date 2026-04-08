@@ -219,6 +219,7 @@ export default function DiwyMaestra({ me }) {
   const [activeTab,    setActiveTab]    = useState("alumnos");
   const [students,     setStudents]     = useState([]);
   const [loading,      setLoading]      = useState(true);
+  const [loadErr,      setLoadErr]      = useState(null);
   const [selected,     setSelected]     = useState(null);
   const [observations, setObservations] = useState([]);
   const [loadingObs,   setLoadingObs]   = useState(false);
@@ -253,8 +254,8 @@ export default function DiwyMaestra({ me }) {
   // Load students + classrooms on mount
   useEffect(() => {
     api.diwyStudents()
-      .then(d => setStudents(Array.isArray(d) ? d : d?.data || []))
-      .catch(() => {})
+      .then(d => { setStudents(Array.isArray(d) ? d : d?.data || []); setLoadErr(null); })
+      .catch(e => setLoadErr(e?.message || "Error al cargar alumnos"))
       .finally(() => setLoading(false));
 
     api.diwyTeacherClassrooms()
@@ -362,7 +363,7 @@ export default function DiwyMaestra({ me }) {
   };
 
   const filteredStudents = search.trim()
-    ? students.filter(s => s.nombre.toLowerCase().includes(search.toLowerCase()))
+    ? students.filter(s => (s.nombre || "").toLowerCase().includes(search.toLowerCase()))
     : students;
 
   const pendingCount = messages.filter(m => m.estado === "pending").length;
@@ -509,6 +510,14 @@ export default function DiwyMaestra({ me }) {
 
             {loading && (
               <div style={{ textAlign:"center", color:sub, padding:40 }}>Cargando...</div>
+            )}
+
+            {!loading && loadErr && (
+              <div style={{ background:"#fef2f2", border:"1.5px solid #fca5a5",
+                borderRadius:12, padding:"14px 16px", marginBottom:12, color:"#dc2626",
+                fontSize:12, fontWeight:700 }}>
+                ⚠️ {loadErr}
+              </div>
             )}
 
             {!loading && filteredStudents.map(s => {
