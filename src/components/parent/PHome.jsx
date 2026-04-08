@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api } from "../../api";
+import { api, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, WCard, displayName, CircBtn } from "../shared/index";
 
@@ -15,12 +15,36 @@ export default function PHome({ me, balance, showToast, setTab }) {
   const [gridMode,    setGridMode]    = useState(() => {
     try { return localStorage.getItem(lk("padre_grid")) === "1"; } catch { return false; }
   });
+  const [badges, setBadges] = useState({});
+
+  const loadBadges = () =>
+    api.badgeCounts()
+      .then(d => setBadges(typeof d === "object" && d !== null ? d : {}))
+      .catch(() => {});
 
   useEffect(() => {
     api.parentChildren()
       .then(d => setChildren(Array.isArray(d) ? d : []))
       .catch(() => setChildren([]))
       .finally(() => setLoadingKids(false));
+
+    loadBadges();
+
+    // Re-fetch badges on any relevant socket event
+    const socket = getSocket();
+    if (socket) {
+      const refresh = () => loadBadges();
+      socket.on("diwy_reply",    refresh);
+      socket.on("new_verdict",   refresh);
+      socket.on("notification",  refresh);
+      socket.on("p2p_update",    refresh);
+      return () => {
+        socket.off("diwy_reply",   refresh);
+        socket.off("new_verdict",  refresh);
+        socket.off("notification", refresh);
+        socket.off("p2p_update",   refresh);
+      };
+    }
   }, []);
 
   const toggleGrid = () => {
@@ -30,13 +54,13 @@ export default function PHome({ me, balance, showToast, setTab }) {
   };
 
   const QUICK = [
-    ["🐾","Diwy",          "Reportes IA de tus hijos",       "#7c3aed","diwy"           ],
-    ["⚖️","Veredictos",    "Conducta de tus hijos",          "#7f1d1d","veredictos-hijo" ],
-    ["💡","Sugerencias",   "Cómo usar EduCoins efectivamente", "#00d084","sugerencias"     ],
-    ["📰","Noticias",      "Publicaciones de la escuela",     "#00c1fc","noticias"        ],
-    ["🤖","Asistente IA",  "Preguntas sobre reglas",          "#10b981","asistente"       ],
-    ["🎨","Personalizar",  "Temas y colores de la app",       "#f59e0b","personalizar"    ],
-    ["💱","Exchange P2P",  "Comprar y vender monedas",        "#8b5cf6","exchange"        ],
+    ["🐾","Diwy",          "Reportes IA de tus hijos",         "#7c3aed","diwy",           badges.diwy        ],
+    ["⚖️","Veredictos",    "Conducta de tus hijos",            "#7f1d1d","veredictos-hijo", badges.veredictos  ],
+    ["💡","Sugerencias",   "Cómo usar EduCoins efectivamente",  "#00d084","sugerencias",     badges.sugerencias ],
+    ["📰","Noticias",      "Publicaciones de la escuela",       "#00c1fc","noticias",        badges.noticias    ],
+    ["🤖","Asistente IA",  "Preguntas sobre reglas",            "#10b981","asistente",       0                  ],
+    ["🎨","Personalizar",  "Temas y colores de la app",         "#f59e0b","personalizar",    0                  ],
+    ["💱","Exchange P2P",  "Comprar y vender monedas",          "#8b5cf6","exchange",        badges.exchange    ],
   ];
 
   const bal = balance ?? 0;
@@ -120,16 +144,24 @@ export default function PHome({ me, balance, showToast, setTab }) {
 
         {gridMode ? (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-            {QUICK.map(([ic,lb,,col,dest]) => (
+            {QUICK.map(([ic,lb,,col,dest,bdg]) => (
               <div key={dest} onClick={()=>setTab(dest)}
                 style={{ display:"flex", flexDirection:"column", alignItems:"center",
                   justifyContent:"center", gap:6, padding:"14px 8px", cursor:"pointer",
-                  background:cardBg, borderRadius:16, minHeight:80,
+                  background:cardBg, borderRadius:16, minHeight:80, position:"relative",
                   boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)",
                   transition:"background .3s" }}>
                 <div style={{ width:40, height:40, borderRadius:12, background:col+"22",
-                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:20, position:"relative" }}>
                   {ic}
+                  {bdg > 0 && (
+                    <span style={{ position:"absolute", top:-5, right:-5,
+                      background:"#ef4444", color:"white", borderRadius:99,
+                      fontSize:9, fontWeight:900, minWidth:16, height:16,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      padding:"0 4px", boxShadow:"0 1px 4px rgba(0,0,0,.3)" }}>{bdg}</span>
+                  )}
                 </div>
                 <div style={{ fontWeight:800, fontSize:11, color:txt, textAlign:"center",
                   lineHeight:1.2, transition:"color .3s" }}>{lb}</div>
@@ -137,7 +169,7 @@ export default function PHome({ me, balance, showToast, setTab }) {
             ))}
           </div>
         ) : (
-          QUICK.map(([ic,lb,sb,col,dest]) => (
+          QUICK.map(([ic,lb,sb,col,dest,bdg]) => (
             <div key={dest} onClick={()=>setTab(dest)}
               style={{ display:"flex", alignItems:"center", gap:12, padding:"13px 16px",
                 cursor:"pointer", marginBottom:8, background:cardBg, borderRadius:20,
@@ -145,12 +177,27 @@ export default function PHome({ me, balance, showToast, setTab }) {
                 transition:"background .3s" }}>
               <div style={{ width:46, height:46, borderRadius:14, background:col+"22",
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:22, flexShrink:0 }}>{ic}</div>
+                fontSize:22, flexShrink:0, position:"relative" }}>
+                {ic}
+                {bdg > 0 && (
+                  <span style={{ position:"absolute", top:-4, right:-4,
+                    background:"#ef4444", color:"white", borderRadius:99,
+                    fontSize:9, fontWeight:900, minWidth:16, height:16,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    padding:"0 4px", boxShadow:"0 1px 4px rgba(0,0,0,.3)" }}>{bdg}</span>
+                )}
+              </div>
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:800, fontSize:14, color:txt, transition:"color .3s" }}>{lb}</div>
                 <div style={{ fontSize:12, color:sub, marginTop:1, transition:"color .3s" }}>{sb}</div>
               </div>
-              <span style={{ color:sub, fontSize:18, transition:"color .3s" }}>›</span>
+              {bdg > 0
+                ? <span style={{ background:"#ef4444", color:"white", borderRadius:99,
+                    fontSize:11, fontWeight:900, minWidth:20, height:20,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    padding:"0 6px" }}>{bdg}</span>
+                : <span style={{ color:sub, fontSize:18, transition:"color .3s" }}>›</span>
+              }
             </div>
           ))
         )}

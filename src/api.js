@@ -186,6 +186,7 @@ const api = {
   checkinConfigUpdate:(d)    => apiFetch("/checkin/config",   { method:"PATCH", body:d }),
   // ── Notificaciones ────────────────────────────────────────
   myNotifs:       ()         => apiFetch("/notifications"),
+  badgeCounts:    ()         => apiFetch("/notifications/badge-counts"),
   notifReadAll:   ()         => apiFetch("/notifications/read",{ method:"PATCH" }),
   notifRead:      (id)       => apiFetch(`/notifications/${id}/read`,{ method:"PATCH" }),
   // ── Misiones avanzadas ────────────────────────────────────
