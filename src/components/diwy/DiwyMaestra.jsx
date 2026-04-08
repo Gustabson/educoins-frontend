@@ -1,8 +1,7 @@
 // DiwyMaestra.jsx — Teacher view of Diwy.
-// Tabs: Alumnos | Mensajes | Clase de hoy
-// NOTE: Header components are defined at MODULE scope (not inside DiwyMaestra)
-// to avoid the React anti-pattern of component-inside-component which caused
-// the student list to not render (Header redefined on every render → unmount/remount loop).
+// Tabs: Reportes | Mensajes | Clase de hoy
+// NOTE: Header/modal components are defined at MODULE scope to avoid
+// the React anti-pattern of component-inside-component (constant remount).
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api, getSocket } from "../../api";
@@ -22,13 +21,6 @@ const fmtDateTime = iso => iso
 const fmtDateShort = iso => iso
   ? new Date(iso + "T00:00:00").toLocaleDateString("es-AR", { day:"2-digit", month:"2-digit" })
   : "";
-
-function estadoBadge(estado) {
-  if (estado === "aprobado")           return { label:"Publicado",   bg:"#10b981" };
-  if (estado === "pendiente_revision") return { label:"En revisión", bg:"#f59e0b" };
-  if (estado === "draft")              return { label:"Borrador",    bg:"#6b7280" };
-  return null;
-}
 
 function resizeImageToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -51,7 +43,17 @@ function resizeImageToBase64(file) {
   });
 }
 
-// ── Standalone header components (MODULE scope — stable references) ──────────
+// Preset observation templates
+const PRESETS = [
+  { emoji:"✅", label:"Sin novedades",    text:"Buena semana, sin inconvenientes. Comportamiento y participación dentro de lo esperado." },
+  { emoji:"⭐", label:"Excelente semana", text:"Semana excelente. Muy buena participación, actitud positiva y gran desempeño académico." },
+  { emoji:"📈", label:"Buen progreso",    text:"Se nota un progreso positivo esta semana. Continúa mejorando en su desempeño general." },
+  { emoji:"⚠️", label:"Necesita atención",text:"Esta semana presentó algunas dificultades de atención/comportamiento que requieren seguimiento." },
+  { emoji:"📚", label:"Dificultad académica", text:"Muestra dificultades con los contenidos trabajados esta semana. Se recomienda refuerzo en casa." },
+  { emoji:"🤝", label:"Mejora conductual", text:"Se observa una mejora notable en su conducta respecto a semanas anteriores. Sigue adelante." },
+];
+
+// ── Standalone header components (MODULE scope) ───────────────────────────────
 
 function MainHeader({ primary, activeTab, setActiveTab, pendingCount }) {
   return (
@@ -67,9 +69,9 @@ function MainHeader({ primary, activeTab, setActiveTab, pendingCount }) {
       </div>
       <div style={{ display:"flex", padding:"10px 14px 0" }}>
         {[
-          { id:"alumnos",  label:"Alumnos",      badge: 0 },
-          { id:"mensajes", label:"Mensajes",      badge: pendingCount },
-          { id:"clase",    label:"Clase de hoy",  badge: 0 },
+          { id:"reportes", label:"Reportes",     badge: 0 },
+          { id:"mensajes", label:"Mensajes",     badge: pendingCount },
+          { id:"clase",    label:"Clase de hoy", badge: 0 },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             flex:1, background:"none", border:"none",
@@ -93,7 +95,7 @@ function MainHeader({ primary, activeTab, setActiveTab, pendingCount }) {
   );
 }
 
-function DetailHeader({ primary, onBack, nombre }) {
+function DetailHeader({ primary, onBack, nombre, classroom }) {
   return (
     <div style={{
       background: `linear-gradient(135deg, ${primary} 0%, #7c3aed 100%)`,
@@ -108,7 +110,9 @@ function DetailHeader({ primary, onBack, nombre }) {
           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>←</button>
         <div>
           <div style={{ fontWeight:900, fontSize:20, color:"white" }}>{nombre}</div>
-          <div style={{ fontSize:12, color:"rgba(255,255,255,.8)" }}>🐾 Observaciones Diwy</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,.8)" }}>
+            🐾 Reporte Diwy{classroom ? ` · ${classroom}` : ""}
+          </div>
         </div>
       </div>
     </div>
@@ -121,37 +125,22 @@ function DateRangeModal({ open, dateFrom, dateTo, onApply, onClear, onClose, car
   const [from, setFrom] = useState(dateFrom);
   const [to,   setTo]   = useState(dateTo);
 
-  // Sync when modal opens
   useEffect(() => {
     if (open) { setFrom(dateFrom); setTo(dateTo); }
   }, [open, dateFrom, dateTo]);
 
   if (!open) return null;
 
-  const handleApply = () => {
-    onApply(from, to);
-    onClose();
-  };
-  const handleClear = () => {
-    setFrom(""); setTo("");
-    onClear();
-    onClose();
-  };
-
+  const handleApply = () => { onApply(from, to); onClose(); };
+  const handleClear = () => { setFrom(""); setTo(""); onClear(); onClose(); };
   const hasRange = from || to;
 
   return (
-    <div
-      onClick={onClose}
-      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)",
-        zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center",
-        padding:20 }}>
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ background:cardBg, borderRadius:20, padding:24,
-          width:"100%", maxWidth:320,
-          boxShadow:"0 24px 80px rgba(0,0,0,.35)",
-          border:`1px solid ${navBord}` }}>
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)",
+      zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:cardBg, borderRadius:20,
+        padding:24, width:"100%", maxWidth:320,
+        boxShadow:"0 24px 80px rgba(0,0,0,.35)", border:`1px solid ${navBord}` }}>
 
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
           <div style={{ fontWeight:900, fontSize:16, color:txt }}>📅 Filtrar por fecha</div>
@@ -161,48 +150,32 @@ function DateRangeModal({ open, dateFrom, dateTo, onApply, onClear, onClose, car
 
         <div style={{ marginBottom:14 }}>
           <div style={{ fontSize:10, fontWeight:800, color:sub, letterSpacing:".06em", marginBottom:6 }}>DESDE</div>
-          <input
-            type="date"
-            value={from}
-            onChange={e => setFrom(e.target.value)}
-            style={{ width:"100%", border:`1.5px solid ${from ? primary : inputBd}`,
-              borderRadius:12, padding:"10px 12px", fontSize:14,
-              fontFamily:"Nunito,sans-serif", outline:"none",
-              boxSizing:"border-box", color:txt, background:inputBg,
-              transition:"border-color .2s" }}
-          />
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+            style={{ width:"100%", border:`1.5px solid ${from ? primary : inputBd}`, borderRadius:12,
+              padding:"10px 12px", fontSize:14, fontFamily:"Nunito,sans-serif", outline:"none",
+              boxSizing:"border-box", color:txt, background:inputBg, transition:"border-color .2s" }}/>
         </div>
 
         <div style={{ marginBottom:24 }}>
           <div style={{ fontSize:10, fontWeight:800, color:sub, letterSpacing:".06em", marginBottom:6 }}>HASTA</div>
-          <input
-            type="date"
-            value={to}
-            min={from || undefined}
-            onChange={e => setTo(e.target.value)}
-            style={{ width:"100%", border:`1.5px solid ${to ? primary : inputBd}`,
-              borderRadius:12, padding:"10px 12px", fontSize:14,
-              fontFamily:"Nunito,sans-serif", outline:"none",
-              boxSizing:"border-box", color:txt, background:inputBg,
-              transition:"border-color .2s" }}
-          />
+          <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)}
+            style={{ width:"100%", border:`1.5px solid ${to ? primary : inputBd}`, borderRadius:12,
+              padding:"10px 12px", fontSize:14, fontFamily:"Nunito,sans-serif", outline:"none",
+              boxSizing:"border-box", color:txt, background:inputBg, transition:"border-color .2s" }}/>
         </div>
 
         <div style={{ display:"flex", gap:10 }}>
           {hasRange && (
-            <button onClick={handleClear}
-              style={{ flex:1, background:`${primary}15`, border:`1px solid ${primary}33`,
-                borderRadius:50, padding:"11px", color:primary,
-                fontWeight:800, fontSize:13, cursor:"pointer",
-                fontFamily:"Nunito,sans-serif" }}>
+            <button onClick={handleClear} style={{ flex:1, background:`${primary}15`,
+              border:`1px solid ${primary}33`, borderRadius:50, padding:"11px", color:primary,
+              fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"Nunito,sans-serif" }}>
               Limpiar
             </button>
           )}
-          <button onClick={handleApply}
-            style={{ flex:2, background:`linear-gradient(135deg, ${primary}, #7c3aed)`,
-              border:"none", borderRadius:50, padding:"11px", color:"white",
-              fontWeight:800, fontSize:13, cursor:"pointer",
-              fontFamily:"Nunito,sans-serif" }}>
+          <button onClick={handleApply} style={{ flex:2,
+            background:`linear-gradient(135deg, ${primary}, #7c3aed)`,
+            border:"none", borderRadius:50, padding:"11px", color:"white",
+            fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"Nunito,sans-serif" }}>
             ✓ Aplicar
           </button>
         </div>
@@ -216,7 +189,7 @@ function DateRangeModal({ open, dateFrom, dateTo, onApply, onClear, onClose, car
 export default function DiwyMaestra({ me }) {
   const { primary, txt, sub, cardBg, pageBg, navBord, inputBg, inputBd, isDark } = useTheme();
 
-  const [activeTab,    setActiveTab]    = useState("alumnos");
+  const [activeTab,    setActiveTab]    = useState("reportes");
   const [students,     setStudents]     = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [loadErr,      setLoadErr]      = useState(null);
@@ -226,15 +199,16 @@ export default function DiwyMaestra({ me }) {
   const [obsText,      setObsText]      = useState("");
   const [saving,       setSaving]       = useState(false);
   const [search,       setSearch]       = useState("");
+  const [expandedCourses, setExpandedCourses] = useState({});
 
   // Messages
   const [messages,      setMessages]      = useState([]);
   const [loadingMsgs,   setLoadingMsgs]   = useState(false);
   const [replies,       setReplies]       = useState({});
   const [sendingReply,  setSendingReply]  = useState({});
-  const [msgFilter,     setMsgFilter]     = useState("todos");   // todos | pending | replied
+  const [msgFilter,     setMsgFilter]     = useState("todos");
   const [msgSearch,     setMsgSearch]     = useState("");
-  const [msgSort,       setMsgSort]       = useState("newest");  // newest | oldest
+  const [msgSort,       setMsgSort]       = useState("newest");
 
   // Message filters — course & date
   const [classrooms,        setClassrooms]        = useState([]);
@@ -254,7 +228,15 @@ export default function DiwyMaestra({ me }) {
   // Load students + classrooms on mount
   useEffect(() => {
     api.diwyStudents()
-      .then(d => { setStudents(Array.isArray(d) ? d : d?.data || []); setLoadErr(null); })
+      .then(d => {
+        const list = Array.isArray(d) ? d : d?.data || [];
+        setStudents(list);
+        setLoadErr(null);
+        // Auto-expand all courses initially
+        const courses = {};
+        list.forEach(s => { courses[s.classroom_id || "__none__"] = true; });
+        setExpandedCourses(courses);
+      })
       .catch(e => setLoadErr(e?.message || "Error al cargar alumnos"))
       .finally(() => setLoading(false));
 
@@ -275,23 +257,15 @@ export default function DiwyMaestra({ me }) {
   // Load + poll messages + socket
   useEffect(() => {
     let active = true;
-
     if (activeTab === "mensajes") {
       setLoadingMsgs(true);
       fetchMessages().finally(() => { if (active) setLoadingMsgs(false); });
     }
-
     const socket = getSocket();
     const onNew = () => { if (active) fetchMessages(); };
     if (socket) socket.on("diwy_message", onNew);
-
     const iv = setInterval(() => { if (active) fetchMessages(); }, activeTab === "mensajes" ? 10000 : 60000);
-
-    return () => {
-      active = false;
-      clearInterval(iv);
-      if (socket) socket.off("diwy_message", onNew);
-    };
+    return () => { active = false; clearInterval(iv); if (socket) socket.off("diwy_message", onNew); };
   }, [activeTab, fetchMessages]);
 
   // Load observations when student selected
@@ -353,35 +327,41 @@ export default function DiwyMaestra({ me }) {
     setSavingPrev(true);
     try {
       const d = await api.diwyTeacherPreview({
-        tema: tema.trim(),
-        detalle: detalle.trim() || undefined,
-        imagen: imagen || undefined,
+        tema: tema.trim(), detalle: detalle.trim() || undefined, imagen: imagen || undefined,
       });
       setSavedPrev(d);
     } catch(e) {}
     finally { setSavingPrev(false); }
   };
 
-  const filteredStudents = search.trim()
+  // Group students by classroom for Reportes tab
+  const searchedStudents = search.trim()
     ? students.filter(s => (s.nombre || "").toLowerCase().includes(search.toLowerCase()))
     : students;
 
+  const courseGroups = searchedStudents.reduce((acc, s) => {
+    const key   = s.classroom_id   || "__none__";
+    const label = s.classroom_nombre || "Sin curso asignado";
+    if (!acc[key]) acc[key] = { label, students: [] };
+    acc[key].students.push(s);
+    return acc;
+  }, {});
+
   const pendingCount = messages.filter(m => m.estado === "pending").length;
 
-  // Filtered + sorted messages (client-side status/search/sort — server handles course+date)
+  // Filtered + sorted messages
   const filteredMessages = messages
     .filter(m => {
       if (msgFilter === "pending")  return m.estado === "pending";
       if (msgFilter === "replied")  return m.estado === "replied";
       return true;
     })
-    .filter(m => !msgSearch.trim() || m.alumno_nombre?.toLowerCase().includes(msgSearch.toLowerCase()))
+    .filter(m => !msgSearch.trim() || (m.alumno_nombre || "").toLowerCase().includes(msgSearch.toLowerCase()))
     .sort((a, b) => {
       const da = new Date(a.created_at), db = new Date(b.created_at);
       return msgSort === "newest" ? db - da : da - db;
     });
 
-  // Date filter label for button
   const dateLabel = (() => {
     if (dateFrom && dateTo) return `${fmtDateShort(dateFrom)} → ${fmtDateShort(dateTo)}`;
     if (dateFrom)           return `Desde ${fmtDateShort(dateFrom)}`;
@@ -390,7 +370,7 @@ export default function DiwyMaestra({ me }) {
   })();
   const hasDateFilter = !!(dateFrom || dateTo);
 
-  // ── Detail view ──
+  // ── Detail view (report for a student) ──
   if (selected) {
     return (
       <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s" }}>
@@ -398,8 +378,31 @@ export default function DiwyMaestra({ me }) {
           primary={primary}
           onBack={() => { setSelected(null); setObsText(""); setObservations([]); }}
           nombre={selected.nombre}
+          classroom={selected.classroom_nombre}
         />
         <div style={{ padding:"16px 14px 32px" }}>
+
+          {/* ── Presets ── */}
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:10, fontWeight:800, color:sub, letterSpacing:".06em", marginBottom:8 }}>
+              PLANTILLAS RÁPIDAS
+            </div>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {PRESETS.map(p => (
+                <button key={p.label} onClick={() => setObsText(p.text)}
+                  style={{ background: obsText === p.text ? primary : `${primary}12`,
+                    border:`1px solid ${obsText === p.text ? primary : primary+"30"}`,
+                    borderRadius:99, padding:"5px 11px", fontSize:11, fontWeight:800,
+                    color: obsText === p.text ? "white" : primary,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif", transition:"all .18s",
+                    display:"flex", alignItems:"center", gap:4 }}>
+                  {p.emoji} {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Observation form ── */}
           <WCard style={{ marginBottom:14 }}>
             <div style={{ fontWeight:800, fontSize:13, color:txt, marginBottom:8 }}>
               Observación — semana actual
@@ -407,12 +410,12 @@ export default function DiwyMaestra({ me }) {
             <textarea
               value={obsText}
               onChange={e => setObsText(e.target.value)}
-              placeholder={`¿Cómo fue la semana de ${selected.nombre}? Participación, actitud, logros, dificultades...`}
+              placeholder={`¿Cómo fue la semana de ${selected.nombre}? Podés usar una plantilla de arriba o escribir algo personalizado...`}
               rows={4} maxLength={500}
-              style={{ width:"100%", border:`1.5px solid ${inputBd}`, borderRadius:12,
-                padding:"10px 12px", fontSize:13, fontFamily:"Nunito,sans-serif",
+              style={{ width:"100%", border:`1.5px solid ${obsText.trim() ? primary : inputBd}`,
+                borderRadius:12, padding:"10px 12px", fontSize:13, fontFamily:"Nunito,sans-serif",
                 resize:"none", outline:"none", boxSizing:"border-box",
-                color:txt, background:inputBg, transition:"background .3s, color .3s" }}
+                color:txt, background:inputBg, transition:"border-color .2s, background .3s, color .3s" }}
             />
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
               <span style={{ fontSize:11, color:sub }}>{obsText.length}/500</span>
@@ -426,6 +429,7 @@ export default function DiwyMaestra({ me }) {
             </div>
           </WCard>
 
+          {/* ── History ── */}
           <div style={{ fontWeight:800, fontSize:11, color:sub, marginBottom:8, paddingLeft:4, letterSpacing:".06em" }}>
             HISTORIAL
           </div>
@@ -477,11 +481,9 @@ export default function DiwyMaestra({ me }) {
         pendingCount={pendingCount}
       />
 
-      {/* Date range modal */}
       <DateRangeModal
         open={calendarOpen}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
+        dateFrom={dateFrom} dateTo={dateTo}
         onApply={(f, t) => { setDateFrom(f); setDateTo(t); }}
         onClear={() => { setDateFrom(""); setDateTo(""); }}
         onClose={() => setCalendarOpen(false)}
@@ -491,10 +493,11 @@ export default function DiwyMaestra({ me }) {
 
       <div style={{ padding:"16px 14px 32px" }}>
 
-        {/* ── Alumnos ── */}
-        {activeTab === "alumnos" && (
+        {/* ── Reportes ── */}
+        {activeTab === "reportes" && (
           <div>
-            <div style={{ position:"relative", marginBottom:12 }}>
+            {/* Search */}
+            <div style={{ position:"relative", marginBottom:16 }}>
               <span style={{ position:"absolute", left:13, top:"50%",
                 transform:"translateY(-50%)", fontSize:14, pointerEvents:"none" }}>🔍</span>
               <input
@@ -508,46 +511,76 @@ export default function DiwyMaestra({ me }) {
               />
             </div>
 
-            {loading && (
-              <div style={{ textAlign:"center", color:sub, padding:40 }}>Cargando...</div>
-            )}
+            {loading && <div style={{ textAlign:"center", color:sub, padding:40 }}>Cargando...</div>}
 
             {!loading && loadErr && (
               <div style={{ background:"#fef2f2", border:"1.5px solid #fca5a5",
-                borderRadius:12, padding:"14px 16px", marginBottom:12, color:"#dc2626",
-                fontSize:12, fontWeight:700 }}>
+                borderRadius:12, padding:"14px 16px", marginBottom:12,
+                color:"#dc2626", fontSize:12, fontWeight:700 }}>
                 ⚠️ {loadErr}
               </div>
             )}
 
-            {!loading && filteredStudents.map(s => {
-              const badge = estadoBadge(s.last_report_estado);
+            {/* Grouped by course */}
+            {!loading && !loadErr && Object.entries(courseGroups).map(([key, group]) => {
+              const isExpanded = expandedCourses[key] !== false;
               return (
-                <div key={s.id} onClick={() => setSelected(s)}
-                  style={{ background:cardBg, borderRadius:14, padding:"12px 14px",
-                    marginBottom:8, border:`1.5px solid ${navBord}`, cursor:"pointer",
-                    display:"flex", alignItems:"center", justifyContent:"space-between",
-                    transition:"background .3s" }}>
-                  <div>
-                    <div style={{ fontWeight:800, fontSize:14, color:txt }}>{s.nombre}</div>
-                    <div style={{ fontSize:11, color:sub, marginTop:2 }}>
-                      {s.last_report_at
-                        ? `Último reporte: ${new Date(s.last_report_at).toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit"})}`
-                        : "Sin reportes aún"}
+                <div key={key} style={{ marginBottom:16 }}>
+                  {/* Course header */}
+                  <button
+                    onClick={() => setExpandedCourses(p => ({ ...p, [key]: !isExpanded }))}
+                    style={{ width:"100%", background:"none", border:"none", cursor:"pointer",
+                      display:"flex", alignItems:"center", justifyContent:"space-between",
+                      padding:"6px 4px 8px", fontFamily:"Nunito,sans-serif" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:11, fontWeight:900, color:primary,
+                        textTransform:"uppercase", letterSpacing:".07em" }}>
+                        🏫 {group.label}
+                      </span>
+                      <span style={{ fontSize:10, background:`${primary}18`, color:primary,
+                        borderRadius:99, padding:"1px 8px", fontWeight:800 }}>
+                        {group.students.length}
+                      </span>
                     </div>
-                  </div>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    {badge && (
-                      <span style={{ background:badge.bg, color:"white", borderRadius:99,
-                        fontSize:9, fontWeight:900, padding:"2px 8px" }}>{badge.label}</span>
-                    )}
-                    <span style={{ color:sub, fontSize:18 }}>›</span>
-                  </div>
+                    <span style={{ fontSize:14, color:sub, transition:"transform .2s",
+                      transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>›</span>
+                  </button>
+
+                  {isExpanded && group.students.map(s => {
+                    const weekAgo = s.last_report_at
+                      ? (Date.now() - new Date(s.last_report_at)) < 7 * 24 * 3600 * 1000
+                      : false;
+                    return (
+                      <div key={s.id} onClick={() => setSelected(s)}
+                        style={{ background:cardBg, borderRadius:14, padding:"12px 14px",
+                          marginBottom:6, border:`1.5px solid ${weekAgo ? "#10b98133" : navBord}`,
+                          cursor:"pointer", display:"flex", alignItems:"center",
+                          justifyContent:"space-between", transition:"background .3s" }}>
+                        <div>
+                          <div style={{ fontWeight:800, fontSize:14, color:txt }}>{s.nombre}</div>
+                          <div style={{ fontSize:11, color: weekAgo ? "#10b981" : sub, marginTop:2 }}>
+                            {s.last_report_at
+                              ? `${weekAgo ? "✓ " : ""}Último reporte: ${new Date(s.last_report_at).toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit"})}`
+                              : "Sin reportes aún"}
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          {!s.last_report_at && (
+                            <span style={{ background:"#f59e0b20", color:"#f59e0b",
+                              borderRadius:99, fontSize:9, fontWeight:900, padding:"2px 8px" }}>
+                              Pendiente
+                            </span>
+                          )}
+                          <span style={{ color:sub, fontSize:18 }}>›</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
 
-            {!loading && filteredStudents.length === 0 && (
+            {!loading && !loadErr && Object.keys(courseGroups).length === 0 && (
               <div style={{ textAlign:"center", padding:"40px 20px" }}>
                 <div style={{ fontSize:44, marginBottom:8 }}>🐾</div>
                 <div style={{ fontSize:13, color:sub }}>
@@ -561,9 +594,7 @@ export default function DiwyMaestra({ me }) {
         {/* ── Mensajes ── */}
         {activeTab === "mensajes" && (
           <div>
-            {/* ── Filter bar ── */}
             <div style={{ marginBottom:12 }}>
-
               {/* Status chips */}
               <div style={{ display:"flex", gap:6, marginBottom:8, flexWrap:"wrap" }}>
                 {[
@@ -588,18 +619,15 @@ export default function DiwyMaestra({ me }) {
                 ))}
               </div>
 
-              {/* Course chips — only shown if teacher has >1 classroom */}
+              {/* Course chips — only if teacher has >1 classroom */}
               {classrooms.length > 1 && (
                 <div style={{ display:"flex", gap:6, marginBottom:8, flexWrap:"wrap" }}>
-                  <button
-                    onClick={() => setSelectedClassroom(null)}
-                    style={{
-                      background: !selectedClassroom ? "#7c3aed" : "rgba(124,58,237,.12)",
-                      border: `1px solid ${!selectedClassroom ? "#7c3aed" : "rgba(124,58,237,.3)"}`,
-                      borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:800,
-                      color: !selectedClassroom ? "white" : "#7c3aed", cursor:"pointer",
-                      fontFamily:"Nunito,sans-serif", transition:"all .2s",
-                    }}>
+                  <button onClick={() => setSelectedClassroom(null)} style={{
+                    background: !selectedClassroom ? "#7c3aed" : "rgba(124,58,237,.12)",
+                    border: `1px solid ${!selectedClassroom ? "#7c3aed" : "rgba(124,58,237,.3)"}`,
+                    borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:800,
+                    color: !selectedClassroom ? "white" : "#7c3aed", cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif", transition:"all .2s" }}>
                     🏫 Todos los cursos
                   </button>
                   {classrooms.map(c => (
@@ -610,38 +638,29 @@ export default function DiwyMaestra({ me }) {
                         border: `1px solid ${selectedClassroom===c.id ? "#7c3aed" : "rgba(124,58,237,.3)"}`,
                         borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:800,
                         color: selectedClassroom===c.id ? "white" : "#7c3aed", cursor:"pointer",
-                        fontFamily:"Nunito,sans-serif", transition:"all .2s",
-                      }}>
+                        fontFamily:"Nunito,sans-serif", transition:"all .2s" }}>
                       {c.nombre}
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Date picker + search + sort */}
+              {/* Date + search + sort */}
               <div style={{ display:"flex", gap:6 }}>
-                {/* Date button */}
-                <button
-                  onClick={() => setCalendarOpen(true)}
-                  style={{
-                    background: hasDateFilter ? primary : cardBg,
-                    border: `1.5px solid ${hasDateFilter ? primary : navBord}`,
-                    borderRadius:10, padding:"7px 10px", fontSize:11, fontWeight:800,
-                    color: hasDateFilter ? "white" : sub, cursor:"pointer",
-                    fontFamily:"Nunito,sans-serif", whiteSpace:"nowrap", flexShrink:0,
-                    transition:"all .2s", display:"flex", alignItems:"center", gap:5,
-                  }}>
+                <button onClick={() => setCalendarOpen(true)} style={{
+                  background: hasDateFilter ? primary : cardBg,
+                  border: `1.5px solid ${hasDateFilter ? primary : navBord}`,
+                  borderRadius:10, padding:"7px 10px", fontSize:11, fontWeight:800,
+                  color: hasDateFilter ? "white" : sub, cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif", whiteSpace:"nowrap", flexShrink:0,
+                  transition:"all .2s", display:"flex", alignItems:"center", gap:5 }}>
                   📅 {dateLabel}
                   {hasDateFilter && (
-                    <span
-                      onClick={e => { e.stopPropagation(); setDateFrom(""); setDateTo(""); }}
+                    <span onClick={e => { e.stopPropagation(); setDateFrom(""); setDateTo(""); }}
                       style={{ background:"rgba(255,255,255,.3)", borderRadius:99,
-                        padding:"0 5px", fontSize:12, lineHeight:"16px",
-                        cursor:"pointer", fontWeight:900 }}>×</span>
+                        padding:"0 5px", fontSize:12, lineHeight:"16px", cursor:"pointer", fontWeight:900 }}>×</span>
                   )}
                 </button>
-
-                {/* Student search */}
                 <div style={{ flex:1, position:"relative" }}>
                   <span style={{ position:"absolute", left:10, top:"50%",
                     transform:"translateY(-50%)", fontSize:13, pointerEvents:"none" }}>🔍</span>
@@ -652,8 +671,6 @@ export default function DiwyMaestra({ me }) {
                       outline:"none", boxSizing:"border-box", color:txt, background:cardBg,
                       transition:"background .3s, color .3s" }}/>
                 </div>
-
-                {/* Sort toggle */}
                 <button onClick={() => setMsgSort(p => p==="newest" ? "oldest" : "newest")}
                   style={{ background:cardBg, border:`1.5px solid ${navBord}`, borderRadius:10,
                     padding:"0 10px", fontSize:11, fontWeight:800, color:sub, cursor:"pointer",
@@ -664,9 +681,7 @@ export default function DiwyMaestra({ me }) {
               </div>
             </div>
 
-            {loadingMsgs && (
-              <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
-            )}
+            {loadingMsgs && <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>}
             {!loadingMsgs && filteredMessages.length === 0 && (
               <div style={{ textAlign:"center", padding:"40px 20px" }}>
                 <div style={{ fontSize:44, marginBottom:8 }}>💬</div>
@@ -698,8 +713,7 @@ export default function DiwyMaestra({ me }) {
                   <span style={{
                     background: m.estado==="pending" ? `${primary}20` : "#10b98120",
                     color: m.estado==="pending" ? primary : "#10b981",
-                    borderRadius:99, padding:"3px 10px", fontSize:9, fontWeight:900,
-                    flexShrink:0,
+                    borderRadius:99, padding:"3px 10px", fontSize:9, fontWeight:900, flexShrink:0,
                   }}>
                     {m.estado==="pending" ? "⏳ Pendiente" : "✓ Respondido"}
                   </span>
