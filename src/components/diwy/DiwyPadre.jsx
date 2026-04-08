@@ -38,12 +38,22 @@ const ASK_SUGGESTIONS = [
   "¿Cómo fue su comportamiento?",
 ];
 
-const DAY_ABBR = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
-const ATT_CFG  = {
+const ATT_CFG = {
   presente: { emoji:"✅", color:"#10b981" },
   ausente:  { emoji:"❌", color:"#ef4444" },
   tarde:    { emoji:"⏰", color:"#f59e0b" },
 };
+const WEEK_DAYS = ["Lun","Mar","Mié","Jue","Vie"];
+
+// Returns ISO dates for Mon–Fri of the week starting at monISO
+function getWeekDates(monISO) {
+  const mon = new Date(monISO + "T00:00:00");
+  return Array.from({ length:5 }, (_, i) => {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    return d.toISOString().split("T")[0];
+  });
+}
 
 function AttendanceTable({ data, weeks, onMoreWeeks, primary, txt, sub, navBord, isDark }) {
   if (!data?.length) return (
@@ -52,71 +62,78 @@ function AttendanceTable({ data, weeks, onMoreWeeks, primary, txt, sub, navBord,
     </div>
   );
 
-  // Group by student and week
+  // Build per-student lookup
   const byStudent = {};
-  const allDates  = new Set();
   data.forEach(r => {
     if (!byStudent[r.student_id]) byStudent[r.student_id] = { nombre: r.student_nombre, byDate: {} };
     byStudent[r.student_id].byDate[r.fecha] = r.estado;
-    allDates.add(r.fecha);
   });
+  const students = Object.values(byStudent);
+  const multiStudent = students.length > 1;
 
-  // Build week groups: key = ISO monday
-  const weekMap = {};
-  [...allDates].forEach(d => {
-    const dt  = new Date(d + "T00:00:00");
+  // Find unique weeks (Monday ISO)
+  const weekSet = new Set();
+  data.forEach(r => {
+    const dt  = new Date(r.fecha + "T00:00:00");
     const dow = dt.getDay();
     const mon = new Date(dt);
     mon.setDate(dt.getDate() - (dow === 0 ? 6 : dow - 1));
-    const key = mon.toISOString().split("T")[0];
-    if (!weekMap[key]) weekMap[key] = [];
-    if (!weekMap[key].includes(d)) weekMap[key].push(d);
+    weekSet.add(mon.toISOString().split("T")[0]);
   });
-  const sortedWeeks = Object.keys(weekMap).sort().reverse();
-  const students    = Object.values(byStudent);
+  const sortedWeeks = [...weekSet].sort().reverse();
+
+  const fmtD = iso => new Date(iso+"T00:00:00").toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit"});
+  const gridCols = multiStudent ? `64px repeat(5, 1fr)` : `repeat(5, 1fr)`;
 
   return (
     <div>
       {sortedWeeks.map(wk => {
-        const dates   = weekMap[wk].sort();
-        const monDate = new Date(wk + "T00:00:00");
-        const friDate = new Date(monDate); friDate.setDate(monDate.getDate() + 4);
-        const fmtD    = d => new Date(d + "T00:00:00").toLocaleDateString("es-AR",{ day:"2-digit", month:"2-digit" });
+        const weekDates = getWeekDates(wk); // always Mon–Fri
+        const friday    = weekDates[4];
         return (
-          <div key={wk} style={{ marginBottom:18 }}>
-            <div style={{ fontSize:10, fontWeight:900, color:sub, letterSpacing:".06em",
-              marginBottom:8, textTransform:"uppercase" }}>
-              Semana {fmtD(wk)} → {fmtD(friDate.toISOString().split("T")[0])}
+          <div key={wk} style={{ marginBottom:16 }}>
+            {/* Week label */}
+            <div style={{ fontSize:10, fontWeight:900, color:sub,
+              letterSpacing:".06em", marginBottom:6, textTransform:"uppercase" }}>
+              Semana {fmtD(wk)} → {fmtD(friday)}
             </div>
-            {/* Day headers */}
-            <div style={{ display:"flex", gap:4, marginBottom:4 }}>
-              {students.length > 1 && <div style={{ width:70, flexShrink:0 }}/>}
-              {dates.map(d => (
-                <div key={d} style={{ flex:1, textAlign:"center", fontSize:9, fontWeight:800, color:sub }}>
-                  {DAY_ABBR[new Date(d+"T00:00:00").getDay()]}<br/>
-                  {new Date(d+"T00:00:00").getDate()}
+
+            {/* Day headers — always Mon Tue Wed Thu Fri */}
+            <div style={{ display:"grid", gridTemplateColumns:gridCols, gap:3, marginBottom:3 }}>
+              {multiStudent && <div/>}
+              {WEEK_DAYS.map((label, i) => (
+                <div key={label} style={{ textAlign:"center", fontSize:9,
+                  fontWeight:800, color:sub, lineHeight:1.4 }}>
+                  {label}<br/>{new Date(weekDates[i]+"T00:00:00").getDate()}
                 </div>
               ))}
             </div>
+
             {/* Student rows */}
             {students.map(st => (
-              <div key={st.nombre} style={{ display:"flex", alignItems:"center", gap:4, marginBottom:5 }}>
-                {students.length > 1 && (
-                  <div style={{ width:70, fontSize:11, fontWeight:700, color:txt, flexShrink:0,
+              <div key={st.nombre} style={{ display:"grid",
+                gridTemplateColumns:gridCols, gap:3, marginBottom:3 }}>
+                {multiStudent && (
+                  <div style={{ fontSize:10, fontWeight:700, color:txt,
+                    display:"flex", alignItems:"center",
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {st.nombre.split(" ")[0]}
                   </div>
                 )}
-                {dates.map(d => {
+                {weekDates.map(d => {
                   const cfg = ATT_CFG[st.byDate[d]];
                   return (
                     <div key={d} style={{
-                      flex:1, aspectRatio:"1", maxWidth:44, borderRadius:10,
-                      background: cfg ? cfg.color+"18" : (isDark?"rgba(255,255,255,.05)":"#f5f5f5"),
+                      borderRadius:8,
+                      background: cfg ? cfg.color+"15" : (isDark?"rgba(255,255,255,.04)":"#f8f8f8"),
                       border:`1.5px solid ${cfg ? cfg.color+"44" : navBord}`,
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      fontSize:18,
-                    }}>{cfg ? cfg.emoji : <span style={{ color:sub, fontSize:12, fontWeight:700 }}>—</span>}</div>
+                      fontSize:15, minHeight:34,
+                    }}>
+                      {cfg
+                        ? cfg.emoji
+                        : <span style={{ color:sub, fontSize:11, fontWeight:700 }}>–</span>}
+                    </div>
                   );
                 })}
               </div>
