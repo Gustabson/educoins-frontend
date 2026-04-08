@@ -179,6 +179,9 @@ export default function DiwyPadre({ showToast, onBack }) {
   const [loadingAtt,  setLoadingAtt]  = useState(false);
   const [attWeeks,    setAttWeeks]    = useState(1);
 
+  // Message history
+  const [showAllMsgs, setShowAllMsgs] = useState(false);
+
   // Report
   const [expandedId,  setExpandedId]  = useState(null);
   const [requesting,  setRequesting]  = useState(false);
@@ -327,7 +330,7 @@ export default function DiwyPadre({ showToast, onBack }) {
           <div style={{ display:"flex", gap:8, marginTop:14, overflowX:"auto", paddingBottom:2 }}>
             {snapshot.map(c => (
               <button key={c.id}
-                onClick={() => { setSelectedChild(c.id); setLastAnswer(null); setOrderSent(null); setExpandedId(null); }}
+                onClick={() => { setSelectedChild(c.id); setLastAnswer(null); setOrderSent(null); setExpandedId(null); setShowAllMsgs(false); }}
                 style={{
                   background: c.id === selectedChild ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.18)",
                   border:"none", borderRadius:99, padding:"5px 16px",
@@ -587,11 +590,23 @@ export default function DiwyPadre({ showToast, onBack }) {
             {/* ── Historial de mensajes a la maestra ── */}
             {childMessages.length > 0 && (
               <div style={{ marginBottom:14 }}>
-                <div style={{ fontWeight:800, fontSize:11, color:sub,
-                  letterSpacing:".07em", marginBottom:8, paddingLeft:4 }}>
-                  MENSAJES A LA MAESTRA
+                <div style={{ display:"flex", alignItems:"center",
+                  justifyContent:"space-between", marginBottom:8, paddingLeft:4 }}>
+                  <div style={{ fontWeight:800, fontSize:11, color:sub, letterSpacing:".07em" }}>
+                    MENSAJES A LA MAESTRA
+                  </div>
+                  {childMessages.length > 1 && (
+                    <button onClick={() => setShowAllMsgs(p => !p)}
+                      style={{ background:"none", border:"none", cursor:"pointer",
+                        fontSize:11, fontWeight:800, color:primary,
+                        fontFamily:"Nunito,sans-serif", padding:"0 4px" }}>
+                      {showAllMsgs
+                        ? "Ocultar ▲"
+                        : `Ver todos (${childMessages.length}) ▼`}
+                    </button>
+                  )}
                 </div>
-                {childMessages.slice(0, 5).map(m => (
+                {(showAllMsgs ? childMessages : childMessages.slice(0, 1)).map(m => (
                   <div key={m.id} style={{
                     background:cardBg, border:`1.5px solid ${navBord}`,
                     borderLeft:`3px solid #7c3aed`,

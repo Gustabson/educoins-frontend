@@ -54,8 +54,9 @@ export default function PHome({ me, balance, showToast, setTab }) {
   };
 
   const QUICK = [
-    ["🐾","Diwy",          "Reportes IA de tus hijos",         "#7c3aed","diwy",           badges.diwy        ],
-    ["⚖️","Veredictos",    "Conducta de tus hijos",            "#7f1d1d","veredictos-hijo", badges.veredictos  ],
+    ["🐾","Diwy",          "Reportes IA de tus hijos",          "#7c3aed","diwy",           badges.diwy        ],
+    ["📋","Asistencia",    "Asistencia escolar de tu hijo/a",   "#3b82f6","asistencia",      0                  ],
+    ["⚖️","Veredictos",    "Conducta de tus hijos",             "#7f1d1d","veredictos-hijo", badges.veredictos  ],
     ["💡","Sugerencias",   "Cómo usar EduCoins efectivamente",  "#00d084","sugerencias",     badges.sugerencias ],
     ["📰","Noticias",      "Publicaciones de la escuela",       "#00c1fc","noticias",        badges.noticias    ],
     ["🤖","Asistente IA",  "Preguntas sobre reglas",            "#10b981","asistente",       0                  ],

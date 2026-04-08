@@ -19,6 +19,7 @@ import PVeredictos   from "./PVeredictos";
 import PSugerencias  from "./PSugerencias";
 import PVinculacion  from "./PVinculacion";
 import PQuemar       from "./PQuemar";
+import PAsistencia   from "./PAsistencia";
 import PEnviar       from "./PEnviar";
 import PIngresar     from "./PIngresar";
 
@@ -26,7 +27,7 @@ import PIngresar     from "./PIngresar";
 const HIDE_NAV = new Set([
   "diwy","veredictos-hijo","sugerencias","noticias","asistente",
   "personalizar","exchange","quemar","vincular","chat","amigos",
-  "enviar","ingresar",
+  "enviar","ingresar","asistencia",
 ]);
 
 // ─────────────────────────────────────────────────────────────
@@ -135,6 +136,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
                                      onSetMode={setMode}/>}
         {tab==="vincular"        && <PVinculacion me={me} showToast={showToast} setTab={setTab}/>}
         {tab==="exchange"        && <AP2P me={me} balance={balance} showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="asistencia"      && <PAsistencia onBack={()=>setTab("home")}/>}
         {tab==="quemar"          && <PQuemar me={me} balance={balance}
                                      refreshBalance={refreshBalance} showToast={showToast} setTab={setTab}/>}
 
