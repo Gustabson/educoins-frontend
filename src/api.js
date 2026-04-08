@@ -286,14 +286,34 @@ const api = {
     return apiFetch(`/diwy/teacher/messages${q?"?"+q:""}`);
   },
   diwyTeacherClassrooms:()        => apiFetch("/diwy/teacher/classrooms"),
-  diwyTeacherAttendance:(p={})    => {
+  diwyTeacherAttendance: async (p={}) => {
     const qs=new URLSearchParams();
     if(p.classroom_id) qs.set("classroom_id",p.classroom_id);
     if(p.fecha)        qs.set("fecha",p.fecha);
-    return apiFetch(`/diwy/teacher/attendance?${qs}`);
+    const token = localStorage.getItem("ec_token");
+    const res = await fetch(`${API}/diwy/teacher/attendance?${qs}`, {
+      headers: { "Content-Type":"application/json", ...(token ? { Authorization:`Bearer ${token}` } : {}) }
+    });
+    const json = await res.json();
+    if (!json.ok) throw { code: json.error?.code, message: json.error?.message };
+    // Return full object so caller can access first_saved alongside data
+    return { data: json.data, first_saved: json.first_saved };
   },
   diwyTeacherAttendanceSave:(d)   => apiFetch("/diwy/teacher/attendance",{ method:"POST", body:d }),
+  diwyTeacherAttendanceHistory:() => apiFetch("/diwy/teacher/attendance/history"),
+  diwyTeacherAttendanceRequestEdit:(d) => apiFetch("/diwy/teacher/attendance/request-edit",{ method:"POST", body:d }),
   diwyParentAttendance:(weeks=1)  => apiFetch(`/diwy/parent/attendance?weeks=${weeks}`),
+  diwyAdminAttendance:(p={})      => {
+    const qs=new URLSearchParams();
+    if(p.fecha)  qs.set("fecha", p.fecha);
+    if(p.search) qs.set("search",p.search);
+    return apiFetch(`/diwy/admin/attendance?${qs}`);
+  },
+  diwyAdminAttendanceDetail:(classroomId,fecha) =>
+    apiFetch(`/diwy/admin/attendance/${classroomId}/detail?fecha=${fecha}`),
+  diwyAdminEditRequests:()        => apiFetch("/diwy/admin/attendance/edit-requests"),
+  diwyAdminReviewRequest:(id,action) =>
+    apiFetch(`/diwy/admin/attendance/edit-requests/${id}`,{ method:"PATCH", body:{action} }),
   diwyTeacherReply:   (id, data)  => apiFetch(`/diwy/teacher/messages/${id}/reply`,{ method:"PATCH", body:data }),
   diwyTeacherPreview: (data)      => apiFetch("/diwy/teacher/preview",             { method:"POST", body:data }),
   // ── Parent portal ─────────────────────────────────────────

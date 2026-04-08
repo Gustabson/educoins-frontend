@@ -227,6 +227,14 @@ export default function DiwyMaestra({ me }) {
   const [loadingAtt,    setLoadingAtt]    = useState(false);
   const [savingAtt,     setSavingAtt]     = useState(false);
   const [attSaved,      setAttSaved]      = useState(false);
+  const [attLocked,     setAttLocked]     = useState(false);   // > 4h lock
+  const [attFirstSaved, setAttFirstSaved] = useState(null);   // ISO timestamp
+  const [attReqSending, setAttReqSending] = useState(false);
+  const [attReqSent,    setAttReqSent]    = useState(false);
+  const [attReqMotivo,  setAttReqMotivo]  = useState("");
+  const [showReqForm,   setShowReqForm]   = useState(false);
+  const [attHistory,    setAttHistory]    = useState([]);
+  const [historyExpanded, setHistoryExpanded] = useState({});
 
   // Clase de hoy
   const [tema,       setTema]       = useState("");
@@ -258,17 +266,33 @@ export default function DiwyMaestra({ me }) {
         if (list.length > 0) setAttClassroom(list[0].id);
       })
       .catch(() => {});
+
+    // Load attendance history
+    api.diwyTeacherAttendanceHistory()
+      .then(d => setAttHistory(Array.isArray(d) ? d : d?.data || []))
+      .catch(() => {});
   }, []);
 
-  // Load attendance when classroom or date changes (and tab is active)
+  // Load attendance when classroom or date changes
   useEffect(() => {
     if (!attClassroom) return;
     setLoadingAtt(true);
     setAttSaved(false);
+    setAttLocked(false);
+    setAttFirstSaved(null);
+    setShowReqForm(false);
+    setAttReqSent(false);
+    setAttReqMotivo("");
     api.diwyTeacherAttendance({ classroom_id: attClassroom, fecha: attDate })
       .then(d => {
+        // d can be array (legacy) or { data, first_saved }
         const rows = Array.isArray(d) ? d : d?.data || [];
+        const fs   = d?.first_saved || null;
         setAttStudents(rows.map(s => ({ id: s.id, nombre: s.nombre, estado: s.estado || null })));
+        setAttFirstSaved(fs);
+        if (fs && (Date.now() - new Date(fs).getTime()) > 4 * 3600 * 1000) {
+          setAttLocked(true);
+        }
       })
       .catch(() => {})
       .finally(() => setLoadingAtt(false));
@@ -292,9 +316,27 @@ export default function DiwyMaestra({ me }) {
     }
     const socket = getSocket();
     const onNew = () => { if (active) fetchMessages(); };
-    if (socket) socket.on("diwy_message", onNew);
+    const onReviewed = (data) => {
+      if (!active) return;
+      if (data?.status === "approved") {
+        setAttLocked(false);
+        setAttReqSent(false);
+        setShowReqForm(false);
+      }
+    };
+    if (socket) {
+      socket.on("diwy_message", onNew);
+      socket.on("attendance_request_reviewed", onReviewed);
+    }
     const iv = setInterval(() => { if (active) fetchMessages(); }, activeTab === "mensajes" ? 10000 : 60000);
-    return () => { active = false; clearInterval(iv); if (socket) socket.off("diwy_message", onNew); };
+    return () => {
+      active = false;
+      clearInterval(iv);
+      if (socket) {
+        socket.off("diwy_message", onNew);
+        socket.off("attendance_request_reviewed", onReviewed);
+      }
+    };
   }, [activeTab, fetchMessages]);
 
   // Load observations when student selected
@@ -354,9 +396,33 @@ export default function DiwyMaestra({ me }) {
         records: records.map(s => ({ student_id: s.id, estado: s.estado })),
       });
       setAttSaved(true);
+      setAttLocked(false);
+      // Refresh history
+      api.diwyTeacherAttendanceHistory()
+        .then(d => setAttHistory(Array.isArray(d) ? d : d?.data || []))
+        .catch(() => {});
       setTimeout(() => setAttSaved(false), 3000);
-    } catch(e) {}
+    } catch(e) {
+      if (e?.code === "ATTENDANCE_LOCKED" || e?.message?.includes("4 horas")) {
+        setAttLocked(true);
+      }
+    }
     finally { setSavingAtt(false); }
+  };
+
+  const handleRequestEdit = async () => {
+    if (!attClassroom) return;
+    setAttReqSending(true);
+    try {
+      await api.diwyTeacherAttendanceRequestEdit({
+        classroom_id: attClassroom,
+        fecha: attDate,
+        motivo: attReqMotivo.trim() || undefined,
+      });
+      setAttReqSent(true);
+      setShowReqForm(false);
+    } catch(e) {}
+    finally { setAttReqSending(false); }
   };
 
   const handleImagePick = async (e) => {
@@ -894,6 +960,61 @@ export default function DiwyMaestra({ me }) {
               </div>
             ))}
 
+            {/* Lock banner */}
+            {attLocked && !attSaved && (
+              <div style={{ background:"#fef3c718", border:"1.5px solid #f59e0b55",
+                borderRadius:14, padding:"14px 16px", marginTop:14 }}>
+                <div style={{ fontWeight:800, fontSize:13, color:"#b45309", marginBottom:6 }}>
+                  🔒 Asistencia bloqueada
+                </div>
+                <div style={{ fontSize:12, color:"#92400e", lineHeight:1.55, marginBottom:10 }}>
+                  Han pasado más de 4 horas desde que se tomó esta asistencia. Necesitás autorización del administrador para editarla.
+                </div>
+                {attReqSent ? (
+                  <div style={{ background:"#10b98118", border:"1.5px solid #10b98144",
+                    borderRadius:10, padding:"10px 12px", textAlign:"center",
+                    color:"#10b981", fontWeight:800, fontSize:12 }}>
+                    ✅ Solicitud enviada — esperando autorización
+                  </div>
+                ) : showReqForm ? (
+                  <div>
+                    <input
+                      value={attReqMotivo}
+                      onChange={e => setAttReqMotivo(e.target.value)}
+                      placeholder="Motivo de la corrección (opcional)..."
+                      maxLength={200}
+                      style={{ width:"100%", border:`1.5px solid ${navBord}`, borderRadius:12,
+                        padding:"9px 12px", fontSize:12, fontFamily:"Nunito,sans-serif",
+                        outline:"none", boxSizing:"border-box", color:txt, background:cardBg,
+                        marginBottom:8, transition:"background .3s, color .3s" }}
+                    />
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button onClick={() => setShowReqForm(false)}
+                        style={{ flex:1, background:`${navBord}`, border:"none", borderRadius:50,
+                          padding:"9px", color:sub, fontWeight:800, fontSize:12,
+                          cursor:"pointer", fontFamily:"Nunito,sans-serif" }}>
+                        Cancelar
+                      </button>
+                      <button onClick={handleRequestEdit} disabled={attReqSending}
+                        style={{ flex:2, background:attReqSending ? navBord : "#f59e0b",
+                          border:"none", borderRadius:50, padding:"9px", color:"white",
+                          fontWeight:800, fontSize:12, cursor:"pointer",
+                          fontFamily:"Nunito,sans-serif" }}>
+                        {attReqSending ? "Enviando..." : "📨 Enviar solicitud"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowReqForm(true)}
+                    style={{ width:"100%", background:"#f59e0b", border:"none", borderRadius:50,
+                      padding:"10px", color:"white", fontWeight:800, fontSize:13,
+                      cursor:"pointer", fontFamily:"Nunito,sans-serif" }}>
+                    🔓 Solicitar autorización
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Save button */}
             {!loadingAtt && attStudents.length > 0 && (
               <div style={{ marginTop:14 }}>
@@ -903,7 +1024,7 @@ export default function DiwyMaestra({ me }) {
                     color:"#10b981", fontWeight:800, fontSize:14 }}>
                     ✅ Asistencia guardada
                   </div>
-                ) : (
+                ) : !attLocked ? (
                   <button onClick={handleSaveAttendance}
                     disabled={savingAtt || attStudents.every(s => s.estado === null)}
                     style={{
@@ -915,9 +1036,66 @@ export default function DiwyMaestra({ me }) {
                       fontWeight:800, fontSize:14, cursor:"pointer",
                       fontFamily:"Nunito,sans-serif", transition:"all .2s",
                     }}>
-                    {savingAtt ? "Guardando..." : `💾 Guardar asistencia — ${attStudents.filter(s=>s.estado).length}/${attStudents.length} marcados`}
+                    {savingAtt ? "Guardando..." : `💾 Guardar — ${attStudents.filter(s=>s.estado).length}/${attStudents.length} marcados`}
                   </button>
-                )}
+                ) : null}
+              </div>
+            )}
+
+            {/* Attendance history */}
+            {attHistory.length > 0 && (
+              <div style={{ marginTop:24 }}>
+                <div style={{ fontSize:11, fontWeight:900, color:sub,
+                  letterSpacing:".06em", marginBottom:10 }}>HISTORIAL DE ASISTENCIAS</div>
+                {attHistory.map(h => {
+                  const key = `${h.classroom_id}_${h.fecha}`;
+                  const isOpen = historyExpanded[key];
+                  const isLocked = h.first_saved &&
+                    (Date.now() - new Date(h.first_saved).getTime()) > 4 * 3600 * 1000;
+                  return (
+                    <div key={key} style={{ background:cardBg, borderRadius:12,
+                      border:`1.5px solid ${navBord}`, marginBottom:6, overflow:"hidden",
+                      transition:"background .3s" }}>
+                      <button
+                        onClick={() => setHistoryExpanded(p => ({ ...p, [key]: !isOpen }))}
+                        style={{ width:"100%", background:"none", border:"none", cursor:"pointer",
+                          padding:"11px 14px", display:"flex", alignItems:"center",
+                          justifyContent:"space-between", fontFamily:"Nunito,sans-serif" }}>
+                        <div style={{ textAlign:"left" }}>
+                          <div style={{ fontWeight:800, fontSize:13, color:txt }}>
+                            {h.classroom_nombre}
+                            {isLocked && <span style={{ marginLeft:6, fontSize:11 }}>🔒</span>}
+                          </div>
+                          <div style={{ fontSize:11, color:sub, marginTop:2 }}>
+                            {new Date(h.fecha + "T00:00:00").toLocaleDateString("es-AR",{weekday:"short",day:"2-digit",month:"2-digit"})}
+                            {" · "}
+                            <span style={{ color:"#10b981", fontWeight:700 }}>✅ {h.presentes}P</span>
+                            {" "}
+                            <span style={{ color:"#f59e0b", fontWeight:700 }}>⏰ {h.tardes}T</span>
+                            {" "}
+                            <span style={{ color:"#ef4444", fontWeight:700 }}>❌ {h.ausentes}A</span>
+                          </div>
+                        </div>
+                        <span style={{ color:sub, fontSize:16, transition:"transform .2s",
+                          transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>›</span>
+                      </button>
+                      {isOpen && (
+                        <div style={{ borderTop:`1px solid ${navBord}`, padding:"8px 14px 10px" }}>
+                          <div style={{ fontSize:11, color:sub, marginBottom:6 }}>
+                            Total: {h.total} · Guardado {new Date(h.first_saved).toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
+                          </div>
+                          <button
+                            onClick={() => { setAttClassroom(h.classroom_id); setAttDate(h.fecha); setHistoryExpanded(p => ({ ...p, [key]: false })); }}
+                            style={{ background:`${primary}15`, border:`1px solid ${primary}33`,
+                              borderRadius:99, padding:"6px 14px", fontSize:11, fontWeight:800,
+                              color:primary, cursor:"pointer", fontFamily:"Nunito,sans-serif" }}>
+                            📋 Ver / editar este día
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

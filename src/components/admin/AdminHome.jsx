@@ -71,6 +71,7 @@ function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
     { icon:"📚", title:"Documentos IA",     sub:"Reglamento e info del Asistente",            dest:"aidocs",     col:"#10b981" },
     { icon:"🐾", title:"Diwy",             sub:"Asistente preceptor IA — reportes para padres", dest:"diwy",    col:"#7c3aed" },
     { icon:"🔗", title:"Vinculaciones",    sub:"Solicitudes y vínculos padre-alumno",            dest:"link-requests", col:"#f59e0b" },
+    { icon:"📋", title:"Asistencias",      sub:"Ver asistencia por aula y aprobar ediciones",    dest:"asistencias",   col:"#3b82f6" },
   ].filter(item => canSee(item.dest));
 
   return (
