@@ -276,7 +276,15 @@ const api = {
   diwyParentMessage:  (data)      => apiFetch("/diwy/parent/message",              { method:"POST", body:data }),
   diwyParentMessages: ()          => apiFetch("/diwy/parent/messages"),
   diwyParentPreview:  ()          => apiFetch("/diwy/parent/preview"),
-  diwyTeacherMessages:()          => apiFetch("/diwy/teacher/messages"),
+  diwyTeacherMessages:(p={})      => {
+    const qs=new URLSearchParams();
+    if(p.classroom_id) qs.set("classroom_id",p.classroom_id);
+    if(p.date_from)    qs.set("date_from",p.date_from);
+    if(p.date_to)      qs.set("date_to",p.date_to);
+    const q=qs.toString();
+    return apiFetch(`/diwy/teacher/messages${q?"?"+q:""}`);
+  },
+  diwyTeacherClassrooms:()        => apiFetch("/diwy/teacher/classrooms"),
   diwyTeacherReply:   (id, data)  => apiFetch(`/diwy/teacher/messages/${id}/reply`,{ method:"PATCH", body:data }),
   diwyTeacherPreview: (data)      => apiFetch("/diwy/teacher/preview",             { method:"POST", body:data }),
   // ── Parent portal ─────────────────────────────────────────

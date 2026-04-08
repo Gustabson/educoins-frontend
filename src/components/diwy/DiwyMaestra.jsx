@@ -4,7 +4,7 @@
 // to avoid the React anti-pattern of component-inside-component which caused
 // the student list to not render (Header redefined on every render → unmount/remount loop).
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { WCard } from "../shared/index";
@@ -17,6 +17,10 @@ const fmtSemana = iso => iso
 
 const fmtDateTime = iso => iso
   ? new Date(iso).toLocaleString("es-AR", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })
+  : "";
+
+const fmtDateShort = iso => iso
+  ? new Date(iso + "T00:00:00").toLocaleDateString("es-AR", { day:"2-digit", month:"2-digit" })
   : "";
 
 function estadoBadge(estado) {
@@ -111,6 +115,102 @@ function DetailHeader({ primary, onBack, nombre }) {
   );
 }
 
+// ── Date Range Modal (MODULE scope) ──────────────────────────────────────────
+
+function DateRangeModal({ open, dateFrom, dateTo, onApply, onClear, onClose, cardBg, primary, txt, sub, inputBg, inputBd, navBord }) {
+  const [from, setFrom] = useState(dateFrom);
+  const [to,   setTo]   = useState(dateTo);
+
+  // Sync when modal opens
+  useEffect(() => {
+    if (open) { setFrom(dateFrom); setTo(dateTo); }
+  }, [open, dateFrom, dateTo]);
+
+  if (!open) return null;
+
+  const handleApply = () => {
+    onApply(from, to);
+    onClose();
+  };
+  const handleClear = () => {
+    setFrom(""); setTo("");
+    onClear();
+    onClose();
+  };
+
+  const hasRange = from || to;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)",
+        zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center",
+        padding:20 }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background:cardBg, borderRadius:20, padding:24,
+          width:"100%", maxWidth:320,
+          boxShadow:"0 24px 80px rgba(0,0,0,.35)",
+          border:`1px solid ${navBord}` }}>
+
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <div style={{ fontWeight:900, fontSize:16, color:txt }}>📅 Filtrar por fecha</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", fontSize:20,
+            color:sub, cursor:"pointer", lineHeight:1, padding:"0 4px" }}>×</button>
+        </div>
+
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:10, fontWeight:800, color:sub, letterSpacing:".06em", marginBottom:6 }}>DESDE</div>
+          <input
+            type="date"
+            value={from}
+            onChange={e => setFrom(e.target.value)}
+            style={{ width:"100%", border:`1.5px solid ${from ? primary : inputBd}`,
+              borderRadius:12, padding:"10px 12px", fontSize:14,
+              fontFamily:"Nunito,sans-serif", outline:"none",
+              boxSizing:"border-box", color:txt, background:inputBg,
+              transition:"border-color .2s" }}
+          />
+        </div>
+
+        <div style={{ marginBottom:24 }}>
+          <div style={{ fontSize:10, fontWeight:800, color:sub, letterSpacing:".06em", marginBottom:6 }}>HASTA</div>
+          <input
+            type="date"
+            value={to}
+            min={from || undefined}
+            onChange={e => setTo(e.target.value)}
+            style={{ width:"100%", border:`1.5px solid ${to ? primary : inputBd}`,
+              borderRadius:12, padding:"10px 12px", fontSize:14,
+              fontFamily:"Nunito,sans-serif", outline:"none",
+              boxSizing:"border-box", color:txt, background:inputBg,
+              transition:"border-color .2s" }}
+          />
+        </div>
+
+        <div style={{ display:"flex", gap:10 }}>
+          {hasRange && (
+            <button onClick={handleClear}
+              style={{ flex:1, background:`${primary}15`, border:`1px solid ${primary}33`,
+                borderRadius:50, padding:"11px", color:primary,
+                fontWeight:800, fontSize:13, cursor:"pointer",
+                fontFamily:"Nunito,sans-serif" }}>
+              Limpiar
+            </button>
+          )}
+          <button onClick={handleApply}
+            style={{ flex:2, background:`linear-gradient(135deg, ${primary}, #7c3aed)`,
+              border:"none", borderRadius:50, padding:"11px", color:"white",
+              fontWeight:800, fontSize:13, cursor:"pointer",
+              fontFamily:"Nunito,sans-serif" }}>
+            ✓ Aplicar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function DiwyMaestra({ me }) {
@@ -133,7 +233,14 @@ export default function DiwyMaestra({ me }) {
   const [sendingReply,  setSendingReply]  = useState({});
   const [msgFilter,     setMsgFilter]     = useState("todos");   // todos | pending | replied
   const [msgSearch,     setMsgSearch]     = useState("");
-  const [msgSort,       setMsgSort]       = useState("newest"); // newest | oldest
+  const [msgSort,       setMsgSort]       = useState("newest");  // newest | oldest
+
+  // Message filters — course & date
+  const [classrooms,        setClassrooms]        = useState([]);
+  const [selectedClassroom, setSelectedClassroom] = useState(null);
+  const [dateFrom,          setDateFrom]          = useState("");
+  const [dateTo,            setDateTo]            = useState("");
+  const [calendarOpen,      setCalendarOpen]      = useState(false);
 
   // Clase de hoy
   const [tema,       setTema]       = useState("");
@@ -143,37 +250,48 @@ export default function DiwyMaestra({ me }) {
   const [savedPrev,  setSavedPrev]  = useState(null);
   const fileRef = useRef(null);
 
-  // Load students
+  // Load students + classrooms on mount
   useEffect(() => {
     api.diwyStudents()
       .then(d => setStudents(Array.isArray(d) ? d : d?.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    api.diwyTeacherClassrooms()
+      .then(d => setClassrooms(Array.isArray(d) ? d : d?.data || []))
+      .catch(() => {});
   }, []);
+
+  // Fetch messages with current filters
+  const fetchMessages = useCallback(() => {
+    return api.diwyTeacherMessages({
+      classroom_id: selectedClassroom || undefined,
+      date_from:    dateFrom         || undefined,
+      date_to:      dateTo           || undefined,
+    }).then(d => setMessages(Array.isArray(d) ? d : d?.data || [])).catch(() => {});
+  }, [selectedClassroom, dateFrom, dateTo]);
 
   // Load + poll messages + socket
   useEffect(() => {
     let active = true;
-    const load = () => api.diwyTeacherMessages()
-      .then(d => { if (active) setMessages(Array.isArray(d) ? d : []); })
-      .catch(() => {});
 
     if (activeTab === "mensajes") {
       setLoadingMsgs(true);
-      load().finally(() => { if (active) setLoadingMsgs(false); });
+      fetchMessages().finally(() => { if (active) setLoadingMsgs(false); });
     }
 
     const socket = getSocket();
-    const onNew = () => load();
+    const onNew = () => { if (active) fetchMessages(); };
     if (socket) socket.on("diwy_message", onNew);
 
-    const iv = setInterval(load, activeTab === "mensajes" ? 10000 : 60000);
+    const iv = setInterval(() => { if (active) fetchMessages(); }, activeTab === "mensajes" ? 10000 : 60000);
+
     return () => {
       active = false;
       clearInterval(iv);
       if (socket) socket.off("diwy_message", onNew);
     };
-  }, [activeTab]);
+  }, [activeTab, fetchMessages]);
 
   // Load observations when student selected
   useEffect(() => {
@@ -249,7 +367,7 @@ export default function DiwyMaestra({ me }) {
 
   const pendingCount = messages.filter(m => m.estado === "pending").length;
 
-  // Filtered + sorted messages
+  // Filtered + sorted messages (client-side status/search/sort — server handles course+date)
   const filteredMessages = messages
     .filter(m => {
       if (msgFilter === "pending")  return m.estado === "pending";
@@ -261,6 +379,15 @@ export default function DiwyMaestra({ me }) {
       const da = new Date(a.created_at), db = new Date(b.created_at);
       return msgSort === "newest" ? db - da : da - db;
     });
+
+  // Date filter label for button
+  const dateLabel = (() => {
+    if (dateFrom && dateTo) return `${fmtDateShort(dateFrom)} → ${fmtDateShort(dateTo)}`;
+    if (dateFrom)           return `Desde ${fmtDateShort(dateFrom)}`;
+    if (dateTo)             return `Hasta ${fmtDateShort(dateTo)}`;
+    return "Todas las fechas";
+  })();
+  const hasDateFilter = !!(dateFrom || dateTo);
 
   // ── Detail view ──
   if (selected) {
@@ -349,6 +476,18 @@ export default function DiwyMaestra({ me }) {
         pendingCount={pendingCount}
       />
 
+      {/* Date range modal */}
+      <DateRangeModal
+        open={calendarOpen}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onApply={(f, t) => { setDateFrom(f); setDateTo(t); }}
+        onClear={() => { setDateFrom(""); setDateTo(""); }}
+        onClose={() => setCalendarOpen(false)}
+        cardBg={cardBg} primary={primary} txt={txt} sub={sub}
+        inputBg={inputBg} inputBd={inputBd} navBord={navBord}
+      />
+
       <div style={{ padding:"16px 14px 32px" }}>
 
         {/* ── Alumnos ── */}
@@ -413,10 +552,11 @@ export default function DiwyMaestra({ me }) {
         {/* ── Mensajes ── */}
         {activeTab === "mensajes" && (
           <div>
-            {/* Filters */}
+            {/* ── Filter bar ── */}
             <div style={{ marginBottom:12 }}>
+
               {/* Status chips */}
-              <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+              <div style={{ display:"flex", gap:6, marginBottom:8, flexWrap:"wrap" }}>
                 {[
                   { id:"todos",   label:"Todos",       count: messages.length },
                   { id:"pending", label:"Pendientes",  count: messages.filter(m=>m.estado==="pending").length },
@@ -438,8 +578,61 @@ export default function DiwyMaestra({ me }) {
                   </button>
                 ))}
               </div>
-              {/* Search + sort row */}
-              <div style={{ display:"flex", gap:8 }}>
+
+              {/* Course chips — only shown if teacher has >1 classroom */}
+              {classrooms.length > 1 && (
+                <div style={{ display:"flex", gap:6, marginBottom:8, flexWrap:"wrap" }}>
+                  <button
+                    onClick={() => setSelectedClassroom(null)}
+                    style={{
+                      background: !selectedClassroom ? "#7c3aed" : "rgba(124,58,237,.12)",
+                      border: `1px solid ${!selectedClassroom ? "#7c3aed" : "rgba(124,58,237,.3)"}`,
+                      borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:800,
+                      color: !selectedClassroom ? "white" : "#7c3aed", cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif", transition:"all .2s",
+                    }}>
+                    🏫 Todos los cursos
+                  </button>
+                  {classrooms.map(c => (
+                    <button key={c.id}
+                      onClick={() => setSelectedClassroom(selectedClassroom === c.id ? null : c.id)}
+                      style={{
+                        background: selectedClassroom===c.id ? "#7c3aed" : "rgba(124,58,237,.12)",
+                        border: `1px solid ${selectedClassroom===c.id ? "#7c3aed" : "rgba(124,58,237,.3)"}`,
+                        borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:800,
+                        color: selectedClassroom===c.id ? "white" : "#7c3aed", cursor:"pointer",
+                        fontFamily:"Nunito,sans-serif", transition:"all .2s",
+                      }}>
+                      {c.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Date picker + search + sort */}
+              <div style={{ display:"flex", gap:6 }}>
+                {/* Date button */}
+                <button
+                  onClick={() => setCalendarOpen(true)}
+                  style={{
+                    background: hasDateFilter ? primary : cardBg,
+                    border: `1.5px solid ${hasDateFilter ? primary : navBord}`,
+                    borderRadius:10, padding:"7px 10px", fontSize:11, fontWeight:800,
+                    color: hasDateFilter ? "white" : sub, cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif", whiteSpace:"nowrap", flexShrink:0,
+                    transition:"all .2s", display:"flex", alignItems:"center", gap:5,
+                  }}>
+                  📅 {dateLabel}
+                  {hasDateFilter && (
+                    <span
+                      onClick={e => { e.stopPropagation(); setDateFrom(""); setDateTo(""); }}
+                      style={{ background:"rgba(255,255,255,.3)", borderRadius:99,
+                        padding:"0 5px", fontSize:12, lineHeight:"16px",
+                        cursor:"pointer", fontWeight:900 }}>×</span>
+                  )}
+                </button>
+
+                {/* Student search */}
                 <div style={{ flex:1, position:"relative" }}>
                   <span style={{ position:"absolute", left:10, top:"50%",
                     transform:"translateY(-50%)", fontSize:13, pointerEvents:"none" }}>🔍</span>
@@ -450,12 +643,14 @@ export default function DiwyMaestra({ me }) {
                       outline:"none", boxSizing:"border-box", color:txt, background:cardBg,
                       transition:"background .3s, color .3s" }}/>
                 </div>
+
+                {/* Sort toggle */}
                 <button onClick={() => setMsgSort(p => p==="newest" ? "oldest" : "newest")}
                   style={{ background:cardBg, border:`1.5px solid ${navBord}`, borderRadius:10,
-                    padding:"0 12px", fontSize:11, fontWeight:800, color:sub, cursor:"pointer",
-                    fontFamily:"Nunito,sans-serif", whiteSpace:"nowrap",
+                    padding:"0 10px", fontSize:11, fontWeight:800, color:sub, cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif", whiteSpace:"nowrap", flexShrink:0,
                     transition:"background .3s, color .3s" }}>
-                  {msgSort === "newest" ? "Más reciente ↓" : "Más antiguo ↑"}
+                  {msgSort === "newest" ? "↓ Reciente" : "↑ Antiguo"}
                 </button>
               </div>
             </div>
@@ -467,7 +662,9 @@ export default function DiwyMaestra({ me }) {
               <div style={{ textAlign:"center", padding:"40px 20px" }}>
                 <div style={{ fontSize:44, marginBottom:8 }}>💬</div>
                 <div style={{ fontSize:13, color:sub }}>
-                  {msgSearch || msgFilter !== "todos" ? "Sin resultados para los filtros aplicados" : "No hay mensajes de padres todavía."}
+                  {msgSearch || msgFilter !== "todos" || hasDateFilter || selectedClassroom
+                    ? "Sin resultados para los filtros aplicados"
+                    : "No hay mensajes de padres todavía."}
                 </div>
               </div>
             )}
@@ -479,12 +676,21 @@ export default function DiwyMaestra({ me }) {
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
                   <div>
                     <div style={{ fontWeight:800, fontSize:13, color:txt }}>👧 {m.alumno_nombre}</div>
-                    <div style={{ fontSize:10, color:sub, marginTop:2 }}>{fmtDateTime(m.created_at)}</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:2 }}>
+                      <span style={{ fontSize:10, color:sub }}>{fmtDateTime(m.created_at)}</span>
+                      {m.classroom_nombre && (
+                        <span style={{ fontSize:9, background:`${primary}18`, color:primary,
+                          borderRadius:99, padding:"1px 7px", fontWeight:800 }}>
+                          {m.classroom_nombre}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span style={{
                     background: m.estado==="pending" ? `${primary}20` : "#10b98120",
                     color: m.estado==="pending" ? primary : "#10b981",
                     borderRadius:99, padding:"3px 10px", fontSize:9, fontWeight:900,
+                    flexShrink:0,
                   }}>
                     {m.estado==="pending" ? "⏳ Pendiente" : "✓ Respondido"}
                   </span>
