@@ -69,9 +69,10 @@ function MainHeader({ primary, activeTab, setActiveTab, pendingCount }) {
       </div>
       <div style={{ display:"flex", padding:"10px 14px 0" }}>
         {[
-          { id:"reportes", label:"Reportes",     badge: 0 },
-          { id:"mensajes", label:"Mensajes",     badge: pendingCount },
-          { id:"clase",    label:"Clase de hoy", badge: 0 },
+          { id:"reportes",    label:"Reportes",    badge: 0 },
+          { id:"mensajes",    label:"Mensajes",    badge: pendingCount },
+          { id:"asistencia",  label:"Asistencia",  badge: 0 },
+          { id:"clase",       label:"Clase",       badge: 0 },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             flex:1, background:"none", border:"none",
@@ -189,6 +190,8 @@ function DateRangeModal({ open, dateFrom, dateTo, onApply, onClear, onClose, car
 export default function DiwyMaestra({ me }) {
   const { primary, txt, sub, cardBg, pageBg, navBord, inputBg, inputBd, isDark } = useTheme();
 
+  const todayISO = new Date().toISOString().split("T")[0];
+
   const [activeTab,    setActiveTab]    = useState("reportes");
   const [students,     setStudents]     = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -217,6 +220,14 @@ export default function DiwyMaestra({ me }) {
   const [dateTo,            setDateTo]            = useState("");
   const [calendarOpen,      setCalendarOpen]      = useState(false);
 
+  // Asistencia
+  const [attClassroom,  setAttClassroom]  = useState(null);
+  const [attDate,       setAttDate]       = useState(todayISO);
+  const [attStudents,   setAttStudents]   = useState([]); // [{id, nombre, estado}]
+  const [loadingAtt,    setLoadingAtt]    = useState(false);
+  const [savingAtt,     setSavingAtt]     = useState(false);
+  const [attSaved,      setAttSaved]      = useState(false);
+
   // Clase de hoy
   const [tema,       setTema]       = useState("");
   const [detalle,    setDetalle]    = useState("");
@@ -241,9 +252,27 @@ export default function DiwyMaestra({ me }) {
       .finally(() => setLoading(false));
 
     api.diwyTeacherClassrooms()
-      .then(d => setClassrooms(Array.isArray(d) ? d : d?.data || []))
+      .then(d => {
+        const list = Array.isArray(d) ? d : d?.data || [];
+        setClassrooms(list);
+        if (list.length > 0) setAttClassroom(list[0].id);
+      })
       .catch(() => {});
   }, []);
+
+  // Load attendance when classroom or date changes (and tab is active)
+  useEffect(() => {
+    if (!attClassroom) return;
+    setLoadingAtt(true);
+    setAttSaved(false);
+    api.diwyTeacherAttendance({ classroom_id: attClassroom, fecha: attDate })
+      .then(d => {
+        const rows = Array.isArray(d) ? d : d?.data || [];
+        setAttStudents(rows.map(s => ({ id: s.id, nombre: s.nombre, estado: s.estado || null })));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAtt(false));
+  }, [attClassroom, attDate]);
 
   // Fetch messages with current filters
   const fetchMessages = useCallback(() => {
@@ -312,6 +341,22 @@ export default function DiwyMaestra({ me }) {
       setReplies(p => ({ ...p, [msgId]: "" }));
     } catch(e) {}
     finally { setSendingReply(p => ({ ...p, [msgId]: false })); }
+  };
+
+  const handleSaveAttendance = async () => {
+    const records = attStudents.filter(s => s.estado !== null);
+    if (!attClassroom || records.length === 0) return;
+    setSavingAtt(true);
+    try {
+      await api.diwyTeacherAttendanceSave({
+        classroom_id: attClassroom,
+        fecha: attDate,
+        records: records.map(s => ({ student_id: s.id, estado: s.estado })),
+      });
+      setAttSaved(true);
+      setTimeout(() => setAttSaved(false), 3000);
+    } catch(e) {}
+    finally { setSavingAtt(false); }
   };
 
   const handleImagePick = async (e) => {
@@ -763,6 +808,118 @@ export default function DiwyMaestra({ me }) {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── Asistencia ── */}
+        {activeTab === "asistencia" && (
+          <div>
+            {/* Classroom selector */}
+            {classrooms.length > 1 && (
+              <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
+                {classrooms.map(c => (
+                  <button key={c.id} onClick={() => setAttClassroom(c.id)} style={{
+                    background: attClassroom===c.id ? primary : `${primary}15`,
+                    border:`1px solid ${attClassroom===c.id ? primary : primary+"33"}`,
+                    borderRadius:99, padding:"6px 14px", fontSize:12, fontWeight:800,
+                    color: attClassroom===c.id ? "white" : primary,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif", transition:"all .2s",
+                  }}>{c.nombre}</button>
+                ))}
+              </div>
+            )}
+
+            {/* Date picker */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+              <input type="date" value={attDate} max={todayISO}
+                onChange={e => setAttDate(e.target.value)}
+                style={{ flex:1, border:`1.5px solid ${navBord}`, borderRadius:12,
+                  padding:"9px 12px", fontSize:13, fontFamily:"Nunito,sans-serif",
+                  outline:"none", color:txt, background:cardBg,
+                  transition:"background .3s, color .3s" }}/>
+              <button
+                onClick={() => setAttStudents(p => p.map(s => ({ ...s, estado:"presente" })))}
+                style={{ background:`#10b98115`, border:`1px solid #10b98133`,
+                  borderRadius:99, padding:"9px 14px", fontSize:11, fontWeight:800,
+                  color:"#10b981", cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                  whiteSpace:"nowrap" }}>
+                ✅ Todos presentes
+              </button>
+            </div>
+
+            {/* Student list */}
+            {loadingAtt && (
+              <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
+            )}
+
+            {!loadingAtt && attStudents.length === 0 && (
+              <div style={{ textAlign:"center", padding:"32px 20px" }}>
+                <div style={{ fontSize:36, marginBottom:8 }}>🏫</div>
+                <div style={{ fontSize:13, color:sub }}>
+                  {attClassroom ? "Sin alumnos en este curso" : "Seleccioná un curso"}
+                </div>
+              </div>
+            )}
+
+            {!loadingAtt && attStudents.map((s, i) => (
+              <div key={s.id} style={{
+                background:cardBg, borderRadius:14, padding:"11px 14px",
+                marginBottom:6, display:"flex", alignItems:"center", gap:10,
+                border:`1.5px solid ${s.estado === "presente" ? "#10b98133"
+                  : s.estado === "ausente" ? "#ef444433"
+                  : s.estado === "tarde"   ? "#f59e0b33"
+                  : navBord}`,
+                transition:"background .3s, border .3s",
+              }}>
+                <div style={{ flex:1, fontWeight:700, fontSize:13, color:txt }}>{s.nombre}</div>
+                {[
+                  { val:"presente", icon:"✅", label:"P", activeColor:"#10b981" },
+                  { val:"tarde",    icon:"⏰", label:"T", activeColor:"#f59e0b" },
+                  { val:"ausente",  icon:"❌", label:"A", activeColor:"#ef4444" },
+                ].map(opt => (
+                  <button key={opt.val}
+                    onClick={() => setAttStudents(p => p.map((x,j) => j===i ? { ...x, estado: x.estado===opt.val ? null : opt.val } : x))}
+                    style={{
+                      background: s.estado===opt.val ? opt.activeColor+"20" : (isDark?"rgba(255,255,255,.06)":"#f5f5f5"),
+                      border:`1.5px solid ${s.estado===opt.val ? opt.activeColor : "transparent"}`,
+                      borderRadius:10, padding:"6px 10px", fontSize:12, fontWeight:800,
+                      color: s.estado===opt.val ? opt.activeColor : sub,
+                      cursor:"pointer", fontFamily:"Nunito,sans-serif", transition:"all .15s",
+                      display:"flex", alignItems:"center", gap:3,
+                    }}>
+                    <span style={{ fontSize:14 }}>{opt.icon}</span>
+                    <span style={{ fontSize:10 }}>{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+
+            {/* Save button */}
+            {!loadingAtt && attStudents.length > 0 && (
+              <div style={{ marginTop:14 }}>
+                {attSaved ? (
+                  <div style={{ background:"#10b98118", border:"1.5px solid #10b98144",
+                    borderRadius:14, padding:"12px", textAlign:"center",
+                    color:"#10b981", fontWeight:800, fontSize:14 }}>
+                    ✅ Asistencia guardada
+                  </div>
+                ) : (
+                  <button onClick={handleSaveAttendance}
+                    disabled={savingAtt || attStudents.every(s => s.estado === null)}
+                    style={{
+                      width:"100%",
+                      background: (savingAtt || attStudents.every(s => s.estado === null))
+                        ? navBord
+                        : `linear-gradient(135deg, ${primary}, #7c3aed)`,
+                      border:"none", borderRadius:50, padding:"13px", color:"white",
+                      fontWeight:800, fontSize:14, cursor:"pointer",
+                      fontFamily:"Nunito,sans-serif", transition:"all .2s",
+                    }}>
+                    {savingAtt ? "Guardando..." : `💾 Guardar asistencia — ${attStudents.filter(s=>s.estado).length}/${attStudents.length} marcados`}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

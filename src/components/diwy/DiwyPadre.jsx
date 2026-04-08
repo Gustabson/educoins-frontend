@@ -38,6 +38,103 @@ const ASK_SUGGESTIONS = [
   "¿Cómo fue su comportamiento?",
 ];
 
+const DAY_ABBR = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+const ATT_CFG  = {
+  presente: { emoji:"✅", color:"#10b981" },
+  ausente:  { emoji:"❌", color:"#ef4444" },
+  tarde:    { emoji:"⏰", color:"#f59e0b" },
+};
+
+function AttendanceTable({ data, weeks, onMoreWeeks, primary, txt, sub, navBord, isDark }) {
+  if (!data?.length) return (
+    <div style={{ textAlign:"center", padding:"20px 0", color:sub, fontSize:13 }}>
+      Sin registros de asistencia todavía.
+    </div>
+  );
+
+  // Group by student and week
+  const byStudent = {};
+  const allDates  = new Set();
+  data.forEach(r => {
+    if (!byStudent[r.student_id]) byStudent[r.student_id] = { nombre: r.student_nombre, byDate: {} };
+    byStudent[r.student_id].byDate[r.fecha] = r.estado;
+    allDates.add(r.fecha);
+  });
+
+  // Build week groups: key = ISO monday
+  const weekMap = {};
+  [...allDates].forEach(d => {
+    const dt  = new Date(d + "T00:00:00");
+    const dow = dt.getDay();
+    const mon = new Date(dt);
+    mon.setDate(dt.getDate() - (dow === 0 ? 6 : dow - 1));
+    const key = mon.toISOString().split("T")[0];
+    if (!weekMap[key]) weekMap[key] = [];
+    if (!weekMap[key].includes(d)) weekMap[key].push(d);
+  });
+  const sortedWeeks = Object.keys(weekMap).sort().reverse();
+  const students    = Object.values(byStudent);
+
+  return (
+    <div>
+      {sortedWeeks.map(wk => {
+        const dates   = weekMap[wk].sort();
+        const monDate = new Date(wk + "T00:00:00");
+        const friDate = new Date(monDate); friDate.setDate(monDate.getDate() + 4);
+        const fmtD    = d => new Date(d + "T00:00:00").toLocaleDateString("es-AR",{ day:"2-digit", month:"2-digit" });
+        return (
+          <div key={wk} style={{ marginBottom:18 }}>
+            <div style={{ fontSize:10, fontWeight:900, color:sub, letterSpacing:".06em",
+              marginBottom:8, textTransform:"uppercase" }}>
+              Semana {fmtD(wk)} → {fmtD(friDate.toISOString().split("T")[0])}
+            </div>
+            {/* Day headers */}
+            <div style={{ display:"flex", gap:4, marginBottom:4 }}>
+              {students.length > 1 && <div style={{ width:70, flexShrink:0 }}/>}
+              {dates.map(d => (
+                <div key={d} style={{ flex:1, textAlign:"center", fontSize:9, fontWeight:800, color:sub }}>
+                  {DAY_ABBR[new Date(d+"T00:00:00").getDay()]}<br/>
+                  {new Date(d+"T00:00:00").getDate()}
+                </div>
+              ))}
+            </div>
+            {/* Student rows */}
+            {students.map(st => (
+              <div key={st.nombre} style={{ display:"flex", alignItems:"center", gap:4, marginBottom:5 }}>
+                {students.length > 1 && (
+                  <div style={{ width:70, fontSize:11, fontWeight:700, color:txt, flexShrink:0,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {st.nombre.split(" ")[0]}
+                  </div>
+                )}
+                {dates.map(d => {
+                  const cfg = ATT_CFG[st.byDate[d]];
+                  return (
+                    <div key={d} style={{
+                      flex:1, aspectRatio:"1", maxWidth:44, borderRadius:10,
+                      background: cfg ? cfg.color+"18" : (isDark?"rgba(255,255,255,.05)":"#f5f5f5"),
+                      border:`1.5px solid ${cfg ? cfg.color+"44" : navBord}`,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      fontSize:18,
+                    }}>{cfg ? cfg.emoji : <span style={{ color:sub, fontSize:12, fontWeight:700 }}>—</span>}</div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+      <button onClick={onMoreWeeks} style={{
+        width:"100%", background:`${primary}15`, border:`1px solid ${primary}33`,
+        borderRadius:50, padding:"10px", color:primary, fontWeight:800, fontSize:12,
+        cursor:"pointer", fontFamily:"Nunito,sans-serif", marginTop:4,
+      }}>
+        📅 Ver {weeks < 4 ? "semanas anteriores" : "más semanas"}
+      </button>
+    </div>
+  );
+}
+
 const ORDER_SUGGESTIONS = [
   "¿Tiene tarea para hoy?",
   "¿Cómo se portó en clase?",
@@ -76,6 +173,11 @@ export default function DiwyPadre({ showToast, onBack }) {
   const [orderSent,     setOrderSent]     = useState(null);  // { formatted_msg }
   const [orderRateErr,  setOrderRateErr]  = useState(null);
   const [showTip,       setShowTip]       = useState(0);
+
+  // Attendance
+  const [attData,     setAttData]     = useState(null);   // null = not fetched yet
+  const [loadingAtt,  setLoadingAtt]  = useState(false);
+  const [attWeeks,    setAttWeeks]    = useState(1);
 
   // Report
   const [expandedId,  setExpandedId]  = useState(null);
@@ -174,6 +276,17 @@ export default function DiwyPadre({ showToast, onBack }) {
       if (e.code === "RATE_LIMITED") setOrderRateErr(e.message);
       else showToast?.(e.message || "Error al enviar mensaje", "error");
     } finally { setOrdering(false); }
+  };
+
+  const handleFetchAttendance = async (weeks = attWeeks) => {
+    if (loadingAtt) return;
+    setLoadingAtt(true);
+    try {
+      const d = await api.diwyParentAttendance(weeks);
+      setAttData(Array.isArray(d) ? d : []);
+      setAttWeeks(weeks);
+    } catch(e) { setAttData([]); }
+    finally { setLoadingAtt(false); }
   };
 
   const handleRequest = async () => {
@@ -311,8 +424,20 @@ export default function DiwyPadre({ showToast, onBack }) {
                 </div>
               </div>
               <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:10, paddingBottom:2 }}>
+                {/* Attendance chip — fetches data directly, no AI */}
+                <button onClick={() => { setAttData(null); handleFetchAttendance(1); }}
+                  style={{
+                    background: attData !== null ? primary : `${primary}15`,
+                    border:`1px solid ${primary}`,
+                    borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:800,
+                    color: attData !== null ? "white" : primary,
+                    cursor:"pointer", whiteSpace:"nowrap",
+                    fontFamily:"Nunito,sans-serif", flexShrink:0,
+                  }}>
+                  🗓️ {loadingAtt ? "Cargando..." : "Asistencia de esta semana"}
+                </button>
                 {ASK_SUGGESTIONS.map(s => (
-                  <button key={s} onClick={() => setQuestion(s)} style={{
+                  <button key={s} onClick={() => { setAttData(null); setQuestion(s); }} style={{
                     background:`${primary}15`, border:`1px solid ${primary}40`,
                     borderRadius:99, padding:"5px 12px", fontSize:11, fontWeight:700,
                     color:primary, cursor:"pointer", whiteSpace:"nowrap",
@@ -345,6 +470,29 @@ export default function DiwyPadre({ showToast, onBack }) {
                     {answerIsErr ? "⏳ Aviso" : "🐾 Diwy dice:"}
                   </div>
                   <div style={{ fontSize:13, color:txt, lineHeight:1.65, whiteSpace:"pre-wrap" }}>{lastAnswer}</div>
+                </div>
+              )}
+
+              {/* Attendance view — shown when chip was clicked */}
+              {attData !== null && (
+                <div style={{ marginTop:12, borderTop:`1.5px solid ${navBord}`, paddingTop:14 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color:primary, marginBottom:10,
+                    display:"flex", alignItems:"center", gap:6 }}>
+                    🗓️ Asistencia
+                    <span style={{ background:`${primary}18`, borderRadius:99, padding:"1px 8px",
+                      fontSize:9, fontWeight:900 }}>
+                      {attWeeks === 1 ? "Esta semana" : `Últimas ${attWeeks} semanas`}
+                    </span>
+                  </div>
+                  {loadingAtt
+                    ? <div style={{ textAlign:"center", color:sub, padding:16 }}>Cargando...</div>
+                    : <AttendanceTable
+                        data={attData} weeks={attWeeks}
+                        onMoreWeeks={() => handleFetchAttendance(Math.min(attWeeks + 1, 8))}
+                        primary={primary} txt={txt} sub={sub}
+                        navBord={navBord} isDark={isDark}
+                      />
+                  }
                 </div>
               )}
             </WCard>
