@@ -132,8 +132,8 @@ function MHome({me,onNav}){
           {icon:"⚡",title:"Crear misión",    sub:"Nuevas actividades",                dest:"misiones",   col:"#f59e0b"},
           {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,     dest:"aprobar",    col:"#10b981"},
           {icon:"📋",title:"Asistencias",    sub:"Registrá y consultá asistencia",    dest:"asistencias",col:"#3b82f6"},
-          {icon:"🐾",title:"Reportes",       sub:"Observaciones semanales por alumno",dest:"reportes",   col:"#8b5cf6"},
-          {icon:"💬",title:"Diwy",           sub:diwyPending>0?`${diwyPending} mensaje${diwyPending>1?"s":""} de padres!`:"Mensajes y clase del día",dest:"diwy",col:"#7c3aed",badge:diwyPending},
+          {icon:"📝",title:"Reportes",       sub:"Observaciones semanales por alumno",dest:"reportes",   col:"#8b5cf6"},
+          {icon:"🐾",title:"Diwy",           sub:diwyPending>0?`${diwyPending} mensaje${diwyPending>1?"s":""} de padres!`:"Mensajes y clase del día",dest:"diwy",col:"#7c3aed",badge:diwyPending},
           {icon:"👨‍🎓",title:"Ver alumnos",   sub:`${students.length} en tu aula`,    dest:null,         col:"#00c1fc",
            action:()=>setShowStudents(s=>!s)},
         ].map(item=>(
