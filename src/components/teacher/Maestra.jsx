@@ -64,10 +64,22 @@ function MHome({me,onNav}){
   const [rewardDesc,setRewardDesc]=useState("");
   const [rewarding,setRewarding]=useState(false);
   const [toast,showToast]=useToast();
+  const [diwyPending,setDiwyPending]=useState(0);
 
   useEffect(()=>{
     api.submissions("pendiente").then(d=>setPending(d.data||d||[])).catch(()=>{});
     api.classroomStudents().then(d=>setStudents(d.data||d||[])).catch(()=>{});
+    api.diwyTeacherMessages().then(d=>{
+      const arr=Array.isArray(d)?d:[];
+      setDiwyPending(arr.filter(m=>m.estado==="pending").length);
+    }).catch(()=>{});
+    // Socket: increment badge when new parent message arrives
+    const socket=getSocket();
+    if(socket){
+      const handler=()=>setDiwyPending(p=>p+1);
+      socket.on("diwy_message",handler);
+      return ()=>socket.off("diwy_message",handler);
+    }
   },[]);
 
   const premiar=async()=>{
@@ -115,14 +127,21 @@ function MHome({me,onNav}){
         {[
           {icon:"⚡",title:"Crear misión",   sub:"Nuevas actividades",         dest:"misiones",col:"#f59e0b"},
           {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,dest:"aprobar", col:"#10b981"},
-          {icon:"🐾",title:"Diwy",           sub:"Observaciones semanales",     dest:"diwy",    col:"#8b5cf6"},
+          {icon:"🐾",title:"Diwy",sub:diwyPending>0?`${diwyPending} mensaje${diwyPending>1?"s":""} nuevo${diwyPending>1?"s":""}!`:"Observaciones semanales",dest:"diwy",col:"#8b5cf6",badge:diwyPending},
           {icon:"👨‍🎓",title:"Ver alumnos",   sub:`${students.length} en tu aula`,dest:null,    col:"#3b82f6",
            action:()=>setShowStudents(s=>!s)},
         ].map(item=>(
           <WCard key={item.title} onClick={item.action||(()=>onNav(item.dest))}
             style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:"pointer",marginBottom:10}}>
             <div style={{width:46,height:46,borderRadius:13,background:item.col+"18",
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{item.icon}</div>
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,
+              position:"relative"}}>
+              {item.icon}
+              {item.badge>0&&<span style={{position:"absolute",top:-4,right:-4,
+                background:"#ef4444",color:"white",borderRadius:99,fontSize:9,
+                fontWeight:900,minWidth:16,height:16,display:"flex",alignItems:"center",
+                justifyContent:"center",padding:"0 3px"}}>{item.badge}</span>}
+            </div>
             <div style={{flex:1}}>
               <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{item.title}</div>
               <div style={{fontSize:12,color:"#555"}}>{item.sub}</div>
