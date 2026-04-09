@@ -302,7 +302,8 @@ const api = {
   diwyTeacherAttendanceSave:(d)   => apiFetch("/diwy/teacher/attendance",{ method:"POST", body:d }),
   diwyTeacherAttendanceHistory:() => apiFetch("/diwy/teacher/attendance/history"),
   diwyTeacherAttendanceRequestEdit:(d) => apiFetch("/diwy/teacher/attendance/request-edit",{ method:"POST", body:d }),
-  diwyParentAttendance:(weeks=1)  => apiFetch(`/diwy/parent/attendance?weeks=${weeks}`),
+  diwyParentAttendance:    (weeks=1) => apiFetch(`/diwy/parent/attendance?weeks=${Math.min(weeks,52)}`),
+  diwyParentInstantReport: (studentId) => apiFetch('/diwy/parent/instant-report', { method:"POST", body:JSON.stringify({ studentId }) }),
   diwyAdminAttendance:(p={})      => {
     const qs=new URLSearchParams();
     if(p.fecha)  qs.set("fecha", p.fecha);
