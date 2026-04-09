@@ -23,6 +23,7 @@ import AdminDocs        from "./AdminDocs";
 import DiwyHub          from "../diwy/DiwyHub";
 import AdminVincular    from "./AdminVincular";
 import AdminAsistencias from "./AdminAsistencias";
+import AdminContacto   from "./AdminContacto";
 
 // ── Mapa de secciones → permiso requerido ─────────────────────
 // null = solo superadmin (rol='admin')
@@ -47,6 +48,7 @@ const SECTION_PERMS = {
   diwy:        "administracion",
   "link-requests": "administracion",
   asistencias: "administracion",
+  contacto:    "administracion",
 };
 
 function Admin({ me, logout }) {
@@ -107,6 +109,7 @@ function Admin({ me, logout }) {
         {tab==="diwy"         && canSee("diwy")          && <DiwyHub          me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="link-requests"                           && <AdminVincular    showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="asistencias"  && canSee("asistencias")  && <AdminAsistencias showToast={showToast} onBack={()=>setTab("home")} me={me}/>}
+        {tab==="contacto"     && canSee("contacto")     && <AdminContacto    showToast={showToast} onBack={()=>setTab("home")} me={me}/>}
 
       </div>
 

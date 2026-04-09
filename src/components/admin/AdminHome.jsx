@@ -72,6 +72,7 @@ function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
     { icon:"🐾", title:"Diwy",             sub:"Asistente preceptor IA — reportes para padres", dest:"diwy",    col:"#7c3aed" },
     { icon:"🔗", title:"Vinculaciones",    sub:"Solicitudes y vínculos padre-alumno",            dest:"link-requests", col:"#f59e0b" },
     { icon:"📋", title:"Asistencias",      sub:"Ver asistencia por aula y aprobar ediciones",    dest:"asistencias",   col:"#3b82f6" },
+    { icon:"✉️", title:"Contacto padres", sub:"Mensajes de familias a la institución",           dest:"contacto",      col:"#0ea5e9" },
   ].filter(item => canSee(item.dest));
 
   return (

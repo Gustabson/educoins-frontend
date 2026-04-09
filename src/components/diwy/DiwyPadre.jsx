@@ -356,15 +356,6 @@ export default function DiwyPadre({ showToast, onBack }) {
   // Message history
   const [showAllMsgs, setShowAllMsgs] = useState(false);
 
-  // Direct teacher messaging
-  const [teachers,       setTeachers]       = useState([]);
-  const [selTeacher,     setSelTeacher]     = useState(null);
-  const [directThread,   setDirectThread]   = useState([]);
-  const [loadingThread,  setLoadingThread]  = useState(false);
-  const [directMsg,      setDirectMsg]      = useState("");
-  const [sendingDirect,  setSendingDirect]  = useState(false);
-  const [directRateErr,  setDirectRateErr]  = useState(null);
-
   // Reports
   const [reportTab,         setReportTab]         = useState("ia");
   const [iaReport,          setIaReport]          = useState(null);
@@ -403,21 +394,9 @@ export default function DiwyPadre({ showToast, onBack }) {
         : m
     ));
     const onDiwyPreview = (data) => setPreview(data);
-    const onTeacherReply = (data) => {
-      setSelTeacher(curSelTeacher => {
-        setSelectedChild(curSelectedChild => {
-          if (data.teacher_id === curSelTeacher && data.student_id === curSelectedChild) {
-            setDirectThread(prev => [...prev, { ...data, sender_role:'teacher' }]);
-          }
-          return curSelectedChild;
-        });
-        return curSelTeacher;
-      });
-    };
     if (socket) {
-      socket.on("diwy_reply",           onDiwyReply);
-      socket.on("diwy_preview",         onDiwyPreview);
-      socket.on("teacher_direct_reply", onTeacherReply);
+      socket.on("diwy_reply",   onDiwyReply);
+      socket.on("diwy_preview", onDiwyPreview);
     }
 
     const tipIv = setInterval(() => setShowTip(p => (p+1) % CONTACT_TIPS.length), 8000);
@@ -428,9 +407,8 @@ export default function DiwyPadre({ showToast, onBack }) {
       clearInterval(prevIv);
       clearInterval(tipIv);
       if (socket) {
-        socket.off("diwy_reply",           onDiwyReply);
-        socket.off("diwy_preview",         onDiwyPreview);
-        socket.off("teacher_direct_reply", onTeacherReply);
+        socket.off("diwy_reply",   onDiwyReply);
+        socket.off("diwy_preview", onDiwyPreview);
       }
     };
   }, []);
@@ -447,21 +425,7 @@ export default function DiwyPadre({ showToast, onBack }) {
     setWeekOffset(0);
     setMonthOffset(0);
 
-    // Load teachers for this child
-    api.diwyChildTeachers(selectedChild)
-      .then(d => { setTeachers(Array.isArray(d) ? d : []); setSelTeacher(null); setDirectThread([]); })
-      .catch(() => setTeachers([]));
   }, [selectedChild]);
-
-  // Load direct thread when teacher selected
-  useEffect(() => {
-    if (!selTeacher || !selectedChild) return;
-    setLoadingThread(true);
-    api.diwyParentDirectThread({ studentId: selectedChild, teacherId: selTeacher })
-      .then(d => setDirectThread(Array.isArray(d) ? d : []))
-      .catch(() => setDirectThread([]))
-      .finally(() => setLoadingThread(false));
-  }, [selTeacher, selectedChild]);
 
   // ── derived ───────────────────────────────────────────────────
   const child         = snapshot.find(c => c.id === selectedChild);
@@ -500,19 +464,6 @@ export default function DiwyPadre({ showToast, onBack }) {
       if (e.code === "RATE_LIMITED") setReportRateErr(e.message);
       else showToast?.(e.message || "Error al generar el reporte", "error");
     } finally { setGeneratingReport(false); }
-  };
-
-  const handleDirectMsg = async () => {
-    if (!directMsg.trim() || !selTeacher || !selectedChild || sendingDirect) return;
-    setSendingDirect(true); setDirectRateErr(null);
-    try {
-      const d = await api.diwyParentDirectMsg({ studentId: selectedChild, teacherId: selTeacher, content: directMsg.trim() });
-      setDirectThread(prev => [...prev, d]);
-      setDirectMsg("");
-    } catch(e) {
-      if (e.code === "RATE_LIMITED") setDirectRateErr(e.message);
-      else showToast?.(e.message || "Error al enviar", "error");
-    } finally { setSendingDirect(false); }
   };
 
   // ── style helpers ─────────────────────────────────────────────
@@ -859,116 +810,6 @@ export default function DiwyPadre({ showToast, onBack }) {
                     </div>
                   ))}
                 </div>
-              )}
-            </WCard>
-
-            {/* ── 5b. Mensajes al docente ── */}
-            <WCard style={{ marginBottom:14 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-                <div style={{ width:40, height:40, borderRadius:12,
-                  background:`linear-gradient(135deg, #0ea5e9, #0284c7)`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:20, flexShrink:0 }}>✉️</div>
-                <div>
-                  <div style={{ fontWeight:900, fontSize:14, color:txt }}>Mensajes al docente</div>
-                  <div style={{ fontSize:11, color:sub }}>Canal formal — solo temas importantes</div>
-                </div>
-              </div>
-
-              {/* Formal tone note */}
-              <div style={{ background: isDark?"rgba(14,165,233,.1)":"#f0f9ff",
-                border:"1px solid #0ea5e933", borderRadius:9, padding:"8px 12px", marginBottom:12,
-                fontSize:11, color: isDark?"#38bdf8":"#0369a1", lineHeight:1.6 }}>
-                📋 Este canal es de comunicación <strong>formal</strong> entre familia e institución.
-                Escribí solo sobre temas educativos importantes. Los mensajes quedan registrados.
-              </div>
-
-              {/* Teacher selector */}
-              {teachers.length === 0 ? (
-                <div style={{ textAlign:"center", color:sub, fontSize:12, padding:"8px 0" }}>
-                  Sin docentes asignados para {child.nombre.split(" ")[0]}.
-                </div>
-              ) : (
-                <>
-                  <div style={{ fontSize:10, fontWeight:800, color:sub,
-                    letterSpacing:".06em", marginBottom:6 }}>DOCENTE</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
-                    {teachers.map(t => (
-                      <button key={t.id} onClick={() => setSelTeacher(t.id === selTeacher ? null : t.id)}
-                        style={{
-                          background: t.id===selTeacher ? "#0ea5e9" : `#0ea5e915`,
-                          border:`1.5px solid ${t.id===selTeacher ? "#0ea5e9" : "#0ea5e933"}`,
-                          borderRadius:99, padding:"5px 14px", fontSize:12, fontWeight:800,
-                          color: t.id===selTeacher ? "white" : "#0369a1",
-                          cursor:"pointer", fontFamily:"Nunito,sans-serif", transition:"all .2s",
-                        }}>{t.nombre.split(" ")[0]}</button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Thread */}
-              {selTeacher && (
-                <>
-                  {loadingThread ? (
-                    <div style={{ textAlign:"center", color:sub, padding:"12px 0", fontSize:12 }}>Cargando conversación...</div>
-                  ) : (
-                    <div style={{ maxHeight:280, overflowY:"auto", marginBottom:12,
-                      display:"flex", flexDirection:"column", gap:6 }}>
-                      {directThread.length === 0 ? (
-                        <div style={{ textAlign:"center", color:sub, fontSize:12, padding:"16px 0" }}>
-                          Aún no hay mensajes. Empezá la conversación.
-                        </div>
-                      ) : directThread.map((m, i) => {
-                        const isParent = m.sender_role === "parent";
-                        return (
-                          <div key={m.id||i} style={{
-                            alignSelf: isParent ? "flex-end" : "flex-start",
-                            maxWidth:"80%",
-                            background: isParent
-                              ? (isDark?"#0ea5e930":"#e0f2fe")
-                              : (isDark?"rgba(255,255,255,.08)":"#f1f5f9"),
-                            border:`1px solid ${isParent?"#0ea5e944":navBord}`,
-                            borderRadius:12, padding:"8px 12px",
-                          }}>
-                            <div style={{ fontSize:10, color:sub, marginBottom:3, fontWeight:700 }}>
-                              {isParent ? "Vos" : m.sender_nombre}
-                              {" · "}
-                              {new Date(m.created_at).toLocaleDateString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
-                            </div>
-                            <div style={{ fontSize:13, color:txt, lineHeight:1.5 }}>{m.content}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {directRateErr && (
-                    <div style={{ background:"#fef3c7", borderRadius:9, padding:"7px 12px",
-                      fontSize:11, color:"#92400e", marginBottom:8 }}>
-                      ⏳ {directRateErr}
-                    </div>
-                  )}
-
-                  <div style={{ display:"flex", gap:8 }}>
-                    <input value={directMsg} onChange={e => setDirectMsg(e.target.value)}
-                      onKeyDown={e => e.key==="Enter" && !e.shiftKey && handleDirectMsg()}
-                      placeholder="Escribí tu mensaje (formal, temas importantes)..."
-                      style={{ flex:1, border:`1.5px solid ${directMsg.trim()?"#0ea5e9":inputBd}`,
-                        borderRadius:12, padding:"10px 12px", fontSize:13,
-                        fontFamily:"Nunito,sans-serif", outline:"none",
-                        color:txt, background:inputBg,
-                        transition:"border-color .2s, background .3s, color .3s" }}/>
-                    <button onClick={handleDirectMsg}
-                      disabled={sendingDirect||!directMsg.trim()} style={{
-                        background:(!directMsg.trim()||sendingDirect)?navBord:"linear-gradient(135deg,#0ea5e9,#0284c7)",
-                        border:"none", borderRadius:12, padding:"0 18px", color:"white",
-                        fontWeight:900, fontSize:16,
-                        cursor:(!directMsg.trim()||sendingDirect)?"not-allowed":"pointer",
-                        fontFamily:"Nunito,sans-serif", transition:"all .2s", flexShrink:0,
-                      }}>{sendingDirect?"·  ·  ·":"→"}</button>
-                  </div>
-                </>
               )}
             </WCard>
 
