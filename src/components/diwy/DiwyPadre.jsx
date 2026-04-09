@@ -5,11 +5,10 @@
 //   2. Quick stats (balance, mood, streak)
 //   3. Clase de hoy
 //   4. Asistencia  (Semana / Mensual / Anual — all from one 52-week fetch)
-//   5. Ordenale a Diwy
-//   6. Mensajes a la maestra (collapsible)
-//   7. Reportes  [Reporte IA] [Institución]
-//   8. Actividad reciente
-//   9. Alertas de conducta
+//   5. Contacto con el aula  (send + message history, unified)
+//   6. Reportes  [Reporte IA] [Institución]
+//   7. Actividad reciente
+//   8. Alertas de conducta
 
 import { useState, useEffect } from "react";
 import { api, getSocket } from "../../api";
@@ -46,11 +45,11 @@ const ATT_CFG = {
 };
 const WEEK_DAYS = ["Lun","Mar","Mié","Jue","Vie"];
 
-const ETIQUETTE_TIPS = [
-  "Diwy entrega tu mensaje en momentos libres de la clase, sin interrumpir al docente.",
-  "Usá este canal para consultas puntuales. Para temas importantes, coordiná una reunión.",
-  "Tenés 2 mensajes por día. Usálos para lo que realmente importa.",
-  "La maestra puede tardar en responder si está en clase. Diwy te avisa cuando llegue la respuesta.",
+const CONTACT_TIPS = [
+  "Diwy reformula tu mensaje y lo entrega en el momento oportuno, sin cortar la clase.",
+  "Pensá dos veces antes de enviar: ¿puede esperar al recreo o al fin del día?",
+  "Un mensaje mal usado puede demorar uno más urgente — usá este canal con criterio.",
+  "Tenés 2 mensajes por día. Reservalos para lo que realmente no puede esperar.",
 ];
 
 const ORDER_SUGGESTIONS = [
@@ -407,7 +406,7 @@ export default function DiwyPadre({ showToast, onBack }) {
       socket.on("diwy_preview", onDiwyPreview);
     }
 
-    const tipIv = setInterval(() => setShowTip(p => (p+1) % ETIQUETTE_TIPS.length), 8000);
+    const tipIv = setInterval(() => setShowTip(p => (p+1) % CONTACT_TIPS.length), 8000);
 
     return () => {
       active = false;
@@ -667,36 +666,57 @@ export default function DiwyPadre({ showToast, onBack }) {
               )}
             </WCard>
 
-            {/* ── 4. Ordenale a Diwy ── */}
+            {/* ── 4. Contacto con el aula (envío + historial unificados) ── */}
             <WCard style={{ marginBottom:14 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+              {/* Header */}
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
                 <div style={{ width:40, height:40, borderRadius:12,
                   background:`linear-gradient(135deg, #7c3aed, #a855f7)`,
                   display:"flex", alignItems:"center", justifyContent:"center",
                   fontSize:20, flexShrink:0 }}>📨</div>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontWeight:900, fontSize:14, color:txt }}>Ordenale a Diwy</div>
-                  <div style={{ fontSize:11, color:sub }}>Diwy le pregunta a la maestra por vos</div>
+                  <div style={{ fontWeight:900, fontSize:14, color:txt }}>Contacto con el aula</div>
+                  <div style={{ fontSize:11, color:sub }}>Diwy lleva tu mensaje sin interrumpir la clase</div>
                 </div>
                 <div style={{
-                  background: msgsLeft > 0 ? `${primary}20` : navBord,
-                  color: msgsLeft > 0 ? primary : sub,
+                  background: msgsLeft > 0 ? "#f59e0b20" : navBord,
+                  color: msgsLeft > 0 ? "#d97706" : sub,
                   borderRadius:99, padding:"3px 10px", fontSize:11, fontWeight:800, flexShrink:0,
                 }}>
-                  {todayMsgCount}/2 usados
+                  {todayMsgCount}/2
                 </div>
               </div>
+
+              {/* Warning banner — always visible */}
+              <div style={{
+                background: isDark ? "rgba(239,68,68,.12)" : "#fff1f2",
+                border:"1.5px solid #ef444433",
+                borderRadius:10, padding:"9px 12px", marginBottom:12,
+                display:"flex", gap:8, alignItems:"flex-start",
+              }}>
+                <span style={{ fontSize:14, flexShrink:0, marginTop:1 }}>⚠️</span>
+                <div style={{ fontSize:11, color: isDark?"#f87171":"#b91c1c", lineHeight:1.55 }}>
+                  <strong>Usá este canal solo cuando sea realmente necesario.</strong>{" "}
+                  Un mensaje innecesario puede interrumpir la clase o demorar uno más urgente.
+                  Para temas que no son urgentes, coordiná una reunión con la institución.
+                </div>
+              </div>
+
+              {/* Rotating tip */}
               <div style={{ background: isDark?"rgba(255,255,255,.05)":"#f8f5ff",
-                borderRadius:10, padding:"8px 12px", marginBottom:10,
+                borderRadius:10, padding:"7px 12px", marginBottom:12,
                 border:"1px solid #7c3aed22" }}>
                 <div style={{ fontSize:11, color:"#7c3aed", lineHeight:1.5 }}>
-                  💡 {ETIQUETTE_TIPS[showTip]}
+                  💡 {CONTACT_TIPS[showTip]}
                 </div>
               </div>
+
+              {/* Send form */}
               {msgsLeft === 0 ? (
-                <div style={{ background: isDark?"#2a2a2a":"#fef3c7", borderRadius:12,
-                  padding:"12px 14px", fontSize:13, color: isDark?"#f59e0b":"#92400e",
-                  textAlign:"center", fontWeight:700 }}>
+                <div style={{ background: isDark?"rgba(245,158,11,.1)":"#fef3c7",
+                  border:"1px solid #f59e0b44",
+                  borderRadius:12, padding:"12px 14px", fontSize:13,
+                  color: isDark?"#f59e0b":"#92400e", textAlign:"center", fontWeight:700 }}>
                   ⏳ Usaste tus 2 mensajes del día. Volvé mañana.
                 </div>
               ) : (
@@ -714,7 +734,7 @@ export default function DiwyPadre({ showToast, onBack }) {
                   <div style={{ display:"flex", gap:8 }}>
                     <input value={orderMsg} onChange={e => setOrderMsg(e.target.value)}
                       onKeyDown={e => e.key==="Enter" && handleOrder()}
-                      placeholder="Decile algo a Diwy para pasarle a la maestra..."
+                      placeholder="¿Qué querés consultarle a la maestra?"
                       style={{ flex:1, border:`1.5px solid ${orderMsg.trim()?"#7c3aed":inputBd}`,
                         borderRadius:12, padding:"10px 12px", fontSize:13,
                         fontFamily:"Nunito,sans-serif", outline:"none",
@@ -723,7 +743,8 @@ export default function DiwyPadre({ showToast, onBack }) {
                     <button onClick={handleOrder} disabled={ordering||!orderMsg.trim()} style={{
                       background:(!orderMsg.trim()||ordering)?navBord:"linear-gradient(135deg,#7c3aed,#a855f7)",
                       border:"none", borderRadius:12, padding:"0 18px", color:"white",
-                      fontWeight:900, fontSize:16, cursor:(!orderMsg.trim()||ordering)?"not-allowed":"pointer",
+                      fontWeight:900, fontSize:16,
+                      cursor:(!orderMsg.trim()||ordering)?"not-allowed":"pointer",
                       fontFamily:"Nunito,sans-serif", transition:"all .2s", flexShrink:0,
                     }}>{ordering?"·  ·  ·":"→"}</button>
                   </div>
@@ -734,78 +755,78 @@ export default function DiwyPadre({ showToast, onBack }) {
                     </div>
                   )}
                   {orderSent && (
-                    <div style={{ marginTop:10, background:"#7c3aed12",
+                    <div style={{ marginTop:10, background:"#7c3aed10",
                       border:"1px solid #7c3aed33", borderRadius:12, padding:"12px 14px" }}>
-                      <div style={{ fontSize:11, fontWeight:800, color:"#7c3aed", marginBottom:6 }}>
-                        ✅ Diwy lo pasó a la maestra:
+                      <div style={{ fontSize:11, fontWeight:800, color:"#7c3aed", marginBottom:5 }}>
+                        ✅ Diwy lo tiene — se lo hará llegar a la maestra
                       </div>
                       <div style={{ fontSize:13, color:txt, lineHeight:1.55, fontStyle:"italic" }}>
                         "{orderSent.formatted_msg}"
                       </div>
-                      <div style={{ fontSize:11, color:sub, marginTop:6 }}>
-                        Te avisamos cuando la maestra responda.
+                      <div style={{ fontSize:11, color:sub, marginTop:5 }}>
+                        Te notificamos cuando la maestra responda.
                       </div>
                     </div>
                   )}
                 </>
               )}
-            </WCard>
 
-            {/* ── 5. Mensajes a la maestra ── */}
-            {childMessages.length > 0 && (
-              <div style={{ marginBottom:14 }}>
-                <div style={{ display:"flex", alignItems:"center",
-                  justifyContent:"space-between", marginBottom:8, paddingLeft:4 }}>
-                  <div style={{ fontWeight:800, fontSize:11, color:sub, letterSpacing:".07em" }}>
-                    MENSAJES A LA MAESTRA
-                  </div>
-                  {childMessages.length > 1 && (
-                    <button onClick={() => setShowAllMsgs(p => !p)}
-                      style={{ background:"none", border:"none", cursor:"pointer",
-                        fontSize:11, fontWeight:800, color:primary,
-                        fontFamily:"Nunito,sans-serif", padding:"0 4px" }}>
-                      {showAllMsgs ? "Ocultar ▲" : `Ver todos (${childMessages.length}) ▼`}
-                    </button>
-                  )}
-                </div>
-                {(showAllMsgs ? childMessages : childMessages.slice(0,1)).map(m => (
-                  <div key={m.id} style={{
-                    background:cardBg, border:`1.5px solid ${navBord}`,
-                    borderLeft:`3px solid #7c3aed`,
-                    borderRadius:12, padding:"12px 14px", marginBottom:8,
-                    transition:"background .3s, border .3s",
-                  }}>
-                    <div style={{ display:"flex", justifyContent:"space-between",
-                      alignItems:"flex-start", marginBottom:6 }}>
-                      <div style={{ fontSize:11, color:sub }}>
-                        {fmtDate(m.created_at)} {fmtTime(m.created_at)}
-                      </div>
-                      <span style={{
-                        background: m.estado==="replied" ? "#10b98120" : "#f59e0b20",
-                        color: m.estado==="replied" ? "#10b981" : "#f59e0b",
-                        borderRadius:99, padding:"2px 8px", fontSize:9, fontWeight:900,
-                      }}>
-                        {m.estado==="replied" ? "✓ Respondido" : "⏳ Pendiente"}
-                      </span>
+              {/* Message history — inline, below the form */}
+              {childMessages.length > 0 && (
+                <div style={{ marginTop:16, paddingTop:14, borderTop:`1.5px solid ${navBord}` }}>
+                  <div style={{ display:"flex", alignItems:"center",
+                    justifyContent:"space-between", marginBottom:10 }}>
+                    <div style={{ fontWeight:800, fontSize:11, color:sub, letterSpacing:".06em" }}>
+                      HISTORIAL
                     </div>
-                    <div style={{ fontSize:12, color:sub, fontStyle:"italic",
-                      marginBottom:6, lineHeight:1.5 }}>
-                      "{m.formatted_msg || m.original_msg}"
-                    </div>
-                    {m.estado==="replied" && m.formatted_reply && (
-                      <div style={{ background: isDark?"rgba(255,255,255,.06)":"#f0fdf4",
-                        border:"1px solid #10b98133",
-                        borderRadius:10, padding:"8px 12px", marginTop:4 }}>
-                        <div style={{ fontSize:10, fontWeight:800, color:"#10b981", marginBottom:4 }}>
-                          🐾 Diwy (de {m.docente_nombre || "la maestra"}):
-                        </div>
-                        <div style={{ fontSize:13, color:txt, lineHeight:1.55 }}>{m.formatted_reply}</div>
-                      </div>
+                    {childMessages.length > 1 && (
+                      <button onClick={() => setShowAllMsgs(p => !p)}
+                        style={{ background:"none", border:"none", cursor:"pointer",
+                          fontSize:11, fontWeight:800, color:"#7c3aed",
+                          fontFamily:"Nunito,sans-serif", padding:"0 4px" }}>
+                        {showAllMsgs ? "Ocultar ▲" : `Ver todos (${childMessages.length}) ▼`}
+                      </button>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
+                  {(showAllMsgs ? childMessages : childMessages.slice(0,1)).map(m => (
+                    <div key={m.id} style={{
+                      border:`1.5px solid ${navBord}`,
+                      borderLeft:`3px solid #7c3aed`,
+                      borderRadius:10, padding:"10px 12px", marginBottom:8,
+                      background: isDark?"rgba(255,255,255,.03)":pageBg,
+                    }}>
+                      <div style={{ display:"flex", justifyContent:"space-between",
+                        alignItems:"flex-start", marginBottom:5 }}>
+                        <div style={{ fontSize:10, color:sub }}>
+                          {fmtDate(m.created_at)} · {fmtTime(m.created_at)}
+                        </div>
+                        <span style={{
+                          background: m.estado==="replied" ? "#10b98120" : "#f59e0b20",
+                          color: m.estado==="replied" ? "#10b981" : "#f59e0b",
+                          borderRadius:99, padding:"2px 8px", fontSize:9, fontWeight:900,
+                        }}>
+                          {m.estado==="replied" ? "✓ Respondido" : "⏳ Pendiente"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize:12, color:sub, fontStyle:"italic",
+                        marginBottom:m.estado==="replied"?6:0, lineHeight:1.5 }}>
+                        "{m.formatted_msg || m.original_msg}"
+                      </div>
+                      {m.estado==="replied" && m.formatted_reply && (
+                        <div style={{ background: isDark?"rgba(255,255,255,.06)":"#f0fdf4",
+                          border:"1px solid #10b98133",
+                          borderRadius:9, padding:"7px 11px", marginTop:2 }}>
+                          <div style={{ fontSize:10, fontWeight:800, color:"#10b981", marginBottom:3 }}>
+                            🐾 Diwy (de {m.docente_nombre || "la maestra"}):
+                          </div>
+                          <div style={{ fontSize:13, color:txt, lineHeight:1.55 }}>{m.formatted_reply}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </WCard>
 
             {/* ── 6. Reportes ── */}
             <WCard style={{ marginBottom:14 }}>
@@ -829,13 +850,32 @@ export default function DiwyPadre({ showToast, onBack }) {
               {/* Tab: IA */}
               {reportTab === "ia" && (
                 <div>
-                  <div style={{ fontSize:12, color:sub, lineHeight:1.65, marginBottom:14 }}>
+                  <div style={{ fontSize:12, color:sub, lineHeight:1.65, marginBottom:10 }}>
                     Diwy analiza el estado emocional, la asistencia, las observaciones del docente
                     y la conducta para generarte un resumen de {child.nombre.split(" ")[0]}.
-                    <br/>
-                    <span style={{ fontSize:11, opacity:.65 }}>
-                      🔒 Las calificaciones se mencionan de forma general, sin datos explícitos.
-                    </span>
+                  </div>
+                  {/* Privacy note */}
+                  <div style={{
+                    background: isDark?"rgba(99,102,241,.12)":"#eef2ff",
+                    border:"1px solid #6366f133",
+                    borderRadius:9, padding:"8px 12px", marginBottom:10,
+                    fontSize:11, color: isDark?"#a5b4fc":"#4338ca", lineHeight:1.6,
+                  }}>
+                    🔒 Las calificaciones se mencionan de forma general para preservar y cuidar
+                    los derechos de privacidad del estudiante.
+                  </div>
+                  {/* Disclaimer */}
+                  <div style={{
+                    background: isDark?"rgba(255,255,255,.04)":"#f9fafb",
+                    border:`1px solid ${navBord}`,
+                    borderRadius:9, padding:"8px 12px", marginBottom:14,
+                    fontSize:10, color:sub, lineHeight:1.65,
+                  }}>
+                    ⚠️ <strong style={{ color:txt }}>Aviso:</strong>{" "}
+                    Los reportes IA se generan a partir de datos provistos por el estudiante,
+                    docentes y la administración, pero pueden contener imprecisiones o no reflejar
+                    la situación completa. Si tenés dudas o necesitás información oficial,
+                    consultá directamente con la institución.
                   </div>
                   {reportRateErr && (
                     <div style={{ background: isDark?"rgba(245,158,11,.15)":"#fef3c7",
