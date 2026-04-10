@@ -10,14 +10,12 @@ export default function PVeredictos({ me, showToast, setTab }) {
   const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
+    // GET /children-verdicts also marks all as read server-side (fire-and-forget),
+    // so the badge will be 0 next time PHome loads. No extra PATCH needed.
     api.parentChildrenVerdicts()
       .then(d => setVerdicts(Array.isArray(d) ? d : []))
       .catch(() => setVerdicts([]))
-      .finally(() => {
-        setLoading(false);
-        // Mark all children's verdicts as read — clears the badge
-        api.parentChildrenVerdictsRead?.().catch(() => {});
-      });
+      .finally(() => setLoading(false));
   }, []);
 
   const byChild = verdicts.reduce((acc, v) => {
