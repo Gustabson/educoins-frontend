@@ -57,7 +57,7 @@ export default function AdminContacto({ me, showToast, onBack }) {
     setSelected(thread);
     setView("thread");
     setLoadingThread(true);
-    api.diwyAdminParentThread({ parentId: thread.parent_id })
+    api.diwyAdminParentThread({ parentId: thread.parent_id, studentId: thread.student_id })
       .then(d => setMsgs(Array.isArray(d) ? d : []))
       .catch(() => setMsgs([]))
       .finally(() => setLoadingThread(false));

@@ -25,6 +25,7 @@ import AVeredictos from "./AVeredictos";
 import AAsistente  from "./AAsistente";
 import ATiendaCustom from "./personalizar/ATiendaCustom";
 import AWellness from "./AWellness";
+import AHorarios from "./AHorarios";
 
 const SIREN_STYLE = `
   @keyframes sirenPulse {
@@ -319,7 +320,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
     : null;
 
 
-  const hideNav = ["chat","amigos","mispremios","p2p","noticias","votaciones","reportes","notificaciones","veredictos","asistente"].includes(tab);
+  const hideNav = ["chat","amigos","mispremios","p2p","noticias","votaciones","reportes","notificaciones","veredictos","asistente","horarios"].includes(tab);
 
   // ── Socket notificaciones ────────────────────────────────────
   useEffect(()=>{
@@ -428,6 +429,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="reportes"   && <AReportes   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="veredictos" && <AVeredictos me={me} onBack={()=>navTo("home")}/>}
         {tab==="asistente"  && <AAsistente  me={me} onBack={()=>navTo("home")}/>}
+        {tab==="horarios"   && <AHorarios   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
       </div>
 
       {/* Modal Bienestar */}

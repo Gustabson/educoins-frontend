@@ -323,6 +323,10 @@ const api = {
   },
   diwyAdminAttendanceDetail:(classroomId,fecha) =>
     apiFetch(`/diwy/admin/attendance/${classroomId}/detail?fecha=${fecha}`),
+  // ── Horarios ──────────────────────────────────────────────
+  getSchedule:    ()     => apiFetch("/schedules"),
+  putSchedule:    (data) => apiFetch("/schedules",      { method:"PUT",    body:data }),
+  deleteSchedule: (id)   => apiFetch(`/schedules/${id}`,{ method:"DELETE" }),
   diwyAdminEditRequests:()        => apiFetch("/diwy/admin/attendance/edit-requests"),
   diwyAdminReviewRequest:(id,action) =>
     apiFetch(`/diwy/admin/attendance/edit-requests/${id}`,{ method:"PATCH", body:{action} }),

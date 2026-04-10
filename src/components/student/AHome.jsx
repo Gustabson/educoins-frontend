@@ -169,9 +169,9 @@ function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,
           <div style={{display:"flex",justifyContent:"space-around",paddingBottom:4}}>
             <CircBtn icon="💸" label="Enviar"    onClick={()=>onNav("enviar")}/>
             <CircBtn icon="⬇️" label="Ingresar"  onClick={()=>onNav("ingresar")}/>
-            <CircBtn icon="👥" label="Amigos"    onClick={()=>onNav("amigos")}/>
             <CircBtn icon="⚡" label="Misiones"  onClick={()=>onNav("misiones")}/>
             <CircBtn icon="🏆" label="Ranking"   onClick={()=>onNav("ranking")}/>
+            <CircBtn icon="📅" label="Horarios"  onClick={()=>onNav("horarios")}/>
           </div>
         </div>
       </div>
@@ -194,6 +194,7 @@ function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,
         {(() => {
           const ITEMS = [
             ["💬","Chat",          "Personal · Aula · Global",    "#3b82f6","chat",          badges.chat],
+            ["📅","Horarios",      "Tu calendario semanal",       "#06b6d4","horarios",      0],
             ["👥","Amigos",        "Social · Solicitudes · Grupos","#8b5cf6","amigos",        badges.amigos||0],
             ["🏆","Mis Premios",   "Títulos · Items · Colores",   "#f59e0b","mispremios",    0],
             ["💱","Exchange P2P",  "Compra y venta de EduCoins",  "#10b981","p2p",           0],
