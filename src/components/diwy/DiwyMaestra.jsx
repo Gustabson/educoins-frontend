@@ -39,7 +39,7 @@ function resizeImageToBase64(file) {
 
 // ── Standalone header components (MODULE scope) ───────────────────────────────
 
-function MainHeader({ primary, activeTab, setActiveTab, pendingCount, parentUnread }) {
+function MainHeader({ primary, activeTab, setActiveTab, pendingCount }) {
   return (
     <div style={{
       background: `linear-gradient(135deg, ${primary} 0%, #7c3aed 100%)`,
@@ -55,7 +55,6 @@ function MainHeader({ primary, activeTab, setActiveTab, pendingCount, parentUnre
         {[
           { id:"mensajes", label:"Mensajes",       badge: pendingCount },
           { id:"clase",    label:"Clase",          badge: 0 },
-          { id:"padres",   label:"Padres",         badge: parentUnread || 0 },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             flex:1, background:"none", border:"none",
@@ -151,14 +150,6 @@ export default function DiwyMaestra({ me }) {
 
   const [activeTab,    setActiveTab]    = useState("mensajes");
 
-  const [parentThreads,     setParentThreads]     = useState([]);
-  const [parentUnread,      setParentUnread]       = useState(0);
-  const [selParentThread,   setSelParentThread]    = useState(null); // { parentId, studentId, parentNombre, studentNombre }
-  const [parentThread,      setParentThread]       = useState([]);
-  const [loadingPThread,    setLoadingPThread]     = useState(false);
-  const [teacherReply,        setTeacherReply]        = useState("");
-  const [sendingTeacherReply, setSendingTeacherReply] = useState(false);
-
   // Messages
   const [messages,      setMessages]      = useState([]);
   const [loadingMsgs,   setLoadingMsgs]   = useState(false);
@@ -210,33 +201,17 @@ export default function DiwyMaestra({ me }) {
       fetchMessages().finally(() => { if (active) setLoadingMsgs(false); });
     }
 
-    const loadParentInbox = () =>
-      api.diwyTeacherParentInbox()
-        .then(d => {
-          if (!active) return;
-          const threads = Array.isArray(d) ? d : [];
-          setParentThreads(threads);
-          setParentUnread(threads.reduce((sum, t) => sum + (t.unread||0), 0));
-        })
-        .catch(() => {});
-    loadParentInbox();
-    const parentInboxIv = setInterval(loadParentInbox, 15000);
-
     const socket = getSocket();
     const onNew = () => { if (active) fetchMessages(); };
-    const onParentMsg = () => loadParentInbox();
     if (socket) {
-      socket.on("diwy_message",        onNew);
-      socket.on("parent_direct_message", onParentMsg);
+      socket.on("diwy_message", onNew);
     }
     const iv = setInterval(() => { if (active) fetchMessages(); }, activeTab === "mensajes" ? 10000 : 60000);
     return () => {
       active = false;
       clearInterval(iv);
-      clearInterval(parentInboxIv);
       if (socket) {
-        socket.off("diwy_message",          onNew);
-        socket.off("parent_direct_message", onParentMsg);
+        socket.off("diwy_message", onNew);
       }
     };
   }, [activeTab, fetchMessages]);
@@ -257,39 +232,6 @@ export default function DiwyMaestra({ me }) {
       setReplies(p => ({ ...p, [msgId]: "" }));
     } catch(e) {}
     finally { setSendingReply(p => ({ ...p, [msgId]: false })); }
-  };
-
-  const handleSelectParentThread = async (thread) => {
-    setSelParentThread(thread);
-    setLoadingPThread(true);
-    try {
-      const d = await api.diwyTeacherParentThread({ parentId: thread.parent_id, studentId: thread.student_id });
-      setParentThread(Array.isArray(d) ? d : []);
-      // Update unread count
-      setParentThreads(prev => prev.map(t =>
-        t.parent_id === thread.parent_id && t.student_id === thread.student_id
-          ? { ...t, unread: 0 } : t
-      ));
-      setParentUnread(prev => Math.max(0, prev - (thread.unread||0)));
-    } catch(e) {
-      setParentThread([]);
-    } finally { setLoadingPThread(false); }
-  };
-
-  const handleTeacherReply = async () => {
-    if (!teacherReply.trim() || !selParentThread || sendingTeacherReply) return;
-    setSendingTeacherReply(true);
-    try {
-      const d = await api.diwyTeacherParentReply({
-        parentId: selParentThread.parent_id,
-        studentId: selParentThread.student_id,
-        content: teacherReply.trim(),
-      });
-      setParentThread(prev => [...prev, { ...d, sender_role:'teacher' }]);
-      setTeacherReply("");
-    } catch(e) {
-      // handle error
-    } finally { setSendingTeacherReply(false); }
   };
 
   const handleImagePick = async (e) => {
@@ -343,7 +285,6 @@ export default function DiwyMaestra({ me }) {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         pendingCount={pendingCount}
-        parentUnread={parentUnread}
       />
 
       <DateRangeModal
@@ -603,127 +544,6 @@ export default function DiwyMaestra({ me }) {
           </div>
         )}
 
-        {/* ── Padres tab ── */}
-        {activeTab === "padres" && (
-          <div style={{ padding:"0 0 48px" }}>
-            {!selParentThread ? (
-              // Inbox list
-              <>
-                <div style={{ fontWeight:800, fontSize:11, color:sub,
-                  letterSpacing:".07em", marginBottom:12, paddingLeft:4 }}>
-                  MENSAJES DE PADRES
-                </div>
-                {parentThreads.length === 0 ? (
-                  <WCard style={{ textAlign:"center", padding:32 }}>
-                    <div style={{ fontSize:32, marginBottom:8 }}>✉️</div>
-                    <div style={{ fontSize:13, color:sub }}>Ningún padre te escribió todavía.</div>
-                  </WCard>
-                ) : parentThreads.map((t, i) => (
-                  <div key={i} onClick={() => handleSelectParentThread(t)} style={{
-                    background:cardBg, border:`1.5px solid ${t.unread>0 ? primary+"66" : navBord}`,
-                    borderLeft:`3px solid ${t.unread>0 ? primary : navBord}`,
-                    borderRadius:12, padding:"12px 14px", marginBottom:8, cursor:"pointer",
-                    transition:"all .2s",
-                  }}>
-                    <div style={{ display:"flex", justifyContent:"space-between",
-                      alignItems:"flex-start", marginBottom:4 }}>
-                      <div>
-                        <span style={{ fontWeight:800, fontSize:13, color:txt }}>
-                          {t.parent_nombre}
-                        </span>
-                        <span style={{ fontSize:11, color:sub, marginLeft:6 }}>
-                          sobre {t.student_nombre}
-                        </span>
-                      </div>
-                      {t.unread > 0 && (
-                        <span style={{ background:primary, color:"white",
-                          borderRadius:99, fontSize:9, fontWeight:900,
-                          padding:"2px 7px", flexShrink:0 }}>
-                          {t.unread} nuevo{t.unread>1?"s":""}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize:12, color:sub, lineHeight:1.4,
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {t.last_sender === "teacher" ? "Vos: " : ""}{t.last_content}
-                    </div>
-                    <div style={{ fontSize:10, color:sub, marginTop:3, opacity:.7 }}>
-                      {new Date(t.last_at).toLocaleDateString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              // Thread view
-              <>
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-                  <button onClick={() => { setSelParentThread(null); setParentThread([]); }}
-                    style={{ background:`${primary}15`, border:`1px solid ${primary}33`,
-                      borderRadius:99, padding:"5px 12px", fontSize:12, fontWeight:800,
-                      color:primary, cursor:"pointer", fontFamily:"Nunito,sans-serif" }}>
-                    ← Volver
-                  </button>
-                  <div>
-                    <div style={{ fontWeight:800, fontSize:13, color:txt }}>
-                      {selParentThread.parent_nombre}
-                    </div>
-                    <div style={{ fontSize:11, color:sub }}>
-                      sobre {selParentThread.student_nombre}
-                    </div>
-                  </div>
-                </div>
-
-                {loadingPThread ? (
-                  <div style={{ textAlign:"center", color:sub, padding:24 }}>Cargando...</div>
-                ) : (
-                  <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14,
-                    maxHeight:400, overflowY:"auto" }}>
-                    {parentThread.map((m, i) => {
-                      const isTeacher = m.sender_role === "teacher";
-                      return (
-                        <div key={m.id||i} style={{
-                          alignSelf: isTeacher ? "flex-end" : "flex-start",
-                          maxWidth:"80%",
-                          background: isTeacher
-                            ? (isDark?`${primary}30`:`${primary}18`)
-                            : (isDark?"rgba(255,255,255,.08)":"#f1f5f9"),
-                          border:`1px solid ${isTeacher ? primary+"44" : navBord}`,
-                          borderRadius:12, padding:"8px 12px",
-                        }}>
-                          <div style={{ fontSize:10, color:sub, marginBottom:3, fontWeight:700 }}>
-                            {isTeacher ? "Vos" : m.sender_nombre}
-                            {" · "}
-                            {new Date(m.created_at).toLocaleDateString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
-                          </div>
-                          <div style={{ fontSize:13, color:txt, lineHeight:1.5 }}>{m.content}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div style={{ display:"flex", gap:8 }}>
-                  <input value={teacherReply} onChange={e => setTeacherReply(e.target.value)}
-                    onKeyDown={e => e.key==="Enter" && !e.shiftKey && handleTeacherReply()}
-                    placeholder="Respondé al mensaje..."
-                    style={{ flex:1, border:`1.5px solid ${teacherReply.trim()?primary:inputBd}`,
-                      borderRadius:12, padding:"10px 12px", fontSize:13,
-                      fontFamily:"Nunito,sans-serif", outline:"none",
-                      color:txt, background:inputBg,
-                      transition:"border-color .2s, background .3s, color .3s" }}/>
-                  <button onClick={handleTeacherReply}
-                    disabled={sendingTeacherReply||!teacherReply.trim()} style={{
-                      background:(!teacherReply.trim()||sendingTeacherReply)?navBord:`linear-gradient(135deg,${primary},#7c3aed)`,
-                      border:"none", borderRadius:12, padding:"0 18px", color:"white",
-                      fontWeight:900, fontSize:16,
-                      cursor:(!teacherReply.trim()||sendingTeacherReply)?"not-allowed":"pointer",
-                      fontFamily:"Nunito,sans-serif", flexShrink:0,
-                    }}>{sendingTeacherReply?"·  ·  ·":"→"}</button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

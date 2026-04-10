@@ -6,12 +6,13 @@ import { Av, Inp, OHdr, OHdrA, PBtn, Pill, Sheet, Toast, WCard, displayName, use
 import DiwyHub           from "../diwy/DiwyHub";
 import TeacherAsistencias from "./TeacherAsistencias";
 import TeacherReportes    from "./TeacherReportes";
+import TeacherCorreo      from "./TeacherCorreo";
 
 
 function Maestra({me,logout}){
   const [tab,setTab]=useState("home");
   const [toast,showToast]=useToast();
-  const showNav = !["diwy","asistencias","reportes"].includes(tab);
+  const showNav = !["diwy","asistencias","reportes","correo"].includes(tab);
 
   return(
     <ThemeCtx.Provider value={ADMIN_THEME}>
@@ -27,6 +28,7 @@ function Maestra({me,logout}){
         {tab==="diwy"        && <DiwyHub        me={me} onBack={()=>setTab("home")}/>}
         {tab==="asistencias" && <TeacherAsistencias onBack={()=>setTab("home")} showToast={showToast}/>}
         {tab==="reportes"    && <TeacherReportes    me={me} onBack={()=>setTab("home")}/>}
+        {tab==="correo"      && <TeacherCorreo      me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="perfil"      && <MPerfilSimple  me={me} logout={logout}/>}
       </div>
       <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
@@ -69,6 +71,7 @@ function MHome({me,onNav}){
   const [rewarding,setRewarding]=useState(false);
   const [toast,showToast]=useToast();
   const [diwyPending,setDiwyPending]=useState(0);
+  const [correoUnread,setCorreoUnread]=useState(0);
 
   useEffect(()=>{
     api.submissions("pendiente").then(d=>setPending(d.data||d||[])).catch(()=>{});
@@ -77,12 +80,18 @@ function MHome({me,onNav}){
       const arr=Array.isArray(d)?d:[];
       setDiwyPending(arr.filter(m=>m.estado==="pending").length);
     }).catch(()=>{});
-    // Socket: increment badge when new parent message arrives
+    // Load parent inbox unread count
+    api.diwyTeacherParentInbox()
+      .then(d=>{ const arr=Array.isArray(d)?d:[]; setCorreoUnread(arr.reduce((s,t)=>s+(t.unread||0),0)); })
+      .catch(()=>{});
+    // Socket: increment badges on new messages
     const socket=getSocket();
     if(socket){
-      const handler=()=>setDiwyPending(p=>p+1);
-      socket.on("diwy_message",handler);
-      return ()=>socket.off("diwy_message",handler);
+      const onDiwy=()=>setDiwyPending(p=>p+1);
+      const onCorreo=()=>setCorreoUnread(p=>p+1);
+      socket.on("diwy_message",onDiwy);
+      socket.on("parent_direct_message",onCorreo);
+      return ()=>{ socket.off("diwy_message",onDiwy); socket.off("parent_direct_message",onCorreo); };
     }
   },[]);
 
@@ -133,6 +142,7 @@ function MHome({me,onNav}){
           {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,     dest:"aprobar",    col:"#10b981"},
           {icon:"📋",title:"Asistencias",    sub:"Registrá y consultá asistencia",    dest:"asistencias",col:"#3b82f6"},
           {icon:"📝",title:"Reportes",       sub:"Observaciones semanales por alumno",dest:"reportes",   col:"#8b5cf6"},
+          {icon:"✉️",title:"Correo",          sub:correoUnread>0?`${correoUnread} mensaje${correoUnread>1?"s":""} de padres`:"Mensajes formales de padres",dest:"correo",col:"#0ea5e9",badge:correoUnread},
           {icon:"🐾",title:"Diwy",           sub:diwyPending>0?`${diwyPending} mensaje${diwyPending>1?"s":""} de padres!`:"Mensajes y clase del día",dest:"diwy",col:"#7c3aed",badge:diwyPending},
           {icon:"👨‍🎓",title:"Ver alumnos",   sub:`${students.length} en tu aula`,    dest:null,         col:"#00c1fc",
            action:()=>setShowStudents(s=>!s)},

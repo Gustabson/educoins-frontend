@@ -34,15 +34,19 @@ export default function PHome({ me, balance, showToast, setTab }) {
     const socket = getSocket();
     if (socket) {
       const refresh = () => loadBadges();
-      socket.on("diwy_reply",    refresh);
-      socket.on("new_verdict",   refresh);
-      socket.on("notification",  refresh);
-      socket.on("p2p_update",    refresh);
+      socket.on("diwy_reply",          refresh);
+      socket.on("new_verdict",         refresh);
+      socket.on("notification",        refresh);
+      socket.on("p2p_update",          refresh);
+      socket.on("teacher_direct_reply",refresh);
+      socket.on("admin_contact_reply", refresh);
       return () => {
-        socket.off("diwy_reply",   refresh);
-        socket.off("new_verdict",  refresh);
-        socket.off("notification", refresh);
-        socket.off("p2p_update",   refresh);
+        socket.off("diwy_reply",          refresh);
+        socket.off("new_verdict",         refresh);
+        socket.off("notification",        refresh);
+        socket.off("p2p_update",          refresh);
+        socket.off("teacher_direct_reply",refresh);
+        socket.off("admin_contact_reply", refresh);
       };
     }
   }, []);
@@ -56,7 +60,7 @@ export default function PHome({ me, balance, showToast, setTab }) {
   const QUICK = [
     ["🐾","Diwy",          "Reportes IA de tus hijos",          "#7c3aed","diwy",           badges.diwy        ],
     ["⚖️","Veredictos",    "Conducta de tus hijos",             "#7f1d1d","veredictos-hijo", badges.veredictos  ],
-    ["✉️","Contacto",      "Mensajes con docentes e institución","#0ea5e9","contacto",       0                  ],
+    ["✉️","Contacto",      "Mensajes con docentes e institución","#0ea5e9","contacto",       badges.contacto    ],
     ["💡","Sugerencias",   "Cómo usar EduCoins efectivamente",  "#00d084","sugerencias",     badges.sugerencias ],
     ["📰","Noticias",      "Publicaciones de la escuela",       "#00c1fc","noticias",        badges.noticias    ],
     ["🤖","Asistente IA",  "Preguntas sobre reglas",            "#10b981","asistente",       0                  ],

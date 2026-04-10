@@ -310,6 +310,11 @@ const api = {
   diwyTeacherParentInbox: ()          => apiFetch('/diwy/teacher/parent-messages'),
   diwyTeacherParentThread:(p)         => apiFetch(`/diwy/teacher/parent-messages/thread?parentId=${p.parentId}&studentId=${p.studentId}`),
   diwyTeacherParentReply: (data)      => apiFetch('/diwy/teacher/parent-messages/reply', { method:'POST', body: data }),
+  diwyParentAdminSend:    (data)      => apiFetch('/diwy/parent/admin-contact',  { method:'POST', body: data }),
+  diwyParentAdminThread:  (studentId) => apiFetch(`/diwy/parent/admin-contacts?studentId=${studentId}`),
+  diwyAdminParentInbox:   ()          => apiFetch('/diwy/admin/parent-contacts'),
+  diwyAdminParentThread:  (p)         => apiFetch(`/diwy/admin/parent-contacts/thread?parentId=${p.parentId}&studentId=${p.studentId}`),
+  diwyAdminParentReply:   (data)      => apiFetch('/diwy/admin/parent-contacts/reply', { method:'POST', body: data }),
   diwyAdminAttendance:(p={})      => {
     const qs=new URLSearchParams();
     if(p.fecha)  qs.set("fecha", p.fecha);
@@ -328,7 +333,8 @@ const api = {
   parentLinkConfirm:   (studentId) => apiFetch("/parent/link-request/confirm", { method:"POST", body:{student_id:studentId} }),
   parentLinkRequests:  ()          => apiFetch("/parent/link-requests"),
   parentLinkCancel:    (id)        => apiFetch(`/parent/link-requests/${id}`, { method:"DELETE" }),
-  parentChildrenVerdicts: ()       => apiFetch("/parent/children-verdicts"),
+  parentChildrenVerdicts:     ()   => apiFetch("/parent/children-verdicts"),
+  parentChildrenVerdictsRead: ()   => apiFetch("/parent/children-verdicts/read", { method:"PATCH" }),
   parentBurn:          (amount)    => apiFetch("/parent/burn", { method:"POST", body:{amount} }),
   parentChatMessages:  ()          => apiFetch("/chat/parent-messages"),
   parentChatSend:      (texto)     => apiFetch("/chat/parent-messages", { method:"POST", body:{texto} }),

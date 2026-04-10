@@ -13,7 +13,11 @@ export default function PVeredictos({ me, showToast, setTab }) {
     api.parentChildrenVerdicts()
       .then(d => setVerdicts(Array.isArray(d) ? d : []))
       .catch(() => setVerdicts([]))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        // Mark all children's verdicts as read — clears the badge
+        api.parentChildrenVerdictsRead?.().catch(() => {});
+      });
   }, []);
 
   const byChild = verdicts.reduce((acc, v) => {
