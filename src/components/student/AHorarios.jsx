@@ -1,497 +1,457 @@
+// AHorarios.jsx — Weekly school schedule
+//
+// Model:
+//   • User picks ONE turno (Mañana/Tarde/Noche/Extra) — the rest are hidden
+//   • Within the active turno, each day (Lun-Dom) holds N subjects/periods
+//   • Each period: subject name, optional time_from, optional time_to, color
+//   • All data synced to backend — no localStorage
+
 import { useState, useEffect } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
-import { OHdrA, WCard } from "../shared/index";
+import { WCard } from "../shared/index";
 
-const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const SLOTS = [
-  { key: "manana", label: "Mañana", emoji: "🌅" },
-  { key: "tarde",  label: "Tarde",  emoji: "☀️"  },
-  { key: "noche",  label: "Noche",  emoji: "🌙"  },
-  { key: "extra",  label: "Extra",  emoji: "⭐"  },
+// ─── constants ───────────────────────────────────────────────
+const DAYS_SHORT = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+const DAYS_FULL  = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+
+const TURNOS = [
+  { key:"manana", label:"Mañana", emoji:"🌅" },
+  { key:"tarde",  label:"Tarde",  emoji:"☀️"  },
+  { key:"noche",  label:"Noche",  emoji:"🌙"  },
+  { key:"extra",  label:"Extra",  emoji:"⭐"  },
 ];
+
 const PRESET_COLORS = [
-  "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
-  "#8b5cf6", "#ec4899", "#06b6d4", "#64748b",
+  "#3b82f6","#10b981","#f59e0b","#ef4444",
+  "#8b5cf6","#ec4899","#06b6d4","#64748b",
 ];
+
+const EMPTY_FORM = { subject:"", time_from:"", time_to:"", color:PRESET_COLORS[0] };
 
 function todayDow() {
-  // JS getDay(): 0=Sun,1=Mon,...,6=Sat → convert to Mon=0…Sun=6
   const d = new Date().getDay();
-  return d === 0 ? 6 : d - 1;
+  return d === 0 ? 6 : d - 1; // JS Sun=0 → Mon=0…Sun=6
 }
 
-function AHorarios({ me, showToast, onBack }) {
-  const { primary, isDark, txt, sub, cardBg, pageBg, navBord, inputBg } = useTheme();
+const fmtTime = t => t ? t.substring(0,5) : null;
 
-  const [schedule, setSchedule] = useState([]);
-  const [loading,  setLoading]  = useState(true);
+// ─── component ───────────────────────────────────────────────
+export default function AHorarios({ me, showToast, onBack }) {
+  const {
+    primary, isDark:dark, txt, sub,
+    cardBg, pageBg, navBord, inputBg,
+  } = useTheme();
+
+  const [entries,     setEntries]     = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [activeTurno, setActiveTurno] = useState("manana");
   const [selectedDay, setSelectedDay] = useState(() => todayDow());
-  const [editSlot, setEditSlot] = useState(null); // {day_of_week, slot}
-  const [form,     setForm]     = useState({ subject: "", time_from: "", time_to: "", color: PRESET_COLORS[0] });
-  const [saving,   setSaving]   = useState(false);
+  const [drawerOpen,  setDrawerOpen]  = useState(false);
+  const [editTarget,  setEditTarget]  = useState(null); // null = new
+  const [form,        setForm]        = useState(EMPTY_FORM);
+  const [saving,      setSaving]      = useState(false);
 
-  // ── Data ────────────────────────────────────────────────────
+  // ── Load ──────────────────────────────────────────────────
   useEffect(() => {
     api.getSchedule()
-      .then(d => setSchedule(Array.isArray(d) ? d : []))
+      .then(d => {
+        const arr = Array.isArray(d) ? d : [];
+        setEntries(arr);
+        // Default to turno with most entries (else manana)
+        if (arr.length > 0) {
+          const counts = arr.reduce((acc, e) => {
+            acc[e.turno] = (acc[e.turno]||0) + 1; return acc;
+          }, {});
+          setActiveTurno(
+            Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0]
+          );
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  function getEntry(day, slot) {
-    return schedule.find(e => e.day_of_week === day && e.slot === slot) || null;
-  }
-
-  function openEdit(day, slot) {
-    const entry = getEntry(day, slot);
-    setForm({
-      subject:   entry?.subject   || "",
-      time_from: entry?.time_from || "",
-      time_to:   entry?.time_to   || "",
-      color:     entry?.color     || PRESET_COLORS[0],
+  // ── Derived ───────────────────────────────────────────────
+  const dayEntries = entries
+    .filter(e => e.turno === activeTurno && e.day_of_week === selectedDay)
+    .sort((a,b) => {
+      const ta = a.time_from || "99:99";
+      const tb = b.time_from || "99:99";
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
     });
-    setEditSlot({ day_of_week: day, slot });
-  }
 
-  function closeEdit() {
-    setEditSlot(null);
-  }
+  const turnoLabel = TURNOS.find(t => t.key === activeTurno)?.label || "";
 
-  async function handleSave() {
-    if (!editSlot) return;
-    setSaving(true);
-    try {
-      const payload = {
-        day_of_week: editSlot.day_of_week,
-        slot:        editSlot.slot,
-        subject:     form.subject.trim(),
-        time_from:   form.time_from.trim(),
-        time_to:     form.time_to.trim(),
-        color:       form.color,
-      };
-      const saved = await api.putSchedule(payload);
-      setSchedule(prev => {
-        const filtered = prev.filter(
-          e => !(e.day_of_week === editSlot.day_of_week && e.slot === editSlot.slot)
-        );
-        return [...filtered, saved];
-      });
-      showToast && showToast("Horario guardado", "ok");
-      closeEdit();
-    } catch (e) {
-      showToast && showToast(e?.message || "Error al guardar", "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!editSlot) return;
-    const entry = getEntry(editSlot.day_of_week, editSlot.slot);
-    if (!entry) { closeEdit(); return; }
-    setSaving(true);
-    try {
-      await api.deleteSchedule(entry.id);
-      setSchedule(prev => prev.filter(e => e.id !== entry.id));
-      showToast && showToast("Horario eliminado", "ok");
-      closeEdit();
-    } catch (e) {
-      showToast && showToast(e?.message || "Error al eliminar", "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // ── Derived ──────────────────────────────────────────────────
-  const editingEntry = editSlot
-    ? getEntry(editSlot.day_of_week, editSlot.slot)
-    : null;
-  const editingSlotCfg = editSlot
-    ? SLOTS.find(s => s.key === editSlot.slot)
-    : null;
-
-  // ── Input style helper ───────────────────────────────────────
-  const inputStyle = {
-    background:   inputBg || (isDark ? "#1e1e2e" : "#f4f4f8"),
-    border:       `1.5px solid ${navBord}`,
-    borderRadius: 14,
-    color:        txt,
-    padding:      "11px 14px",
-    fontSize:     14,
-    outline:      "none",
-    width:        "100%",
-    fontWeight:   600,
-    fontFamily:   "Nunito,sans-serif",
-    boxSizing:    "border-box",
-    transition:   "background .3s, color .3s, border .3s",
+  // ── Handlers ─────────────────────────────────────────────
+  const openNew = () => {
+    setEditTarget(null);
+    setForm(EMPTY_FORM);
+    setDrawerOpen(true);
   };
 
-  // ── Render ───────────────────────────────────────────────────
-  return (
-    <div style={{
-      minHeight:   "100vh",
-      background:  pageBg,
-      fontFamily:  "Nunito,sans-serif",
-      transition:  "background .3s",
-      paddingBottom: editSlot ? 340 : 32,
-    }}>
-      {/* ── Header ── */}
-      <OHdrA
-        title="📅 Horarios"
-        extra={
-          <div style={{ fontSize: 12, opacity: .8, marginTop: 2, transition: "color .3s" }}>
-            Tu calendario semanal
-          </div>
-        }
-        onBack={onBack}
-      />
+  const openEdit = (entry) => {
+    setEditTarget(entry);
+    setForm({
+      subject:   entry.subject,
+      time_from: entry.time_from || "",
+      time_to:   entry.time_to   || "",
+      color:     entry.color     || PRESET_COLORS[0],
+    });
+    setDrawerOpen(true);
+  };
 
-      {/* ── Day selector (sticky below header) ── */}
+  const closeDrawer = () => { if (!saving) setDrawerOpen(false); };
+
+  const handleSave = async () => {
+    if (!form.subject.trim()) {
+      showToast?.("Ingresá el nombre de la materia", "error"); return;
+    }
+    setSaving(true);
+    try {
+      if (editTarget) {
+        const d = await api.patchSchedule(editTarget.id, {
+          subject:   form.subject.trim(),
+          time_from: form.time_from || null,
+          time_to:   form.time_to   || null,
+          color:     form.color,
+        });
+        setEntries(prev => prev.map(e => e.id === editTarget.id ? d : e));
+      } else {
+        const d = await api.postSchedule({
+          turno:       activeTurno,
+          day_of_week: selectedDay,
+          subject:     form.subject.trim(),
+          time_from:   form.time_from || null,
+          time_to:     form.time_to   || null,
+          color:       form.color,
+        });
+        setEntries(prev => [...prev, d]);
+      }
+      setDrawerOpen(false);
+    } catch (e) {
+      showToast?.(e.message || "Error al guardar", "error");
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!editTarget) return;
+    setSaving(true);
+    try {
+      await api.deleteSchedule(editTarget.id);
+      setEntries(prev => prev.filter(e => e.id !== editTarget.id));
+      setDrawerOpen(false);
+    } catch (e) {
+      showToast?.(e.message || "Error al eliminar", "error");
+    } finally { setSaving(false); }
+  };
+
+  // ── Render ────────────────────────────────────────────────
+  return (
+    <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s" }}>
+
+      {/* ── Header ───────────────────────────────────────── */}
       <div style={{
-        position:        "sticky",
-        top:             80,        // below OHdrA (~80px tall)
-        zIndex:          40,
-        background:      primary,
-        transition:      "background .3s",
-        overflowX:       "auto",
-        WebkitOverflowScrolling: "touch",
-        scrollbarWidth:  "none",
-        display:         "flex",
-        gap:             8,
-        padding:         "8px 14px 12px",
+        background:`linear-gradient(135deg, ${primary} 0%, #7c3aed 100%)`,
+        color:"white", padding:"52px 20px 20px",
+        position:"sticky", top:0, zIndex:50, overflow:"hidden",
       }}>
-        {DAYS.map((d, i) => {
-          const active = i === selectedDay;
-          return (
-            <button
-              key={i}
-              onClick={() => { setSelectedDay(i); closeEdit(); }}
-              style={{
-                flexShrink:   0,
-                background:   active ? "rgba(255,255,255,.95)" : "rgba(255,255,255,.18)",
-                border:       "none",
-                borderRadius: 99,
-                color:        active ? primary : "rgba(255,255,255,.85)",
-                fontWeight:   900,
-                fontSize:     13,
-                padding:      "6px 15px",
-                cursor:       "pointer",
-                fontFamily:   "Nunito,sans-serif",
-                transition:   "background .3s, color .3s",
-                opacity:      active ? 1 : .75,
-              }}
-            >
-              {d}
-            </button>
-          );
-        })}
+        <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
+          background:"rgba(255,255,255,.08)", top:-60, right:-40, pointerEvents:"none" }}/>
+        <div style={{ display:"flex", alignItems:"center", gap:12, position:"relative" }}>
+          <button onClick={onBack} style={{
+            background:"rgba(255,255,255,.2)", border:"none", borderRadius:99,
+            width:34, height:34, cursor:"pointer", color:"white", fontSize:18,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontFamily:"Nunito,sans-serif", flexShrink:0,
+          }}>←</button>
+          <div>
+            <div style={{ fontWeight:900, fontSize:20 }}>📅 Horarios</div>
+            <div style={{ fontSize:12, opacity:.85 }}>Tu calendario semanal</div>
+          </div>
+        </div>
       </div>
 
-      {/* ── Body ── */}
-      <div style={{ padding: "14px 14px 0" }}>
-        {loading && (
-          <div style={{ textAlign: "center", color: sub, padding: 40, fontSize: 14,
-            transition: "color .3s" }}>
-            Cargando...
+      {/* ── Body ─────────────────────────────────────────── */}
+      <div style={{ padding:"18px 14px 100px" }}>
+
+        {/* ── 1. Turno selector ─────────────────────────── */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:10, fontWeight:900, color:sub,
+            letterSpacing:".08em", textTransform:"uppercase", marginBottom:8 }}>
+            Turno escolar
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7 }}>
+            {TURNOS.map(t => {
+              const active = activeTurno === t.key;
+              return (
+                <button key={t.key} onClick={() => setActiveTurno(t.key)} style={{
+                  background: active
+                    ? `linear-gradient(135deg, ${primary}, #7c3aed)`
+                    : (dark ? "rgba(255,255,255,.06)" : cardBg),
+                  border: `1.5px solid ${active ? "transparent" : navBord}`,
+                  borderRadius:14, padding:"10px 4px",
+                  display:"flex", flexDirection:"column",
+                  alignItems:"center", gap:4,
+                  cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                  transition:"all .2s",
+                  boxShadow: active ? `0 4px 12px ${primary}44` : "none",
+                }}>
+                  <span style={{ fontSize:20 }}>{t.emoji}</span>
+                  <span style={{ fontSize:11, fontWeight:800,
+                    color: active ? "white" : txt,
+                    transition:"color .2s" }}>
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── 2. Day pills ──────────────────────────────── */}
+        <div style={{ marginBottom:18 }}>
+          <div style={{ fontSize:10, fontWeight:900, color:sub,
+            letterSpacing:".08em", textTransform:"uppercase", marginBottom:8 }}>
+            Día
+          </div>
+          <div style={{ display:"flex", gap:6, overflowX:"auto",
+            paddingBottom:4, scrollbarWidth:"none" }}>
+            {DAYS_SHORT.map((d, i) => {
+              const active = selectedDay === i;
+              return (
+                <button key={d} onClick={() => setSelectedDay(i)} style={{
+                  flexShrink:0,
+                  background: active ? primary : (dark ? "rgba(255,255,255,.06)" : cardBg),
+                  border: `1.5px solid ${active ? primary : navBord}`,
+                  borderRadius:99, padding:"7px 15px",
+                  fontSize:12, fontWeight:800,
+                  color: active ? "white" : txt,
+                  cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                  transition:"all .2s",
+                }}>{d}</button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── 3. Period list header ─────────────────────── */}
+        <div style={{ display:"flex", alignItems:"center",
+          justifyContent:"space-between", marginBottom:12 }}>
+          <div>
+            <span style={{ fontWeight:900, fontSize:15, color:txt,
+              transition:"color .3s" }}>
+              {DAYS_FULL[selectedDay]}
+            </span>
+            <span style={{ fontSize:12, color:sub, marginLeft:6,
+              transition:"color .3s" }}>
+              · turno {turnoLabel.toLowerCase()}
+            </span>
+          </div>
+          <button onClick={openNew} style={{
+            background:`linear-gradient(135deg, ${primary}, #7c3aed)`,
+            border:"none", borderRadius:99, padding:"7px 16px",
+            color:"white", fontWeight:900, fontSize:12,
+            cursor:"pointer", fontFamily:"Nunito,sans-serif",
+            display:"flex", alignItems:"center", gap:5,
+            boxShadow:`0 4px 12px ${primary}44`,
+          }}>
+            <span style={{ fontSize:15, lineHeight:1 }}>+</span> Agregar
+          </button>
+        </div>
+
+        {/* ── 4. Period cards ───────────────────────────── */}
+        {loading ? (
+          <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
+        ) : dayEntries.length === 0 ? (
+          <div style={{ textAlign:"center", padding:"36px 20px" }}>
+            <div style={{ fontSize:52, marginBottom:12 }}>📚</div>
+            <div style={{ fontWeight:800, color:txt, marginBottom:6, fontSize:15,
+              transition:"color .3s" }}>
+              Sin clases cargadas
+            </div>
+            <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55,
+              transition:"color .3s" }}>
+              No hay materias para {DAYS_FULL[selectedDay].toLowerCase()}
+              {" "}en el turno {turnoLabel.toLowerCase()}.
+            </div>
+            <button onClick={openNew} style={{
+              background:`linear-gradient(135deg, ${primary}, #7c3aed)`,
+              border:"none", borderRadius:50, padding:"12px 28px",
+              color:"white", fontWeight:900, fontSize:13,
+              cursor:"pointer", fontFamily:"Nunito,sans-serif",
+            }}>+ Agregar clase</button>
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {dayEntries.map(entry => (
+              <div key={entry.id} onClick={() => openEdit(entry)} style={{
+                background:cardBg,
+                borderLeft:`4px solid ${entry.color || primary}`,
+                borderRadius:16,
+                padding:"13px 16px",
+                cursor:"pointer",
+                display:"flex", alignItems:"center", gap:12,
+                boxShadow: dark
+                  ? "0 2px 8px rgba(0,0,0,.3)"
+                  : "0 1px 6px rgba(0,0,0,.07)",
+                transition:"background .3s",
+              }}>
+                {/* Color initial */}
+                <div style={{
+                  width:38, height:38, borderRadius:11, flexShrink:0,
+                  background: `${entry.color || primary}20`,
+                  border:`1.5px solid ${entry.color || primary}55`,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontWeight:900, fontSize:15,
+                  color: entry.color || primary,
+                }}>
+                  {entry.subject.charAt(0).toUpperCase()}
+                </div>
+                {/* Text */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:800, fontSize:14, color:txt,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                    transition:"color .3s" }}>
+                    {entry.subject}
+                  </div>
+                  {(entry.time_from || entry.time_to) && (
+                    <div style={{ fontSize:12, color:sub, marginTop:2,
+                      transition:"color .3s" }}>
+                      🕐{" "}
+                      {fmtTime(entry.time_from)}
+                      {entry.time_from && entry.time_to ? " — " : ""}
+                      {fmtTime(entry.time_to)}
+                    </div>
+                  )}
+                </div>
+                <span style={{ color:sub, fontSize:14, transition:"color .3s" }}>✏️</span>
+              </div>
+            ))}
           </div>
         )}
-
-        {!loading && SLOTS.map(slot => {
-          const entry  = getEntry(selectedDay, slot.key);
-          const isOpen = editSlot?.slot === slot.key && editSlot?.day_of_week === selectedDay;
-
-          return (
-            <div key={slot.key} style={{ marginBottom: 10 }}>
-              <WCard
-                onClick={() => openEdit(selectedDay, slot.key)}
-                style={{
-                  cursor:      "pointer",
-                  display:     "flex",
-                  alignItems:  "center",
-                  gap:         12,
-                  padding:     "13px 16px",
-                  borderLeft:  entry ? `3px solid ${entry.color}` : `3px solid transparent`,
-                  border:      isOpen
-                    ? `2px solid ${primary}`
-                    : entry
-                      ? `1.5px solid ${navBord}`
-                      : `1.5px solid ${navBord}`,
-                  borderLeft:  entry ? `3px solid ${entry.color}` : `3px solid transparent`,
-                  boxShadow:   isOpen ? `0 4px 16px ${primary}33` : "none",
-                  transition:  "background .3s, border .3s, box-shadow .3s",
-                }}
-              >
-                {/* Left icon */}
-                <div style={{
-                  width:           40,
-                  height:          40,
-                  borderRadius:    12,
-                  background:      entry
-                    ? entry.color + "22"
-                    : isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.05)",
-                  display:         "flex",
-                  alignItems:      "center",
-                  justifyContent:  "center",
-                  fontSize:        entry ? 17 : 18,
-                  fontWeight:      900,
-                  color:           entry ? entry.color : sub,
-                  flexShrink:      0,
-                  transition:      "background .3s, color .3s",
-                }}>
-                  {entry
-                    ? entry.subject.trim().charAt(0).toUpperCase() || slot.emoji
-                    : slot.emoji}
-                </div>
-
-                {/* Center */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontWeight:  entry ? 800 : 700,
-                    fontSize:    13,
-                    color:       entry ? txt : sub,
-                    letterSpacing: "-.2px",
-                    transition:  "color .3s",
-                    whiteSpace:  "nowrap",
-                    overflow:    "hidden",
-                    textOverflow:"ellipsis",
-                  }}>
-                    {entry ? entry.subject : slot.label.toUpperCase()}
-                  </div>
-                  <div style={{
-                    fontSize:   12,
-                    color:      sub,
-                    marginTop:  2,
-                    fontWeight: 600,
-                    transition: "color .3s",
-                  }}>
-                    {entry
-                      ? (entry.time_from && entry.time_to)
-                        ? `${entry.time_from} — ${entry.time_to}`
-                        : slot.label
-                      : "Toca para agregar"}
-                  </div>
-                </div>
-
-                {/* Right action */}
-                <div style={{
-                  width:           32,
-                  height:          32,
-                  borderRadius:    99,
-                  background:      entry
-                    ? isDark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.05)"
-                    : primary + "18",
-                  display:         "flex",
-                  alignItems:      "center",
-                  justifyContent:  "center",
-                  fontSize:        15,
-                  color:           entry ? sub : primary,
-                  flexShrink:      0,
-                  transition:      "background .3s, color .3s",
-                }}>
-                  {entry ? "✏️" : "+"}
-                </div>
-              </WCard>
-            </div>
-          );
-        })}
       </div>
 
-      {/* ── Edit panel overlay ── */}
-      {editSlot && (
+      {/* ── Bottom drawer ────────────────────────────────── */}
+      {drawerOpen && (
         <>
-          {/* Dark overlay */}
-          <div
-            onClick={closeEdit}
-            style={{
-              position:   "fixed",
-              inset:      0,
-              background: "rgba(0,0,0,.45)",
-              zIndex:     190,
-              transition: "background .3s",
-            }}
-          />
-
-          {/* Bottom drawer */}
+          <div onClick={closeDrawer} style={{
+            position:"fixed", inset:0,
+            background:"rgba(0,0,0,.5)", zIndex:190,
+          }}/>
           <div style={{
-            position:     "fixed",
-            bottom:       0,
-            left:         0,
-            right:        0,
-            maxWidth:     480,
-            margin:       "0 auto",
-            zIndex:       200,
-            background:   cardBg,
-            borderRadius: "24px 24px 0 0",
-            padding:      "0 20px 44px",
-            boxShadow:    "0 -8px 40px rgba(0,0,0,.22)",
-            transition:   "background .3s",
-            maxHeight:    "90vh",
-            overflowY:    "auto",
+            position:"fixed", bottom:0, left:0, right:0,
+            maxWidth:480, margin:"0 auto",
+            background: dark ? "#1e1b2e" : "white",
+            borderRadius:"24px 24px 0 0",
+            boxShadow:"0 -8px 40px rgba(0,0,0,.2)",
+            padding:"0 20px 44px", zIndex:200,
           }}>
             {/* Handle */}
-            <div style={{
-              width:        36,
-              height:       4,
-              background:   navBord,
-              borderRadius: 2,
-              margin:       "12px auto 0",
-            }} />
+            <div style={{ width:40, height:4, borderRadius:99,
+              background: dark ? "#444" : "#e0e0e0",
+              margin:"12px auto 18px" }}/>
 
-            {/* Title row */}
-            <div style={{
-              display:        "flex",
-              justifyContent: "space-between",
-              alignItems:     "center",
-              padding:        "14px 0 12px",
-            }}>
-              <div style={{
-                fontWeight:  900,
-                fontSize:    17,
-                color:       txt,
-                transition:  "color .3s",
-              }}>
-                {editingSlotCfg?.emoji} Editando: {editingSlotCfg?.label}
-              </div>
-              <button
-                onClick={closeEdit}
-                style={{
-                  background:      isDark ? "rgba(255,255,255,.1)" : "#f0f0f0",
-                  border:          "none",
-                  borderRadius:    50,
-                  color:           sub,
-                  width:           30,
-                  height:          30,
-                  cursor:          "pointer",
-                  fontSize:        18,
-                  fontWeight:      700,
-                  display:         "flex",
-                  alignItems:      "center",
-                  justifyContent:  "center",
-                  transition:      "background .3s, color .3s",
-                }}
-              >
-                ×
-              </button>
+            {/* Title */}
+            <div style={{ fontWeight:900, fontSize:15, color:txt,
+              marginBottom:16, transition:"color .3s" }}>
+              {editTarget ? "✏️ Editar clase" : "➕ Nueva clase"}
+              <span style={{ fontSize:11, fontWeight:700, color:sub, marginLeft:8,
+                transition:"color .3s" }}>
+                {DAYS_FULL[selectedDay]} · {turnoLabel}
+              </span>
             </div>
 
-            {/* Subject input */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: sub, marginBottom: 6,
-                transition: "color .3s" }}>
-                Materia o actividad
-              </div>
-              <input
-                value={form.subject}
-                onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                placeholder="Materia o actividad..."
-                style={inputStyle}
-              />
-            </div>
+            {/* Subject */}
+            <div style={{ fontSize:10, fontWeight:900, color:sub,
+              letterSpacing:".07em", marginBottom:6 }}>MATERIA / ACTIVIDAD</div>
+            <input
+              autoFocus
+              value={form.subject}
+              onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+              onKeyDown={e => e.key === "Enter" && handleSave()}
+              placeholder="Ej: Matemáticas, Inglés, Ed. Física..."
+              style={{
+                width:"100%", boxSizing:"border-box",
+                border:`1.5px solid ${form.subject.trim() ? primary : navBord}`,
+                borderRadius:12, padding:"11px 14px", fontSize:14,
+                fontFamily:"Nunito,sans-serif", outline:"none",
+                color:txt, background:inputBg,
+                marginBottom:14,
+                transition:"border-color .2s, background .3s, color .3s",
+              }}
+            />
 
-            {/* Time inputs */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: sub, marginBottom: 6,
-                  transition: "color .3s" }}>
-                  Desde
-                </div>
-                <input
-                  type="time"
-                  value={form.time_from}
-                  onChange={e => setForm(f => ({ ...f, time_from: e.target.value }))}
-                  placeholder="08:00"
-                  style={inputStyle}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: sub, marginBottom: 6,
-                  transition: "color .3s" }}>
-                  Hasta
-                </div>
-                <input
-                  type="time"
-                  value={form.time_to}
-                  onChange={e => setForm(f => ({ ...f, time_to: e.target.value }))}
-                  placeholder="09:30"
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-
-            {/* Color picker */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: sub, marginBottom: 8,
-                transition: "color .3s" }}>
-                Color
-              </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {PRESET_COLORS.map(c => (
-                  <button
-                    key={c}
-                    onClick={() => setForm(f => ({ ...f, color: c }))}
+            {/* Times */}
+            <div style={{ fontSize:10, fontWeight:900, color:sub,
+              letterSpacing:".07em", marginBottom:6 }}>HORARIO (OPCIONAL)</div>
+            <div style={{ display:"flex", gap:10, marginBottom:16 }}>
+              {[["time_from","Desde"],["time_to","Hasta"]].map(([key, label]) => (
+                <div key={key} style={{ flex:1 }}>
+                  <div style={{ fontSize:11, color:sub, marginBottom:4,
+                    fontWeight:700, transition:"color .3s" }}>{label}</div>
+                  <input
+                    type="time"
+                    value={form[key]}
+                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                     style={{
-                      width:       32,
-                      height:      32,
-                      borderRadius:"50%",
-                      background:  c,
-                      border:      form.color === c
-                        ? `3px solid ${txt}`
-                        : "3px solid transparent",
-                      cursor:      "pointer",
-                      padding:     0,
-                      flexShrink:  0,
-                      boxShadow:   form.color === c ? `0 0 0 2px ${c}55` : "none",
-                      transition:  "border .2s, box-shadow .2s",
+                      width:"100%", boxSizing:"border-box",
+                      border:`1.5px solid ${navBord}`,
+                      borderRadius:12, padding:"10px 12px", fontSize:13,
+                      fontFamily:"Nunito,sans-serif", outline:"none",
+                      color:txt, background:inputBg,
+                      transition:"background .3s, color .3s",
                     }}
                   />
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
 
-            {/* Save button */}
+            {/* Color */}
+            <div style={{ fontSize:10, fontWeight:900, color:sub,
+              letterSpacing:".07em", marginBottom:8 }}>COLOR</div>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
+              {PRESET_COLORS.map(c => (
+                <button key={c} onClick={() => setForm(f => ({ ...f, color:c }))} style={{
+                  width:30, height:30, borderRadius:"50%", background:c,
+                  border:`3px solid ${form.color === c ? txt : "transparent"}`,
+                  cursor:"pointer", flexShrink:0,
+                  outline:"none", transition:"border-color .15s",
+                }}/>
+              ))}
+            </div>
+
+            {/* Save */}
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !form.subject.trim()}
               style={{
-                background:   saving ? navBord : primary,
-                border:       "none",
-                borderRadius: 14,
-                color:        "white",
-                padding:      "14px 0",
-                fontWeight:   900,
-                fontSize:     15,
-                cursor:       saving ? "not-allowed" : "pointer",
-                width:        "100%",
-                fontFamily:   "Nunito,sans-serif",
-                boxShadow:    saving ? "none" : `0 4px 16px ${primary}44`,
-                marginBottom: 10,
-                transition:   "background .3s",
-              }}
-            >
+                width:"100%", padding:"13px", borderRadius:50, border:"none",
+                background: (!form.subject.trim() || saving)
+                  ? navBord
+                  : `linear-gradient(135deg, ${primary}, #7c3aed)`,
+                color:"white", fontWeight:900, fontSize:15,
+                cursor: (!form.subject.trim() || saving) ? "not-allowed" : "pointer",
+                fontFamily:"Nunito,sans-serif", marginBottom:10,
+                transition:"all .2s",
+              }}>
               {saving ? "Guardando..." : "Guardar"}
             </button>
 
-            {/* Delete button (only if entry exists) */}
-            {editingEntry && (
+            {/* Delete */}
+            {editTarget && (
               <button
                 onClick={handleDelete}
                 disabled={saving}
                 style={{
-                  background:   "transparent",
-                  border:       `1.5px solid #ef444455`,
-                  borderRadius: 14,
-                  color:        "#ef4444",
-                  padding:      "12px 0",
-                  fontWeight:   800,
-                  fontSize:     14,
-                  cursor:       saving ? "not-allowed" : "pointer",
-                  width:        "100%",
-                  fontFamily:   "Nunito,sans-serif",
-                  transition:   "background .3s, border .3s",
-                }}
-              >
-                Eliminar horario
+                  width:"100%", padding:"12px", borderRadius:50,
+                  border:`1.5px solid #ef444466`,
+                  background:"transparent", color:"#ef4444",
+                  fontWeight:800, fontSize:14,
+                  cursor: saving ? "not-allowed" : "pointer",
+                  fontFamily:"Nunito,sans-serif", transition:"all .2s",
+                }}>
+                Eliminar clase
               </button>
             )}
           </div>
@@ -500,5 +460,3 @@ function AHorarios({ me, showToast, onBack }) {
     </div>
   );
 }
-
-export default AHorarios;
