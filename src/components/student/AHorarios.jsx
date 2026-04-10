@@ -152,7 +152,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
       {/* ── Header ───────────────────────────────────────── */}
       <div style={{
-        background:`linear-gradient(135deg, ${primary} 0%, #7c3aed 100%)`,
+        background:primary,
         color:"white", padding:"52px 20px 20px",
         position:"sticky", top:0, zIndex:50, overflow:"hidden",
       }}>
@@ -187,7 +187,7 @@ export default function AHorarios({ me, showToast, onBack }) {
               return (
                 <button key={t.key} onClick={() => setActiveTurno(t.key)} style={{
                   background: active
-                    ? `linear-gradient(135deg, ${primary}, #7c3aed)`
+                    ? primary
                     : (dark ? "rgba(255,255,255,.06)" : cardBg),
                   border: `1.5px solid ${active ? "transparent" : navBord}`,
                   borderRadius:14, padding:"10px 4px",
@@ -249,7 +249,7 @@ export default function AHorarios({ me, showToast, onBack }) {
             </span>
           </div>
           <button onClick={openNew} style={{
-            background:`linear-gradient(135deg, ${primary}, #7c3aed)`,
+            background:primary,
             border:"none", borderRadius:99, padding:"7px 16px",
             color:"white", fontWeight:900, fontSize:12,
             cursor:"pointer", fontFamily:"Nunito,sans-serif",
@@ -276,7 +276,7 @@ export default function AHorarios({ me, showToast, onBack }) {
               {" "}en el turno {turnoLabel.toLowerCase()}.
             </div>
             <button onClick={openNew} style={{
-              background:`linear-gradient(135deg, ${primary}, #7c3aed)`,
+              background:primary,
               border:"none", borderRadius:50, padding:"12px 28px",
               color:"white", fontWeight:900, fontSize:13,
               cursor:"pointer", fontFamily:"Nunito,sans-serif",
@@ -429,7 +429,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                 width:"100%", padding:"13px", borderRadius:50, border:"none",
                 background: (!form.subject.trim() || saving)
                   ? navBord
-                  : `linear-gradient(135deg, ${primary}, #7c3aed)`,
+                  : primary,
                 color:"white", fontWeight:900, fontSize:15,
                 cursor: (!form.subject.trim() || saving) ? "not-allowed" : "pointer",
                 fontFamily:"Nunito,sans-serif", marginBottom:10,

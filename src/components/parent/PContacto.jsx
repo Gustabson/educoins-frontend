@@ -238,7 +238,7 @@ export default function PContacto({ showToast, onBack }) {
 
       {/* ── Header ── */}
       <div style={{
-        background:`linear-gradient(135deg, ${primary} 0%, #0284c7 100%)`,
+        background:primary,
         padding:"52px 20px 20px", position:"sticky", top:0, zIndex:50, overflow:"hidden",
       }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
@@ -306,14 +306,14 @@ export default function PContacto({ showToast, onBack }) {
 
             {/* Guías card */}
             <div onClick={() => setView("guias")} style={{
-              background:`linear-gradient(135deg, #7c3aed15, #a855f715)`,
-              border:`1.5px solid #7c3aed33`, borderRadius:18,
+              background:`${primary}12`,
+              border:`1.5px solid ${primary}33`, borderRadius:18,
               padding:"22px 20px", marginBottom:12, cursor:"pointer",
               transition:"all .2s",
               display:"flex", alignItems:"center", gap:16,
             }}>
               <div style={{ width:56, height:56, borderRadius:16, flexShrink:0,
-                background:`linear-gradient(135deg, #7c3aed, #a855f7)`,
+                background:primary,
                 display:"flex", alignItems:"center", justifyContent:"center", fontSize:26 }}>
                 👨‍🏫
               </div>
@@ -322,25 +322,25 @@ export default function PContacto({ showToast, onBack }) {
                 <div style={{ fontSize:12, color:sub, lineHeight:1.5 }}>
                   Mensajes directos con los docentes de {child.nombre.split(" ")[0]}
                 </div>
-                <div style={{ fontSize:11, color:"#7c3aed", marginTop:5, fontWeight:700 }}>
+                <div style={{ fontSize:11, color:primary, marginTop:5, fontWeight:700 }}>
                   {teachers.length > 0
                     ? `${teachers.length} docente${teachers.length > 1 ? "s" : ""} asignado${teachers.length > 1 ? "s" : ""}`
                     : "Cargando docentes..."}
                 </div>
               </div>
-              <div style={{ fontSize:20, color:"#7c3aed", flexShrink:0 }}>→</div>
+              <div style={{ fontSize:20, color:primary, flexShrink:0 }}>→</div>
             </div>
 
             {/* Administración card */}
             <div onClick={() => setView("admin")} style={{
-              background:`linear-gradient(135deg, #0ea5e915, #0284c715)`,
-              border:`1.5px solid #0ea5e933`, borderRadius:18,
+              background:`${primary}12`,
+              border:`1.5px solid ${primary}33`, borderRadius:18,
               padding:"22px 20px", marginBottom:12, cursor:"pointer",
               transition:"all .2s",
               display:"flex", alignItems:"center", gap:16,
             }}>
               <div style={{ width:56, height:56, borderRadius:16, flexShrink:0,
-                background:`linear-gradient(135deg, #0ea5e9, #0284c7)`,
+                background:primary,
                 display:"flex", alignItems:"center", justifyContent:"center", fontSize:26 }}>
                 🏫
               </div>
@@ -350,7 +350,7 @@ export default function PContacto({ showToast, onBack }) {
                   Consultas, trámites y comunicaciones con la institución
                 </div>
               </div>
-              <div style={{ fontSize:20, color:"#0ea5e9", flexShrink:0 }}>→</div>
+              <div style={{ fontSize:20, color:primary, flexShrink:0 }}>→</div>
             </div>
 
             {/* Reminder */}
@@ -380,20 +380,20 @@ export default function PContacto({ showToast, onBack }) {
                 ) : teachers.map(t => (
                   <div key={t.id} onClick={() => setSelTeacher(t.id)}
                     style={{
-                      background:cardBg, border:`1.5px solid #7c3aed33`,
+                      background:cardBg, border:`1.5px solid ${primary}33`,
                       borderRadius:14, padding:"16px 18px", marginBottom:10,
                       cursor:"pointer", transition:"all .2s",
                       display:"flex", alignItems:"center", gap:14,
                     }}>
                     <div style={{ width:44, height:44, borderRadius:12, flexShrink:0,
-                      background:`linear-gradient(135deg, #7c3aed, #a855f7)`,
+                      background:primary,
                       display:"flex", alignItems:"center", justifyContent:"center",
                       fontSize:20 }}>👤</div>
                     <div style={{ flex:1 }}>
                       <div style={{ fontWeight:800, fontSize:14, color:txt }}>{t.nombre}</div>
                       <div style={{ fontSize:11, color:sub, marginTop:2 }}>Docente de {child.nombre.split(" ")[0]}</div>
                     </div>
-                    <div style={{ fontSize:18, color:"#7c3aed" }}>→</div>
+                    <div style={{ fontSize:18, color:primary }}>→</div>
                   </div>
                 ))}
               </>
@@ -408,7 +408,7 @@ export default function PContacto({ showToast, onBack }) {
                   onSend={handleSendTeacher}
                   sending={sendingTeacher}
                   rateErr={tRateErr}
-                  accentColor="#7c3aed"
+                  accentColor={primary}
                   txt={txt} sub={sub} navBord={navBord}
                   inputBg={inputBg} inputBd={inputBd}
                   isDark={isDark} pageBg={pageBg}
@@ -428,7 +428,7 @@ export default function PContacto({ showToast, onBack }) {
               onSend={handleSendAdmin}
               sending={sendingAdmin}
               rateErr={aRateErr}
-              accentColor="#0ea5e9"
+              accentColor={primary}
               txt={txt} sub={sub} navBord={navBord}
               inputBg={inputBg} inputBd={inputBd}
               isDark={isDark} pageBg={pageBg}
