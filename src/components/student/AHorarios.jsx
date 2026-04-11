@@ -243,7 +243,8 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [locked,       setLocked]       = useState(false);
   const [showSat,      setShowSat]      = useState(false);
   const [showDom,      setShowDom]      = useState(false);
-  const [gridRotated,  setGridRotated]  = useState(false);
+  const [gridRotated,   setGridRotated]   = useState(false);
+  const [gridCssAngle,  setGridCssAngle]  = useState(0); // 0 | 90 | 180 | 270
 
   // ── Drawer ──────────────────────────────────────────────────────────────────
   const [drawerOpen,  setDrawerOpen]  = useState(false);
@@ -275,7 +276,8 @@ export default function AHorarios({ me, showToast, onBack }) {
       if (typeof prefs.sch_locked === "boolean")       setLocked(prefs.sch_locked);
       if (typeof prefs.sch_show_sat === "boolean")     setShowSat(prefs.sch_show_sat);
       if (typeof prefs.sch_show_dom === "boolean")     setShowDom(prefs.sch_show_dom);
-      if (typeof prefs.sch_grid_rotated === "boolean") setGridRotated(prefs.sch_grid_rotated);
+      if (typeof prefs.sch_grid_rotated === "boolean")  setGridRotated(prefs.sch_grid_rotated);
+      if (typeof prefs.sch_grid_css_angle === "number") setGridCssAngle(prefs.sch_grid_css_angle);
       if (Array.isArray(prefs.sch_turno_order) &&
           prefs.sch_turno_order.length === TURNOS.length) {
         setTurnoOrder(prefs.sch_turno_order);
@@ -329,6 +331,10 @@ export default function AHorarios({ me, showToast, onBack }) {
   };
   const toggleRotation = () => {
     const next = !gridRotated; setGridRotated(next); setPref({ sch_grid_rotated: next });
+  };
+  const rotateCss = () => {
+    const next = (gridCssAngle + 90) % 360;
+    setGridCssAngle(next); setPref({ sch_grid_css_angle: next });
   };
 
   // ── Turno long-press ─────────────────────────────────────────────────────────
@@ -597,16 +603,38 @@ export default function AHorarios({ me, showToast, onBack }) {
                   }}>+ Agregar período</button>
                 )}
               </div>
-            ) : (
-              <GridView
-                periods={periods} entries={entries}
-                activeTurno={activeTurno} locked={locked}
-                rotated={gridRotated} visibleDays={visibleDays}
-                primary={primary} txt={txt} sub={sub}
-                navBord={navBord} isDark={dark}
-                onCellClick={openCell}
-                onPeriodClick={openPeriodEdit}
-              />
+            ) : (() => {
+              // CSS rotation math
+              const isTransverse = gridCssAngle === 90 || gridCssAngle === 270;
+              const rotW    = typeof window !== "undefined" ? Math.round(window.innerHeight - 195) : 550;
+              const gridH   = 38 + Math.max(1, periods.length) * 62; // approx px
+              const marginV = isTransverse ? Math.max(0, Math.round((rotW - gridH) / 2)) : 0;
+              return (
+                <div style={{
+                  overflow: "visible",
+                  marginTop:    marginV + "px",
+                  marginBottom: marginV + "px",
+                  transition:   "margin .35s ease",
+                }}>
+                  <div style={{
+                    width:           isTransverse ? rotW + "px" : "100%",
+                    transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
+                    transformOrigin: "center center",
+                    transition:      "transform .35s ease, width .35s ease",
+                  }}>
+                    <GridView
+                      periods={periods} entries={entries}
+                      activeTurno={activeTurno} locked={locked}
+                      rotated={gridRotated} visibleDays={visibleDays}
+                      primary={primary} txt={txt} sub={sub}
+                      navBord={navBord} isDark={dark}
+                      onCellClick={openCell}
+                      onPeriodClick={openPeriodEdit}
+                    />
+                  </div>
+                </div>
+              );
+            })()
             )}
 
             {/* Grid toolbar — hidden when locked */}
@@ -640,10 +668,19 @@ export default function AHorarios({ me, showToast, onBack }) {
                   </ToolBtn>
                 )}
 
-                {/* Rotation toggle */}
+                {/* Transpose (rows↔cols) */}
                 <ToolBtn onClick={toggleRotation} dark={dark} navBord={navBord} sub={sub}
                   active={gridRotated} primary={primary}>
                   <span style={{ fontSize:15 }}>↻</span> Rotar
+                </ToolBtn>
+
+                {/* CSS 90° rotation — new button */}
+                <ToolBtn onClick={rotateCss} dark={dark} navBord={navBord} sub={sub}
+                  active={gridCssAngle > 0} primary={primary}>
+                  <span style={{ fontSize:15 }}>⤢</span> Rotar cuadro
+                  {gridCssAngle > 0 && (
+                    <span style={{ fontSize:9, opacity:.7 }}>{gridCssAngle}°</span>
+                  )}
                 </ToolBtn>
 
               </div>
