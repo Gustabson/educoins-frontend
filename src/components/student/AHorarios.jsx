@@ -255,9 +255,11 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   const lpTimer = useRef(null);
   const gridContainerRef = useRef(null);
-  const [containerW, setContainerW] = useState(390);
+  const gridSectionRef   = useRef(null);
+  const [containerW,  setContainerW]  = useState(390);
+  const [gridSectionH, setGridSectionH] = useState(500);
 
-  // Measure the actual rendered container width (reliable on any screen/DevTools state)
+  // Measure actual container width for rotation math
   useEffect(() => {
     const el = gridContainerRef.current;
     if (!el) return;
@@ -266,6 +268,19 @@ export default function AHorarios({ me, showToast, onBack }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Measure grid section height from its own top to bottom of viewport — no hardcoded offsets
+  useEffect(() => {
+    const measure = () => {
+      const el = gridSectionRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setGridSectionH(Math.max(200, window.innerHeight - top - 8));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  });
 
   // Derived visible days for grid
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
@@ -603,10 +618,10 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
 
         ) : viewMode === "grid" ? (
-          /* ── Grid view — flex column filling available screen height ── */
-          <div style={{
+          /* ── Grid view — flex column filling from turno selector to bottom ── */
+          <div ref={gridSectionRef} style={{
             display:"flex", flexDirection:"column",
-            height:"calc(100vh - 265px)", /* header ~130px + turno ~120px + padding 16px */
+            height: gridSectionH + "px",
           }}>
 
             {/* Grid area — fills remaining space, clips rotation overflow */}
