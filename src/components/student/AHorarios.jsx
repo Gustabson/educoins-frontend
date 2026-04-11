@@ -255,9 +255,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   const lpTimer = useRef(null);
   const gridContainerRef = useRef(null);
-  const gridSectionRef   = useRef(null);
-  const [containerW,  setContainerW]  = useState(390);
-  const [gridSectionH, setGridSectionH] = useState(500);
+  const [containerW, setContainerW] = useState(390);
 
   // Measure actual container width for rotation math
   useEffect(() => {
@@ -268,19 +266,6 @@ export default function AHorarios({ me, showToast, onBack }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  // Measure grid section height from its own top to bottom of viewport — no hardcoded offsets
-  useEffect(() => {
-    const measure = () => {
-      const el = gridSectionRef.current;
-      if (!el) return;
-      const top = el.getBoundingClientRect().top;
-      setGridSectionH(Math.max(200, window.innerHeight - top - 8));
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  });
 
   // Derived visible days for grid
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
@@ -518,14 +503,14 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s",
-      fontFamily:"Nunito,sans-serif" }}>
+    <div style={{ height:"100vh", display:"flex", flexDirection:"column",
+      background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
       <div style={{
         background:primary, color:"white",
         padding:"52px 20px 18px",
-        position:"sticky", top:0, zIndex:50, overflow:"hidden",
+        flexShrink:0, zIndex:50, overflow:"hidden",
       }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
           background:"rgba(255,255,255,.07)", top:-60, right:-40, pointerEvents:"none" }}/>
@@ -564,11 +549,12 @@ export default function AHorarios({ me, showToast, onBack }) {
         </div>
       </div>
 
-      {/* ── Body ── */}
-      <div style={{ padding:"16px 14px 16px" }}>
+      {/* ── Body ── fills remaining height below header ── */}
+      <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column",
+        overflow:"hidden", padding:"16px 14px 0" }}>
 
         {/* ── Turno selector ── */}
-        <div style={{ marginBottom:18 }}>
+        <div style={{ marginBottom:18, flexShrink:0 }}>
           <div style={{ fontSize:10, fontWeight:900, color:sub,
             letterSpacing:".08em", textTransform:"uppercase",
             marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
@@ -618,11 +604,8 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
 
         ) : viewMode === "grid" ? (
-          /* ── Grid view — flex column filling from turno selector to bottom ── */
-          <div ref={gridSectionRef} style={{
-            display:"flex", flexDirection:"column",
-            height: gridSectionH + "px",
-          }}>
+          /* ── Grid view — fills all space below turno selector ── */
+          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:8 }}>
 
             {/* Grid area — fills remaining space, clips rotation overflow */}
             <div ref={gridContainerRef} style={{ flex:1, overflow:"hidden", position:"relative" }}>
@@ -723,8 +706,8 @@ export default function AHorarios({ me, showToast, onBack }) {
           </div>
 
         ) : (
-          /* ── List view ── */
-          <>
+          /* ── List view — scrollable ── */
+          <div style={{ flex:1, minHeight:0, overflowY:"auto", paddingBottom:16 }}>
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:10, fontWeight:900, color:sub,
                 letterSpacing:".08em", textTransform:"uppercase", marginBottom:8 }}>Día</div>
@@ -835,7 +818,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
