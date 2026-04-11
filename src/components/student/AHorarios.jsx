@@ -550,7 +550,7 @@ export default function AHorarios({ me, showToast, onBack }) {
       </div>
 
       {/* ── Body ── */}
-      <div style={{ padding:"16px 14px 100px" }}>
+      <div style={{ padding:"16px 14px 16px" }}>
 
         {/* ── Turno selector ── */}
         <div style={{ marginBottom:18 }}>
@@ -623,10 +623,12 @@ export default function AHorarios({ me, showToast, onBack }) {
             ) : (
               <div ref={gridContainerRef} style={{
                 height:         cssTransverse ? containerW + "px" : "auto",
+                minHeight:      cssTransverse ? undefined : "calc(100vh - 340px)",
                 overflow:       "visible",
                 display:        "flex",
                 flexDirection:  "column",
                 justifyContent: cssTransverse ? "center" : "flex-start",
+                paddingBottom:  cssTransverse ? 0 : 90,
                 transition:     "height .35s ease",
               }}>
                 <div style={{
@@ -647,9 +649,17 @@ export default function AHorarios({ me, showToast, onBack }) {
               </div>
             )}
 
-            {/* Grid toolbar — hidden when locked */}
+            {/* Grid toolbar — fixed at bottom, hidden when locked */}
             {!locked && (
-              <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap" }}>
+              <div style={{
+                position:"fixed", bottom:0, left:0, right:0,
+                display:"flex", gap:8, flexWrap:"wrap",
+                padding:"10px 14px 14px",
+                background: dark ? "rgba(10,10,10,.96)" : "rgba(245,245,245,.96)",
+                borderTop:`1px solid ${navBord}`,
+                backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+                zIndex:40,
+              }}>
 
                 {/* Agregar período */}
                 <ToolBtn onClick={openPeriodNew} dark={dark} navBord={navBord} sub={sub}>
