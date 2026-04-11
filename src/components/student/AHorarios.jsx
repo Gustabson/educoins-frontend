@@ -35,97 +35,216 @@ function todayDow() {
 
 const fmtTime = t => t ? t.substring(0, 5) : null;
 
+const DAY_LABELS_GRID = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+
 // ─── Grid / Calendar view ─────────────────────────────────────────────────────
-function GridView({ entries, activeTurno, primary, txt, sub, cardBg, navBord, isDark, onCellClick }) {
-  const byDay = DAYS_SHORT.map((_, dow) =>
-    entries
-      .filter(e => e.turno === activeTurno && e.day_of_week === dow)
-      .sort((a, b) => (a.time_from || "99:99") < (b.time_from || "99:99") ? -1 : 1)
-  );
-  const maxPeriods = Math.max(1, ...byDay.map(d => d.length));
-  const gridCols = "32px repeat(7, 1fr)";
+// Rows   = unique time_from slots (sorted)
+// Cols   = Mon–Fri always; Sat/Sun only when explicitly added or have entries
+// Left col = HORARIO (time range)
+function GridView({
+  entries, activeTurno, primary, txt, sub, cardBg, navBord, isDark,
+  visibleDays, onCellClick, onAddPeriod, onAddDay,
+}) {
+  // Derive sorted time slots from entries in this turno that have a time_from
+  const timed = entries.filter(e => e.turno === activeTurno && e.time_from);
+  const slotKeys = [...new Set(timed.map(e => e.time_from))].sort();
+  const slots = slotKeys.map(tf => {
+    const rep = timed.find(e => e.time_from === tf);
+    return { time_from: tf, time_to: rep?.time_to || null };
+  });
+
+  // Entries without time
+  const noTime = entries.filter(e => e.turno === activeTurno && !e.time_from);
+
+  // Cell lookup
+  const cellEntry = (dow, tf) =>
+    entries.find(e =>
+      e.turno === activeTurno &&
+      e.day_of_week === dow &&
+      e.time_from === tf
+    ) || null;
+
+  const canAddSat = !visibleDays.includes(5);
+  const canAddSun = visibleDays.includes(5) && !visibleDays.includes(6);
+  const showAddDay = canAddSat || canAddSun;
+
+  const HORARIO_W = 84;
+  const DAY_MIN   = 64;
+  const ADD_BTN_W = 34;
+
+  const headBg  = isDark ? "rgba(255,255,255,.05)" : "#f9f7f2";
+  const borderC = navBord;
+
+  const cellBase = {
+    minHeight:58, minWidth:DAY_MIN, flex:1,
+    borderLeft:`1px solid ${borderC}`,
+    padding:"6px 7px", cursor:"pointer",
+    display:"flex", flexDirection:"column", justifyContent:"center",
+    transition:"background .12s",
+  };
+
+  // Empty state
+  if (slots.length === 0 && noTime.length === 0) {
+    return (
+      <div style={{ textAlign:"center", padding:"36px 20px" }}>
+        <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
+        <div style={{ fontWeight:800, color:txt, fontSize:15, marginBottom:6 }}>
+          Sin períodos cargados
+        </div>
+        <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55 }}>
+          Agregá clases con horario para que aparezcan en la grilla.
+        </div>
+        <button onClick={onAddPeriod} style={{
+          background:primary, border:"none", borderRadius:50,
+          padding:"11px 28px", color:"white", fontWeight:900, fontSize:13,
+          cursor:"pointer", fontFamily:"Nunito,sans-serif",
+        }}>+ Agregar período</button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ overflowX:"auto" }}>
-      <div style={{ minWidth:320 }}>
+      <div style={{ minWidth: HORARIO_W + visibleDays.length * DAY_MIN + (showAddDay ? ADD_BTN_W : 0) }}>
 
-        {/* Day header row */}
-        <div style={{ display:"grid", gridTemplateColumns:gridCols, gap:3, marginBottom:4 }}>
-          <div/>
-          {DAYS_SHORT.map(d => (
-            <div key={d} style={{
-              textAlign:"center", fontSize:10, fontWeight:900,
-              color:sub, padding:"3px 0", letterSpacing:".02em",
-            }}>{d}</div>
+        {/* ── Header row ── */}
+        <div style={{ display:"flex", borderBottom:`2px solid ${borderC}` }}>
+          <div style={{ width:HORARIO_W, flexShrink:0, padding:"8px 10px",
+            fontSize:9, fontWeight:900, color:sub, letterSpacing:".08em",
+            background:headBg, display:"flex", alignItems:"center" }}>
+            HORARIO
+          </div>
+          {visibleDays.map(dow => (
+            <div key={dow} style={{
+              flex:1, minWidth:DAY_MIN, padding:"8px 4px",
+              fontSize:9, fontWeight:900, color:sub, letterSpacing:".06em",
+              textAlign:"center", background:headBg,
+              borderLeft:`1px solid ${borderC}`,
+            }}>
+              {DAY_LABELS_GRID[dow].toUpperCase()}
+            </div>
           ))}
+          {/* Add day (+Sáb / +Dom) */}
+          {showAddDay && (
+            <button onClick={onAddDay} title={canAddSat ? "Agregar Sábado" : "Agregar Domingo"}
+              style={{
+                width:ADD_BTN_W, flexShrink:0,
+                background:headBg, border:"none",
+                borderLeft:`1px solid ${borderC}`,
+                cursor:"pointer", color:primary,
+                fontSize:18, fontWeight:900,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontFamily:"Nunito,sans-serif",
+              }}>+</button>
+          )}
         </div>
 
-        {/* Period rows */}
-        {Array.from({ length: maxPeriods }, (_, pi) => (
-          <div key={pi} style={{ display:"grid", gridTemplateColumns:gridCols, gap:3, marginBottom:3 }}>
-            {/* Row label */}
+        {/* ── Time slot rows ── */}
+        {slots.map((slot, si) => (
+          <div key={si} style={{ display:"flex",
+            borderBottom:`1px solid ${borderC}` }}>
+            {/* Time label */}
             <div style={{
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:9, fontWeight:900, color:sub,
-            }}>{pi + 1}°</div>
+              width:HORARIO_W, flexShrink:0,
+              padding:"6px 10px",
+              background: isDark ? "rgba(255,255,255,.02)" : "#fdfcf8",
+              display:"flex", flexDirection:"column", justifyContent:"center",
+            }}>
+              <div style={{ fontSize:11, fontWeight:800, color:sub, lineHeight:1.5 }}>
+                {fmtTime(slot.time_from)}
+              </div>
+              {slot.time_to && (
+                <div style={{ fontSize:10, color:sub, opacity:.55, fontWeight:700 }}>
+                  {fmtTime(slot.time_to)}
+                </div>
+              )}
+            </div>
 
             {/* Day cells */}
-            {byDay.map((dEnts, dow) => {
-              const entry = dEnts[pi];
+            {visibleDays.map(dow => {
+              const entry = cellEntry(dow, slot.time_from);
               return (
-                <div
-                  key={dow}
-                  onClick={() => onCellClick(dow, entry || null)}
+                <div key={dow}
+                  onClick={() => onCellClick(dow, entry, slot)}
                   style={{
-                    minHeight:56, borderRadius:9, cursor:"pointer",
+                    ...cellBase,
                     background: entry
-                      ? (isDark ? `${entry.color}22` : `${entry.color}15`)
-                      : (isDark ? "rgba(255,255,255,.04)" : "#f8fafc"),
-                    border:`1.5px solid ${entry ? entry.color + "44" : navBord}`,
-                    borderLeft:`3px solid ${entry ? entry.color : navBord}`,
-                    padding:"5px 5px", display:"flex",
-                    flexDirection:"column", justifyContent:"center",
-                    transition:"all .15s",
+                      ? (isDark ? `${entry.color}1a` : `${entry.color}10`)
+                      : "transparent",
+                    borderTop: entry ? `2px solid ${entry.color}` : "none",
                   }}>
                   {entry ? (
-                    <>
-                      <div style={{
-                        fontSize:10, fontWeight:800, color:entry.color,
-                        overflow:"hidden", display:"-webkit-box",
-                        WebkitLineClamp:2, WebkitBoxOrient:"vertical",
-                        lineHeight:1.3, wordBreak:"break-word",
-                      }}>{entry.subject}</div>
-                      {entry.time_from && (
-                        <div style={{ fontSize:8, color:sub, marginTop:2, fontWeight:700 }}>
-                          {fmtTime(entry.time_from)}
-                        </div>
-                      )}
-                    </>
+                    <div style={{
+                      fontSize:11, fontWeight:800, color:entry.color,
+                      lineHeight:1.3, overflow:"hidden",
+                      display:"-webkit-box", WebkitLineClamp:2,
+                      WebkitBoxOrient:"vertical", wordBreak:"break-word",
+                    }}>{entry.subject}</div>
                   ) : (
-                    <div style={{ textAlign:"center", fontSize:14, color:navBord, opacity:.4 }}>+</div>
+                    <div style={{ textAlign:"center", fontSize:15,
+                      color:borderC, opacity:.4 }}>+</div>
                   )}
                 </div>
               );
             })}
+            {showAddDay && (
+              <div style={{ width:ADD_BTN_W, flexShrink:0,
+                borderLeft:`1px solid ${borderC}` }}/>
+            )}
           </div>
         ))}
 
-        {/* Add row */}
-        <div style={{ display:"grid", gridTemplateColumns:gridCols, gap:3, marginTop:2 }}>
-          <div/>
-          {DAYS_SHORT.map((d, dow) => (
-            <button
-              key={dow}
-              onClick={() => onCellClick(dow, null)}
-              style={{
-                background:"transparent",
-                border:`1.5px dashed ${navBord}`,
-                borderRadius:9, padding:"5px 0",
-                color:sub, fontSize:13, cursor:"pointer",
-                fontFamily:"Nunito,sans-serif", width:"100%",
-              }}>+</button>
-          ))}
+        {/* ── Sin horario row (entries without time_from) ── */}
+        {noTime.length > 0 && (
+          <div style={{ display:"flex", borderBottom:`1px solid ${borderC}` }}>
+            <div style={{ width:HORARIO_W, flexShrink:0, padding:"6px 10px",
+              fontSize:9, fontWeight:700, color:sub, opacity:.45,
+              background: isDark ? "rgba(255,255,255,.02)" : "#fdfcf8",
+              display:"flex", alignItems:"center" }}>
+              SIN HORA
+            </div>
+            {visibleDays.map(dow => {
+              const dayNoTime = noTime.filter(e => e.day_of_week === dow);
+              return (
+                <div key={dow} style={{
+                  ...cellBase, flexWrap:"wrap", gap:3, alignContent:"flex-start",
+                }}>
+                  {dayNoTime.map(entry => (
+                    <div key={entry.id}
+                      onClick={ev => { ev.stopPropagation(); onCellClick(dow, entry, null); }}
+                      style={{
+                        background:`${entry.color}18`,
+                        borderLeft:`2px solid ${entry.color}`,
+                        borderRadius:4, padding:"2px 5px",
+                        fontSize:9, fontWeight:800, color:entry.color,
+                        cursor:"pointer", whiteSpace:"nowrap",
+                        overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%",
+                      }}>{entry.subject}</div>
+                  ))}
+                  {dayNoTime.length === 0 && (
+                    <div style={{ fontSize:14, color:borderC, opacity:.3, margin:"auto" }}>+</div>
+                  )}
+                </div>
+              );
+            })}
+            {showAddDay && <div style={{ width:ADD_BTN_W, flexShrink:0 }}/>}
+          </div>
+        )}
+
+        {/* ── Add period button ── */}
+        <div style={{ padding:"10px 12px" }}>
+          <button onClick={onAddPeriod} style={{
+            background: isDark ? "rgba(255,255,255,.05)" : "#f4f4f0",
+            border:`1.5px dashed ${borderC}`,
+            borderRadius:10, padding:"8px 18px",
+            color:sub, fontSize:12, fontWeight:800,
+            cursor:"pointer", fontFamily:"Nunito,sans-serif",
+            display:"flex", alignItems:"center", gap:7,
+          }}>
+            <span style={{ fontSize:16, lineHeight:1 }}>+</span> Agregar período
+          </button>
         </div>
+
       </div>
     </div>
   );
@@ -148,8 +267,9 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [saving,      setSaving]      = useState(false);
 
   // ── UI prefs (server-persisted) ─────────────────────────────────────────────
-  const [viewMode,   setViewMode]   = useState("list");
-  const [turnoOrder, setTurnoOrder] = useState(TURNOS.map(t => t.key));
+  const [viewMode,    setViewMode]    = useState("list");
+  const [turnoOrder,  setTurnoOrder]  = useState(TURNOS.map(t => t.key));
+  const [visibleDays, setVisibleDays] = useState([0,1,2,3,4]); // Mon–Fri default
 
   // Long-press ref
   const lpTimer = useRef(null);
@@ -176,6 +296,17 @@ export default function AHorarios({ me, showToast, onBack }) {
           prefs.sch_turno_order.length === TURNOS.length) {
         setTurnoOrder(prefs.sch_turno_order);
       }
+      // Auto-reveal Sat/Sun if entries exist for those days
+      const hasSat = arr.some(e => e.day_of_week === 5);
+      const hasSun = arr.some(e => e.day_of_week === 6);
+      if (hasSat || hasSun) {
+        setVisibleDays(prev => {
+          let d = [...prev];
+          if (hasSat && !d.includes(5)) d = [...d, 5];
+          if (hasSun && !d.includes(6)) d = [...d, 6];
+          return d;
+        });
+      }
     }).finally(() => setLoading(false));
   }, []);
 
@@ -191,10 +322,13 @@ export default function AHorarios({ me, showToast, onBack }) {
   const turnoLabel = TURNOS.find(t => t.key === activeTurno)?.label || "";
 
   // ── Handlers ────────────────────────────────────────────────────────────────
-  const openNew = (dow = selectedDay) => {
+  const openNew = (dow = selectedDay, prefillTime = null) => {
     setSelectedDay(dow);
     setEditTarget(null);
-    setForm(EMPTY_FORM);
+    setForm(prefillTime
+      ? { ...EMPTY_FORM, time_from: prefillTime.time_from || "", time_to: prefillTime.time_to || "" }
+      : EMPTY_FORM
+    );
     setDrawerOpen(true);
   };
 
@@ -274,11 +408,23 @@ export default function AHorarios({ me, showToast, onBack }) {
   };
   const onTurnoUp = () => clearTimeout(lpTimer.current);
 
-  // Grid cell click
-  const onCellClick = (dow, entry) => {
+  // Grid: cell click (passes slot for time prefill)
+  const onCellClick = (dow, entry, slot = null) => {
     if (entry) openEdit(entry);
-    else openNew(dow);
+    else openNew(dow, slot);
   };
+
+  // Grid: add a new day column (Sat → Sun)
+  const onAddDay = () => {
+    setVisibleDays(prev => {
+      if (!prev.includes(5)) return [...prev, 5];
+      if (!prev.includes(6)) return [...prev, 6];
+      return prev;
+    });
+  };
+
+  // Grid: add a new period row = open drawer for currently selected day
+  const onAddPeriod = () => openNew(selectedDay, null);
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -386,7 +532,10 @@ export default function AHorarios({ me, showToast, onBack }) {
             primary={primary}
             txt={txt} sub={sub} cardBg={cardBg}
             navBord={navBord} isDark={dark}
+            visibleDays={visibleDays}
             onCellClick={onCellClick}
+            onAddPeriod={onAddPeriod}
+            onAddDay={onAddDay}
           />
 
         ) : (
