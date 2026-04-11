@@ -1,12 +1,13 @@
 // AHorarios.jsx — Weekly school schedule
 //
 // Grid model:
-//   • Periods (time rows) stored in prefs → define the left-column HORARIO structure
-//   • Each (period × day) cell = one entry in user_schedules
+//   • Periods (time rows) stored in prefs → HORARIO structure
 //   • HORARIO cell click  → edit period time only
 //   • Day cell click      → edit subject + color only
 //   • List view           → full form (subject + time + color)
-//   • Lock mode           → read-only, no edits
+//   • Lock mode           → read-only
+//   • Sáb/Dom toggle in toolbar
+//   • Grid rotation toggle (transpose: days↔periods)
 
 import { useState, useEffect, useRef } from "react";
 import { api } from "../../api";
@@ -15,7 +16,6 @@ import { useTheme } from "../../ThemeContext";
 // ─── Constants ───────────────────────────────────────────────────────────────
 const DAYS_SHORT = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 const DAYS_FULL  = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
-const ALL_DAYS   = [0,1,2,3,4,5,6]; // always show all 7 in grid
 
 const TURNOS = [
   { key:"manana", label:"Mañana", emoji:"🌅" },
@@ -40,7 +40,7 @@ const genId = () =>
 
 // ─── Grid view ────────────────────────────────────────────────────────────────
 function GridView({
-  periods, entries, activeTurno, locked,
+  periods, entries, activeTurno, locked, rotated, visibleDays,
   primary, txt, sub, navBord, isDark,
   onCellClick, onPeriodClick,
 }) {
@@ -48,104 +48,176 @@ function GridView({
     const p = periods.find(x => x.id === periodId);
     if (!p) return null;
     return entries.find(e =>
-      e.turno === activeTurno &&
-      e.day_of_week === dow &&
-      e.time_from === p.time_from
+      e.turno === activeTurno && e.day_of_week === dow && e.time_from === p.time_from
     ) || null;
   };
 
-  const HORARIO_W = 82;
-  const DAY_MIN   = 42;
-  const headBg    = isDark ? "rgba(255,255,255,.05)" : "#f9f7f1";
-  const borderC   = navBord;
+  const headBg  = isDark ? "rgba(255,255,255,.05)" : "#f9f7f1";
+  const borderC = navBord;
 
-  const cellStyle = {
-    minHeight:56, flex:1, minWidth:DAY_MIN,
-    borderLeft:`1px solid ${borderC}`,
-    padding:"5px 6px", cursor: locked ? "default" : "pointer",
-    display:"flex", flexDirection:"column", justifyContent:"center",
-    transition:"background .1s",
-  };
+  // ── Normal layout: rows = periods, cols = days ──────────────────────────────
+  if (!rotated) {
+    const HORARIO_W = 82;
+    const DAY_MIN   = 42;
 
-  if (periods.length === 0) return null; // empty state handled by parent
+    const cellStyle = {
+      minHeight:56, flex:1, minWidth:DAY_MIN,
+      borderLeft:`1px solid ${borderC}`,
+      padding:"5px 6px", cursor: locked ? "default" : "pointer",
+      display:"flex", flexDirection:"column", justifyContent:"center",
+    };
 
-  return (
-    <div style={{ overflowX:"auto" }}>
-      <div style={{ minWidth: HORARIO_W + ALL_DAYS.length * DAY_MIN }}>
+    return (
+      <div style={{ overflowX:"auto" }}>
+        <div style={{ minWidth: HORARIO_W + visibleDays.length * DAY_MIN }}>
 
-        {/* Header */}
-        <div style={{ display:"flex", borderBottom:`2px solid ${borderC}` }}>
-          <div style={{ width:HORARIO_W, flexShrink:0, padding:"8px 10px",
-            fontSize:9, fontWeight:900, color:sub, letterSpacing:".08em",
-            background:headBg, display:"flex", alignItems:"center" }}>
-            HORARIO
-          </div>
-          {ALL_DAYS.map(dow => (
-            <div key={dow} style={{
-              flex:1, minWidth:DAY_MIN, padding:"7px 3px",
-              fontSize:9, fontWeight:900, color:sub, letterSpacing:".04em",
-              textAlign:"center", background:headBg,
-              borderLeft:`1px solid ${borderC}`,
-            }}>
-              {DAYS_SHORT[dow].toUpperCase()}
+          {/* Header */}
+          <div style={{ display:"flex", borderBottom:`2px solid ${borderC}` }}>
+            <div style={{ width:HORARIO_W, flexShrink:0, padding:"8px 10px",
+              fontSize:9, fontWeight:900, color:sub, letterSpacing:".08em",
+              background:headBg, display:"flex", alignItems:"center" }}>
+              HORARIO
             </div>
-          ))}
-        </div>
+            {visibleDays.map(dow => (
+              <div key={dow} style={{
+                flex:1, minWidth:DAY_MIN, padding:"7px 3px",
+                fontSize:9, fontWeight:900, color:sub, letterSpacing:".04em",
+                textAlign:"center", background:headBg, borderLeft:`1px solid ${borderC}`,
+              }}>
+                {DAYS_SHORT[dow].toUpperCase()}
+              </div>
+            ))}
+          </div>
 
-        {/* Period rows */}
-        {periods.map(period => (
-          <div key={period.id} style={{ display:"flex", borderBottom:`1px solid ${borderC}` }}>
-            {/* HORARIO cell — click = edit time only */}
-            <div
-              onClick={() => !locked && onPeriodClick(period)}
-              style={{
+          {/* Period rows */}
+          {periods.map(period => (
+            <div key={period.id} style={{ display:"flex", borderBottom:`1px solid ${borderC}` }}>
+              {/* HORARIO cell → edit time */}
+              <div onClick={() => !locked && onPeriodClick(period)} style={{
                 width:HORARIO_W, flexShrink:0, padding:"6px 10px",
                 background: isDark ? "rgba(255,255,255,.025)" : "#fdfcf8",
                 display:"flex", flexDirection:"column", justifyContent:"center",
                 cursor: locked ? "default" : "pointer",
-                transition:"background .1s",
               }}>
-              <div style={{ fontSize:12, fontWeight:800, color: locked ? sub : primary,
-                lineHeight:1.4 }}>
+                <div style={{ fontSize:12, fontWeight:800, color: locked ? sub : primary, lineHeight:1.4 }}>
+                  {fmtTime(period.time_from) || "—"}
+                </div>
+                {period.time_to && (
+                  <div style={{ fontSize:10, color:sub, opacity:.6, fontWeight:700 }}>
+                    {fmtTime(period.time_to)}
+                  </div>
+                )}
+              </div>
+
+              {/* Day cells → edit subject */}
+              {visibleDays.map(dow => {
+                const entry = cellEntry(dow, period.id);
+                return (
+                  <div key={dow} onClick={() => !locked && onCellClick(dow, entry, period)}
+                    style={{
+                      ...cellStyle,
+                      background: entry ? (isDark ? `${entry.color}1c` : `${entry.color}12`) : "transparent",
+                      borderTop: entry ? `2px solid ${entry.color}` : "none",
+                    }}>
+                    {entry ? (
+                      <div style={{ fontSize:10, fontWeight:800, color:entry.color,
+                        lineHeight:1.3, overflow:"hidden", display:"-webkit-box",
+                        WebkitLineClamp:2, WebkitBoxOrient:"vertical", wordBreak:"break-word" }}>
+                        {entry.subject}
+                      </div>
+                    ) : !locked ? (
+                      <div style={{ textAlign:"center", fontSize:14, color:borderC, opacity:.3 }}>+</div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Rotated layout: rows = days, cols = periods ─────────────────────────────
+  const DAY_W      = 46;
+  const PERIOD_MIN = 76;
+
+  const cellStyle = {
+    minHeight:54, flex:1, minWidth:PERIOD_MIN,
+    borderLeft:`1px solid ${borderC}`,
+    padding:"5px 7px", cursor: locked ? "default" : "pointer",
+    display:"flex", flexDirection:"column", justifyContent:"center",
+  };
+
+  return (
+    <div style={{ overflowX:"auto" }}>
+      <div style={{ minWidth: DAY_W + periods.length * PERIOD_MIN }}>
+
+        {/* Header: period time labels (clickable) */}
+        <div style={{ display:"flex", borderBottom:`2px solid ${borderC}` }}>
+          <div style={{ width:DAY_W, flexShrink:0, background:headBg,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:8, fontWeight:900, color:sub, letterSpacing:".06em",
+            padding:"6px 4px" }}>
+            DÍA
+          </div>
+          {periods.map(period => (
+            <div key={period.id} onClick={() => !locked && onPeriodClick(period)}
+              style={{
+                flex:1, minWidth:PERIOD_MIN, padding:"6px 6px",
+                background:headBg, borderLeft:`1px solid ${borderC}`,
+                cursor: locked ? "default" : "pointer",
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              }}>
+              <div style={{ fontSize:10, fontWeight:800, color: locked ? sub : primary, lineHeight:1.4 }}>
                 {fmtTime(period.time_from) || "—"}
               </div>
               {period.time_to && (
-                <div style={{ fontSize:10, color:sub, opacity:.6, fontWeight:700 }}>
+                <div style={{ fontSize:8, color:sub, opacity:.6, fontWeight:700 }}>
                   {fmtTime(period.time_to)}
                 </div>
               )}
             </div>
+          ))}
+        </div>
 
-            {/* Day cells — click = edit subject only */}
-            {ALL_DAYS.map(dow => {
+        {/* Day rows */}
+        {visibleDays.map(dow => (
+          <div key={dow} style={{ display:"flex", borderBottom:`1px solid ${borderC}` }}>
+            {/* Day label */}
+            <div style={{
+              width:DAY_W, flexShrink:0, padding:"5px 4px",
+              background: isDark ? "rgba(255,255,255,.025)" : "#fdfcf8",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:9, fontWeight:900, color:sub, letterSpacing:".04em",
+            }}>
+              {DAYS_SHORT[dow].toUpperCase()}
+            </div>
+
+            {/* Period cells */}
+            {periods.map(period => {
               const entry = cellEntry(dow, period.id);
               return (
-                <div key={dow}
-                  onClick={() => !locked && onCellClick(dow, entry, period)}
+                <div key={period.id} onClick={() => !locked && onCellClick(dow, entry, period)}
                   style={{
                     ...cellStyle,
-                    background: entry
-                      ? (isDark ? `${entry.color}1c` : `${entry.color}12`)
-                      : "transparent",
-                    borderTop: entry ? `2px solid ${entry.color}` : "none",
+                    background: entry ? (isDark ? `${entry.color}1c` : `${entry.color}12`) : "transparent",
+                    borderLeft: entry ? `3px solid ${entry.color}` : `1px solid ${borderC}`,
                   }}>
                   {entry ? (
-                    <div style={{
-                      fontSize:10, fontWeight:800, color:entry.color,
-                      lineHeight:1.3, overflow:"hidden",
-                      display:"-webkit-box", WebkitLineClamp:2,
-                      WebkitBoxOrient:"vertical", wordBreak:"break-word",
-                    }}>{entry.subject}</div>
+                    <div style={{ fontSize:10, fontWeight:800, color:entry.color,
+                      lineHeight:1.3, overflow:"hidden", display:"-webkit-box",
+                      WebkitLineClamp:2, WebkitBoxOrient:"vertical", wordBreak:"break-word" }}>
+                      {entry.subject}
+                    </div>
                   ) : !locked ? (
-                    <div style={{ textAlign:"center", fontSize:14,
-                      color:borderC, opacity:.3 }}>+</div>
+                    <div style={{ textAlign:"center", fontSize:14, color:borderC, opacity:.3 }}>+</div>
                   ) : null}
                 </div>
               );
             })}
           </div>
         ))}
-
       </div>
     </div>
   );
@@ -165,21 +237,25 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [saving,      setSaving]      = useState(false);
 
   // ── UI prefs ────────────────────────────────────────────────────────────────
-  const [viewMode,   setViewMode]   = useState("list");
-  const [turnoOrder, setTurnoOrder] = useState(TURNOS.map(t => t.key));
-  const [periods,    setPeriods]    = useState([]); // [{id, time_from, time_to}]
-  const [locked,     setLocked]     = useState(false);
+  const [viewMode,     setViewMode]     = useState("list");
+  const [turnoOrder,   setTurnoOrder]   = useState(TURNOS.map(t => t.key));
+  const [periods,      setPeriods]      = useState([]);
+  const [locked,       setLocked]       = useState(false);
+  const [showSat,      setShowSat]      = useState(false);
+  const [showDom,      setShowDom]      = useState(false);
+  const [gridRotated,  setGridRotated]  = useState(false);
 
   // ── Drawer ──────────────────────────────────────────────────────────────────
-  // mode: "full" | "cell" | "period-new" | "period-edit"
-  const [drawerOpen,   setDrawerOpen]   = useState(false);
-  const [drawerMode,   setDrawerMode]   = useState("full");
-  const [editEntry,    setEditEntry]    = useState(null);  // entry being edited
-  const [editPeriod,   setEditPeriod]   = useState(null);  // period being edited
-  const [form,         setForm]         = useState(EMPTY_FORM);
+  const [drawerOpen,  setDrawerOpen]  = useState(false);
+  const [drawerMode,  setDrawerMode]  = useState("full");
+  const [editEntry,   setEditEntry]   = useState(null);
+  const [editPeriod,  setEditPeriod]  = useState(null);
+  const [form,        setForm]        = useState(EMPTY_FORM);
 
-  // Long-press ref
   const lpTimer = useRef(null);
+
+  // Derived visible days for grid
+  const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
 
   // ── Load ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -189,38 +265,35 @@ export default function AHorarios({ me, showToast, onBack }) {
     ]).then(([scheduleData, prefs]) => {
       const arr = Array.isArray(scheduleData) ? scheduleData : [];
       setEntries(arr);
-
-      // Auto-select turno with most entries
       if (arr.length > 0) {
         const counts = arr.reduce((acc, e) => {
           acc[e.turno] = (acc[e.turno] || 0) + 1; return acc;
         }, {});
         setActiveTurno(Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0]);
       }
-
-      if (prefs.sch_view) setViewMode(prefs.sch_view);
+      if (prefs.sch_view)        setViewMode(prefs.sch_view);
+      if (typeof prefs.sch_locked === "boolean")       setLocked(prefs.sch_locked);
+      if (typeof prefs.sch_show_sat === "boolean")     setShowSat(prefs.sch_show_sat);
+      if (typeof prefs.sch_show_dom === "boolean")     setShowDom(prefs.sch_show_dom);
+      if (typeof prefs.sch_grid_rotated === "boolean") setGridRotated(prefs.sch_grid_rotated);
       if (Array.isArray(prefs.sch_turno_order) &&
           prefs.sch_turno_order.length === TURNOS.length) {
         setTurnoOrder(prefs.sch_turno_order);
       }
-      if (typeof prefs.sch_locked === "boolean") setLocked(prefs.sch_locked);
-
-      // Load or derive periods
       if (Array.isArray(prefs.sch_periods) && prefs.sch_periods.length > 0) {
         setPeriods([...prefs.sch_periods].sort((a,b) =>
           (a.time_from||"") < (b.time_from||"") ? -1 : 1));
       } else if (arr.length > 0) {
-        // First time: derive from existing entries for backward compat
         const seen = new Set();
         const derived = [];
-        arr.filter(e => e.time_from).sort((a,b) =>
-          (a.time_from||"") < (b.time_from||"") ? -1 : 1
-        ).forEach(e => {
-          if (!seen.has(e.time_from)) {
-            seen.add(e.time_from);
-            derived.push({ id:genId(), time_from:e.time_from, time_to:e.time_to||null });
-          }
-        });
+        arr.filter(e => e.time_from)
+          .sort((a,b) => (a.time_from||"") < (b.time_from||"") ? -1 : 1)
+          .forEach(e => {
+            if (!seen.has(e.time_from)) {
+              seen.add(e.time_from);
+              derived.push({ id:genId(), time_from:e.time_from, time_to:e.time_to||null });
+            }
+          });
         if (derived.length > 0) {
           setPeriods(derived);
           api.patchSchedulePrefs({ sch_periods: derived }).catch(() => {});
@@ -232,59 +305,85 @@ export default function AHorarios({ me, showToast, onBack }) {
   // ── Derived ──────────────────────────────────────────────────────────────────
   const orderedTurnos = turnoOrder.map(k => TURNOS.find(t => t.key === k)).filter(Boolean);
   const turnoLabel    = TURNOS.find(t => t.key === activeTurno)?.label || "";
-
-  const dayEntries = entries
+  const dayEntries    = entries
     .filter(e => e.turno === activeTurno && e.day_of_week === selectedDay)
     .sort((a,b) => (a.time_from||"99:99") < (b.time_from||"99:99") ? -1 : 1);
 
-  // ── Drawer openers ───────────────────────────────────────────────────────────
-  const openFull = (dow = selectedDay) => {
-    setSelectedDay(dow);
-    setEditEntry(null); setEditPeriod(null);
-    setForm(EMPTY_FORM);
-    setDrawerMode("full"); setDrawerOpen(true);
+  // ── Pref helpers ─────────────────────────────────────────────────────────────
+  const setPref = patch => api.patchSchedulePrefs(patch).catch(() => {});
+
+  const toggleView = () => {
+    const next = viewMode === "list" ? "grid" : "list";
+    setViewMode(next); setPref({ sch_view: next });
+  };
+  const toggleLock = () => {
+    const next = !locked; setLocked(next); setPref({ sch_locked: next });
+    if (next) setDrawerOpen(false);
+  };
+  const toggleSat = () => {
+    const next = !showSat; setShowSat(next); setPref({ sch_show_sat: next });
+    if (!next) { setShowDom(false); setPref({ sch_show_dom: false }); }
+  };
+  const toggleDom = () => {
+    const next = !showDom; setShowDom(next); setPref({ sch_show_dom: next });
+  };
+  const toggleRotation = () => {
+    const next = !gridRotated; setGridRotated(next); setPref({ sch_grid_rotated: next });
   };
 
+  // ── Turno long-press ─────────────────────────────────────────────────────────
+  const onTurnoDown = key => {
+    lpTimer.current = setTimeout(() => {
+      setTurnoOrder(prev => {
+        if (prev[0] === key) return prev;
+        const next = [key, ...prev.filter(k => k !== key)];
+        setPref({ sch_turno_order: next });
+        showToast?.("📌 Turno fijado al inicio", "success");
+        return next;
+      });
+    }, 550);
+  };
+  const onTurnoUp = () => clearTimeout(lpTimer.current);
+
+  // ── Drawer openers ───────────────────────────────────────────────────────────
+  const openFull = (dow = selectedDay) => {
+    setSelectedDay(dow); setEditEntry(null); setEditPeriod(null);
+    setForm(EMPTY_FORM); setDrawerMode("full"); setDrawerOpen(true);
+  };
   const openFullEdit = entry => {
     setEditEntry(entry); setEditPeriod(null);
     setForm({ subject:entry.subject, time_from:entry.time_from||"",
               time_to:entry.time_to||"", color:entry.color||PRESET_COLORS[0] });
     setDrawerMode("full"); setDrawerOpen(true);
   };
-
   const openCell = (dow, entry, period) => {
     setSelectedDay(dow); setEditPeriod(period);
     if (entry) {
       setEditEntry(entry);
       setForm({ ...EMPTY_FORM, subject:entry.subject, color:entry.color||PRESET_COLORS[0] });
     } else {
-      setEditEntry(null);
-      setForm(EMPTY_FORM);
+      setEditEntry(null); setForm(EMPTY_FORM);
     }
     setDrawerMode("cell"); setDrawerOpen(true);
   };
-
   const openPeriodNew = () => {
-    setEditEntry(null); setEditPeriod(null);
-    setForm(EMPTY_FORM);
+    setEditEntry(null); setEditPeriod(null); setForm(EMPTY_FORM);
     setDrawerMode("period-new"); setDrawerOpen(true);
   };
-
   const openPeriodEdit = period => {
     setEditEntry(null); setEditPeriod(period);
     setForm({ ...EMPTY_FORM, time_from:period.time_from, time_to:period.time_to||"" });
     setDrawerMode("period-edit"); setDrawerOpen(true);
   };
+  const closeDrawer = () => { if (!saving) setDrawerOpen(false); };
 
-  const closeDrawer = () => { if (!saving) { setDrawerOpen(false); } };
-
-  // ── Save handlers ────────────────────────────────────────────────────────────
+  // ── Save ─────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setSaving(true);
     try {
       if (drawerMode === "period-new") {
         if (!form.time_from) { showToast?.("Ingresá la hora de inicio", "error"); return; }
-        const np = { id:genId(), time_from:form.time_from, time_to:form.time_to||null };
+        const np   = { id:genId(), time_from:form.time_from, time_to:form.time_to||null };
         const next = [...periods, np].sort((a,b) => a.time_from < b.time_from ? -1 : 1);
         setPeriods(next);
         await api.patchSchedulePrefs({ sch_periods: next });
@@ -297,13 +396,11 @@ export default function AHorarios({ me, showToast, onBack }) {
         const next  = periods.map(p => p.id === editPeriod.id ? updP : p)
           .sort((a,b) => a.time_from < b.time_from ? -1 : 1);
         setPeriods(next);
-        // Update all entries that used the old time
         const affected = entries.filter(e => e.turno === activeTurno && e.time_from === oldTf);
         await Promise.all(affected.map(e =>
-          api.patchSchedule(e.id, {
-            subject: e.subject, color: e.color,
-            time_from: form.time_from, time_to: form.time_to || null,
-          }).then(d => setEntries(prev => prev.map(x => x.id === e.id ? d : x)))
+          api.patchSchedule(e.id, { subject:e.subject, color:e.color,
+            time_from:form.time_from, time_to:form.time_to||null })
+          .then(d => setEntries(prev => prev.map(x => x.id === e.id ? d : x)))
         ));
         await api.patchSchedulePrefs({ sch_periods: next });
         setDrawerOpen(false);
@@ -312,41 +409,33 @@ export default function AHorarios({ me, showToast, onBack }) {
         if (!form.subject.trim()) { showToast?.("Ingresá el nombre de la materia", "error"); return; }
         if (editEntry) {
           const d = await api.patchSchedule(editEntry.id, {
-            subject:   form.subject.trim(),
-            time_from: editEntry.time_from,
-            time_to:   editEntry.time_to,
-            color:     form.color,
+            subject:form.subject.trim(), color:form.color,
+            time_from:editEntry.time_from, time_to:editEntry.time_to,
           });
           setEntries(prev => prev.map(e => e.id === editEntry.id ? d : e));
         } else {
           const d = await api.postSchedule({
-            turno: activeTurno, day_of_week: selectedDay,
-            subject:   form.subject.trim(),
-            time_from: editPeriod?.time_from || null,
-            time_to:   editPeriod?.time_to   || null,
-            color:     form.color,
+            turno:activeTurno, day_of_week:selectedDay,
+            subject:form.subject.trim(), color:form.color,
+            time_from:editPeriod?.time_from||null, time_to:editPeriod?.time_to||null,
           });
           setEntries(prev => [...prev, d]);
         }
         setDrawerOpen(false);
 
-      } else { // "full"
+      } else { // full
         if (!form.subject.trim()) { showToast?.("Ingresá el nombre de la materia", "error"); return; }
         if (editEntry) {
           const d = await api.patchSchedule(editEntry.id, {
-            subject:   form.subject.trim(),
-            time_from: form.time_from || null,
-            time_to:   form.time_to   || null,
-            color:     form.color,
+            subject:form.subject.trim(), time_from:form.time_from||null,
+            time_to:form.time_to||null, color:form.color,
           });
           setEntries(prev => prev.map(e => e.id === editEntry.id ? d : e));
         } else {
           const d = await api.postSchedule({
-            turno: activeTurno, day_of_week: selectedDay,
-            subject:   form.subject.trim(),
-            time_from: form.time_from || null,
-            time_to:   form.time_to   || null,
-            color:     form.color,
+            turno:activeTurno, day_of_week:selectedDay,
+            subject:form.subject.trim(), time_from:form.time_from||null,
+            time_to:form.time_to||null, color:form.color,
           });
           setEntries(prev => [...prev, d]);
         }
@@ -364,9 +453,8 @@ export default function AHorarios({ me, showToast, onBack }) {
       await api.deleteSchedule(editEntry.id);
       setEntries(prev => prev.filter(e => e.id !== editEntry.id));
       setDrawerOpen(false);
-    } catch(e) {
-      showToast?.(e.message || "Error al eliminar", "error");
-    } finally { setSaving(false); }
+    } catch(e) { showToast?.(e.message||"Error", "error"); }
+    finally { setSaving(false); }
   };
 
   const handleDeletePeriod = async () => {
@@ -375,50 +463,13 @@ export default function AHorarios({ me, showToast, onBack }) {
     try {
       await api.deleteSchedulePeriod(activeTurno, editPeriod.time_from);
       setEntries(prev => prev.filter(e =>
-        !(e.turno === activeTurno && e.time_from === editPeriod.time_from)
-      ));
+        !(e.turno === activeTurno && e.time_from === editPeriod.time_from)));
       const next = periods.filter(p => p.id !== editPeriod.id);
       setPeriods(next);
       await api.patchSchedulePrefs({ sch_periods: next });
       setDrawerOpen(false);
-    } catch(e) {
-      showToast?.(e.message || "Error al eliminar período", "error");
-    } finally { setSaving(false); }
-  };
-
-  // ── Prefs helpers ────────────────────────────────────────────────────────────
-  const toggleView = () => {
-    const next = viewMode === "list" ? "grid" : "list";
-    setViewMode(next);
-    api.patchSchedulePrefs({ sch_view: next }).catch(() => {});
-  };
-
-  const toggleLock = () => {
-    const next = !locked;
-    setLocked(next);
-    api.patchSchedulePrefs({ sch_locked: next }).catch(() => {});
-    if (next) setDrawerOpen(false);
-  };
-
-  const onTurnoDown = key => {
-    lpTimer.current = setTimeout(() => {
-      setTurnoOrder(prev => {
-        if (prev[0] === key) return prev;
-        const next = [key, ...prev.filter(k => k !== key)];
-        api.patchSchedulePrefs({ sch_turno_order: next }).catch(() => {});
-        showToast?.("📌 Turno fijado al inicio", "success");
-        return next;
-      });
-    }, 550);
-  };
-  const onTurnoUp = () => clearTimeout(lpTimer.current);
-
-  // ── Render helpers ───────────────────────────────────────────────────────────
-  const drawerTitle = () => {
-    if (drawerMode === "period-new")  return "⏱️ Nuevo período";
-    if (drawerMode === "period-edit") return "⏱️ Editar período";
-    if (drawerMode === "cell")        return editEntry ? "✏️ Editar clase" : "➕ Nueva clase";
-    return editEntry ? "✏️ Editar clase" : "➕ Nueva clase";
+    } catch(e) { showToast?.(e.message||"Error", "error"); }
+    finally { setSaving(false); }
   };
 
   const saveDisabled = () => {
@@ -434,10 +485,9 @@ export default function AHorarios({ me, showToast, onBack }) {
 
       {/* ── Header ── */}
       <div style={{
-        background: locked ? (dark ? "#1a1a2e" : "#4a4a6a") : primary,
-        color:"white", padding:"52px 20px 18px",
+        background:primary, color:"white",
+        padding:"52px 20px 18px",
         position:"sticky", top:0, zIndex:50, overflow:"hidden",
-        transition:"background .4s",
       }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
           background:"rgba(255,255,255,.07)", top:-60, right:-40, pointerEvents:"none" }}/>
@@ -448,17 +498,17 @@ export default function AHorarios({ me, showToast, onBack }) {
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>←</button>
           <div style={{ flex:1 }}>
-            <div style={{ fontWeight:900, fontSize:19 }}>
-              📅 Horarios {locked && <span style={{ fontSize:14 }}>🔒</span>}
-            </div>
+            <div style={{ fontWeight:900, fontSize:19 }}>📅 Horarios</div>
             <div style={{ fontSize:11, opacity:.82 }}>Tu calendario semanal</div>
           </div>
-          {/* Lock toggle */}
+          {/* Lock button — only this changes when locked */}
           <button onClick={toggleLock} style={{
-            background:"rgba(255,255,255,.18)", border:"none", borderRadius:10,
+            background: locked ? "rgba(255,255,255,.42)" : "rgba(255,255,255,.18)",
+            border:"none", borderRadius:10,
             padding:"6px 11px", cursor:"pointer", color:"white",
             fontFamily:"Nunito,sans-serif", fontSize:12, fontWeight:800,
             display:"flex", alignItems:"center", gap:5, flexShrink:0,
+            transition:"background .2s",
           }}>
             <span>{locked ? "🔓" : "🔒"}</span>
             <span style={{ fontSize:10 }}>{locked ? "Desbloquear" : "Bloquear"}</span>
@@ -503,20 +553,17 @@ export default function AHorarios({ me, showToast, onBack }) {
                   onTouchStart={() => !locked && onTurnoDown(t.key)}
                   onTouchEnd={onTurnoUp} onTouchCancel={onTurnoUp}
                   style={{
-                    background: active
-                      ? (locked ? (dark ? "#333" : "#888") : primary)
-                      : (dark ? "rgba(255,255,255,.06)" : cardBg),
+                    background: active ? primary : (dark ? "rgba(255,255,255,.06)" : cardBg),
                     border:`1.5px solid ${active ? "transparent" : navBord}`,
                     borderRadius:14, padding:"10px 4px",
                     display:"flex", flexDirection:"column", alignItems:"center", gap:4,
                     cursor:"pointer", fontFamily:"Nunito,sans-serif",
                     transition:"all .2s", position:"relative",
-                    boxShadow: active && !locked ? `0 4px 12px ${primary}44` : "none",
+                    boxShadow: active ? `0 4px 12px ${primary}44` : "none",
                     userSelect:"none", WebkitUserSelect:"none",
                   }}>
                   {idx === 0 && !active && !locked && (
-                    <div style={{ position:"absolute", top:3, right:5,
-                      fontSize:8, opacity:.4 }}>📌</div>
+                    <div style={{ position:"absolute", top:3, right:5, fontSize:8, opacity:.4 }}>📌</div>
                   )}
                   <span style={{ fontSize:20 }}>{t.emoji}</span>
                   <span style={{ fontSize:11, fontWeight:800,
@@ -538,9 +585,7 @@ export default function AHorarios({ me, showToast, onBack }) {
             {periods.length === 0 ? (
               <div style={{ textAlign:"center", padding:"36px 16px" }}>
                 <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
-                <div style={{ fontWeight:800, color:txt, fontSize:15, marginBottom:6 }}>
-                  Sin períodos
-                </div>
+                <div style={{ fontWeight:800, color:txt, fontSize:15, marginBottom:6 }}>Sin períodos</div>
                 <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55 }}>
                   Agregá un período para construir la grilla.
                 </div>
@@ -556,6 +601,7 @@ export default function AHorarios({ me, showToast, onBack }) {
               <GridView
                 periods={periods} entries={entries}
                 activeTurno={activeTurno} locked={locked}
+                rotated={gridRotated} visibleDays={visibleDays}
                 primary={primary} txt={txt} sub={sub}
                 navBord={navBord} isDark={dark}
                 onCellClick={openCell}
@@ -563,35 +609,43 @@ export default function AHorarios({ me, showToast, onBack }) {
               />
             )}
 
-            {/* Grid bottom toolbar */}
+            {/* Grid toolbar — hidden when locked */}
             {!locked && (
-              <div style={{ display:"flex", gap:10, marginTop:12, flexWrap:"wrap" }}>
-                <button onClick={openPeriodNew} style={{
-                  background: dark ? "rgba(255,255,255,.06)" : "#f4f4f0",
-                  border:`1.5px dashed ${navBord}`,
-                  borderRadius:10, padding:"8px 16px",
-                  color:sub, fontSize:12, fontWeight:800,
-                  cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                  display:"flex", alignItems:"center", gap:6,
-                }}>
-                  <span style={{ fontSize:16, lineHeight:1 }}>+</span> Agregar período
-                </button>
+              <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap" }}>
+
+                {/* Agregar período */}
+                <ToolBtn onClick={openPeriodNew} dark={dark} navBord={navBord} sub={sub}>
+                  <span style={{ fontSize:15, lineHeight:1 }}>+</span> Período
+                </ToolBtn>
+
+                {/* Eliminar período */}
                 {periods.length > 0 && (
-                  <button onClick={() => {
-                    // Enter period-edit mode for the last period as a shortcut
-                    // or open a picker — for simplicity open the last one
-                    openPeriodEdit(periods[periods.length - 1]);
-                  }} style={{
-                    background: dark ? "rgba(255,255,255,.06)" : "#f4f4f0",
-                    border:`1.5px dashed ${navBord}`,
-                    borderRadius:10, padding:"8px 16px",
-                    color:sub, fontSize:12, fontWeight:800,
-                    cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                    display:"flex", alignItems:"center", gap:6,
-                  }}>
-                    <span style={{ fontSize:15, lineHeight:1 }}>×</span> Eliminar período
-                  </button>
+                  <ToolBtn onClick={() => openPeriodEdit(periods[periods.length - 1])}
+                    dark={dark} navBord={navBord} sub={sub}>
+                    <span style={{ fontSize:14, lineHeight:1 }}>×</span> Período
+                  </ToolBtn>
                 )}
+
+                {/* Sábado toggle */}
+                <ToolBtn onClick={toggleSat} dark={dark} navBord={navBord} sub={sub}
+                  active={showSat} primary={primary}>
+                  {showSat ? "× Sáb" : "+ Sáb"}
+                </ToolBtn>
+
+                {/* Domingo toggle — only if Sat is shown */}
+                {showSat && (
+                  <ToolBtn onClick={toggleDom} dark={dark} navBord={navBord} sub={sub}
+                    active={showDom} primary={primary}>
+                    {showDom ? "× Dom" : "+ Dom"}
+                  </ToolBtn>
+                )}
+
+                {/* Rotation toggle */}
+                <ToolBtn onClick={toggleRotation} dark={dark} navBord={navBord} sub={sub}
+                  active={gridRotated} primary={primary}>
+                  <span style={{ fontSize:15 }}>↻</span> Rotar
+                </ToolBtn>
+
               </div>
             )}
           </>
@@ -599,7 +653,6 @@ export default function AHorarios({ me, showToast, onBack }) {
         ) : (
           /* ── List view ── */
           <>
-            {/* Day pills */}
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:10, fontWeight:900, color:sub,
                 letterSpacing:".08em", textTransform:"uppercase", marginBottom:8 }}>Día</div>
@@ -608,26 +661,22 @@ export default function AHorarios({ me, showToast, onBack }) {
                 {DAYS_SHORT.map((d, i) => {
                   const active = selectedDay === i;
                   const hasDot = !active && entries.some(
-                    e => e.turno === activeTurno && e.day_of_week === i
-                  );
+                    e => e.turno === activeTurno && e.day_of_week === i);
                   return (
                     <button key={d} onClick={() => setSelectedDay(i)} style={{
                       flexShrink:0, position:"relative",
-                      background: active
-                        ? (locked ? (dark ? "#333" : "#888") : primary)
-                        : (dark ? "rgba(255,255,255,.06)" : cardBg),
-                      border:`1.5px solid ${active ? (locked ? "transparent" : primary) : navBord}`,
+                      background: active ? primary : (dark ? "rgba(255,255,255,.06)" : cardBg),
+                      border:`1.5px solid ${active ? primary : navBord}`,
                       borderRadius:99, padding:"7px 15px",
                       fontSize:12, fontWeight:800,
                       color: active ? "white" : txt,
-                      cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                      transition:"all .2s",
+                      cursor:"pointer", fontFamily:"Nunito,sans-serif", transition:"all .2s",
                     }}>
                       {d}
                       {hasDot && (
                         <span style={{ position:"absolute", top:3, right:4,
                           width:5, height:5, borderRadius:"50%",
-                          background: locked ? sub : primary, display:"block" }}/>
+                          background:primary, display:"block" }}/>
                       )}
                     </button>
                   );
@@ -635,7 +684,6 @@ export default function AHorarios({ me, showToast, onBack }) {
               </div>
             </div>
 
-            {/* List header */}
             <div style={{ display:"flex", alignItems:"center",
               justifyContent:"space-between", marginBottom:12 }}>
               <div>
@@ -659,16 +707,12 @@ export default function AHorarios({ me, showToast, onBack }) {
               )}
             </div>
 
-            {/* Entry cards */}
             {dayEntries.length === 0 ? (
               <div style={{ textAlign:"center", padding:"36px 20px" }}>
                 <div style={{ fontSize:52, marginBottom:12 }}>📚</div>
-                <div style={{ fontWeight:800, color:txt, marginBottom:6, fontSize:15 }}>
-                  Sin clases cargadas
-                </div>
+                <div style={{ fontWeight:800, color:txt, marginBottom:6, fontSize:15 }}>Sin clases cargadas</div>
                 <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55 }}>
-                  No hay materias para {DAYS_FULL[selectedDay].toLowerCase()}
-                  {" "}en el turno {turnoLabel.toLowerCase()}.
+                  No hay materias para {DAYS_FULL[selectedDay].toLowerCase()} en el turno {turnoLabel.toLowerCase()}.
                 </div>
                 {!locked && (
                   <button onClick={() => openFull(selectedDay)} style={{
@@ -690,7 +734,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                       cursor: locked ? "default" : "pointer",
                       display:"flex", alignItems:"center", gap:12,
                       boxShadow: dark ? "0 2px 8px rgba(0,0,0,.3)" : "0 1px 6px rgba(0,0,0,.07)",
-                      transition:"background .3s", opacity: locked ? .75 : 1,
+                      transition:"background .3s",
                     }}>
                     <div style={{
                       width:38, height:38, borderRadius:11, flexShrink:0,
@@ -740,9 +784,10 @@ export default function AHorarios({ me, showToast, onBack }) {
             <div style={{ width:40, height:4, borderRadius:99,
               background:dark?"#444":"#e0e0e0", margin:"12px auto 18px" }}/>
 
-            {/* Title */}
             <div style={{ fontWeight:900, fontSize:15, color:txt, marginBottom:16 }}>
-              {drawerTitle()}
+              {drawerMode === "period-new"  ? "⏱️ Nuevo período"   :
+               drawerMode === "period-edit" ? "⏱️ Editar período"  :
+               editEntry                    ? "✏️ Editar clase"    : "➕ Nueva clase"}
               {(drawerMode === "cell" || drawerMode === "full") && (
                 <span style={{ fontSize:11, fontWeight:700, color:sub, marginLeft:8 }}>
                   {DAYS_FULL[selectedDay]} · {turnoLabel}
@@ -750,7 +795,7 @@ export default function AHorarios({ me, showToast, onBack }) {
               )}
             </div>
 
-            {/* ── Period mode: only time fields ── */}
+            {/* Period mode: time only */}
             {(drawerMode === "period-new" || drawerMode === "period-edit") && (
               <>
                 <div style={{ fontSize:10, fontWeight:900, color:sub,
@@ -758,9 +803,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                 <div style={{ display:"flex", gap:10, marginBottom:20 }}>
                   {[["time_from","Inicio *"],["time_to","Fin (opcional)"]].map(([key, label]) => (
                     <div key={key} style={{ flex:1 }}>
-                      <div style={{ fontSize:11, color:sub, marginBottom:4, fontWeight:700 }}>
-                        {label}
-                      </div>
+                      <div style={{ fontSize:11, color:sub, marginBottom:4, fontWeight:700 }}>{label}</div>
                       <input type="time"
                         autoFocus={key === "time_from"}
                         value={form[key]}
@@ -780,7 +823,7 @@ export default function AHorarios({ me, showToast, onBack }) {
               </>
             )}
 
-            {/* ── Cell / full mode: subject + color (+ time if full) ── */}
+            {/* Cell / full mode: subject + color (+ time if full) */}
             {(drawerMode === "cell" || drawerMode === "full") && (
               <>
                 <div style={{ fontSize:10, fontWeight:900, color:sub,
@@ -800,7 +843,6 @@ export default function AHorarios({ me, showToast, onBack }) {
                     transition:"border-color .2s, background .3s, color .3s",
                   }}
                 />
-
                 {drawerMode === "full" && (
                   <>
                     <div style={{ fontSize:10, fontWeight:900, color:sub,
@@ -808,11 +850,8 @@ export default function AHorarios({ me, showToast, onBack }) {
                     <div style={{ display:"flex", gap:10, marginBottom:14 }}>
                       {[["time_from","Desde"],["time_to","Hasta"]].map(([key, label]) => (
                         <div key={key} style={{ flex:1 }}>
-                          <div style={{ fontSize:11, color:sub, marginBottom:4, fontWeight:700 }}>
-                            {label}
-                          </div>
-                          <input type="time"
-                            value={form[key]}
+                          <div style={{ fontSize:11, color:sub, marginBottom:4, fontWeight:700 }}>{label}</div>
+                          <input type="time" value={form[key]}
                             onChange={e => setForm(f => ({ ...f, [key]:e.target.value }))}
                             style={{
                               width:"100%", boxSizing:"border-box",
@@ -827,7 +866,6 @@ export default function AHorarios({ me, showToast, onBack }) {
                     </div>
                   </>
                 )}
-
                 <div style={{ fontSize:10, fontWeight:900, color:sub,
                   letterSpacing:".07em", marginBottom:8 }}>COLOR</div>
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
@@ -843,46 +881,55 @@ export default function AHorarios({ me, showToast, onBack }) {
               </>
             )}
 
-            {/* Save */}
             <button onClick={handleSave} disabled={saveDisabled()} style={{
               width:"100%", padding:"13px", borderRadius:50, border:"none",
               background: saveDisabled() ? navBord : primary,
               color:"white", fontWeight:900, fontSize:15,
               cursor: saveDisabled() ? "not-allowed" : "pointer",
-              fontFamily:"Nunito,sans-serif", marginBottom:10,
-              transition:"all .2s",
+              fontFamily:"Nunito,sans-serif", marginBottom:10, transition:"all .2s",
             }}>
               {saving ? "Guardando..." : "Guardar"}
             </button>
 
-            {/* Delete period */}
             {drawerMode === "period-edit" && editPeriod && (
               <button onClick={handleDeletePeriod} disabled={saving} style={{
                 width:"100%", padding:"12px", borderRadius:50,
                 border:`1.5px solid #ef444466`, background:"transparent",
                 color:"#ef4444", fontWeight:800, fontSize:14,
-                cursor:saving?"not-allowed":"pointer",
-                fontFamily:"Nunito,sans-serif",
-              }}>
-                Eliminar este período
-              </button>
+                cursor:saving?"not-allowed":"pointer", fontFamily:"Nunito,sans-serif",
+              }}>Eliminar este período</button>
             )}
-
-            {/* Delete entry */}
             {(drawerMode === "cell" || drawerMode === "full") && editEntry && (
               <button onClick={handleDeleteEntry} disabled={saving} style={{
                 width:"100%", padding:"12px", borderRadius:50,
                 border:`1.5px solid #ef444466`, background:"transparent",
                 color:"#ef4444", fontWeight:800, fontSize:14,
-                cursor:saving?"not-allowed":"pointer",
-                fontFamily:"Nunito,sans-serif",
-              }}>
-                Eliminar clase
-              </button>
+                cursor:saving?"not-allowed":"pointer", fontFamily:"Nunito,sans-serif",
+              }}>Eliminar clase</button>
             )}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+// ── Small toolbar button ──────────────────────────────────────────────────────
+function ToolBtn({ onClick, dark, navBord, sub, primary, active, children }) {
+  return (
+    <button onClick={onClick} style={{
+      background: active
+        ? (dark ? `${primary}30` : `${primary}15`)
+        : (dark ? "rgba(255,255,255,.06)" : "#f4f4f0"),
+      border: active ? `1.5px solid ${primary}66` : `1.5px dashed ${navBord}`,
+      borderRadius:10, padding:"8px 14px",
+      color: active ? primary : sub,
+      fontSize:12, fontWeight:800,
+      cursor:"pointer", fontFamily:"Nunito,sans-serif",
+      display:"flex", alignItems:"center", gap:5,
+      transition:"all .15s",
+    }}>
+      {children}
+    </button>
   );
 }
