@@ -1,18 +1,21 @@
 // AHorarios.jsx — Weekly school schedule
 //
-// Model:
-//   • User picks ONE turno (Mañana/Tarde/Noche/Extra)
-//   • Within the active turno, each day holds N subjects/periods
-//   • Two view modes: list (day-by-day) and grid (full weekly calendar)
-//   • All schedule data synced to backend; view prefs + turno order in localStorage
+// Grid model:
+//   • Periods (time rows) stored in prefs → define the left-column HORARIO structure
+//   • Each (period × day) cell = one entry in user_schedules
+//   • HORARIO cell click  → edit period time only
+//   • Day cell click      → edit subject + color only
+//   • List view           → full form (subject + time + color)
+//   • Lock mode           → read-only, no edits
 
 import { useState, useEffect, useRef } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 
-// ─── constants ───────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 const DAYS_SHORT = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 const DAYS_FULL  = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+const ALL_DAYS   = [0,1,2,3,4,5,6]; // always show all 7 in grid
 
 const TURNOS = [
   { key:"manana", label:"Mañana", emoji:"🌅" },
@@ -28,222 +31,120 @@ const PRESET_COLORS = [
 
 const EMPTY_FORM = { subject:"", time_from:"", time_to:"", color:PRESET_COLORS[0] };
 
-function todayDow() {
-  const d = new Date().getDay();
-  return d === 0 ? 6 : d - 1;
-}
-
+function todayDow() { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; }
 const fmtTime = t => t ? t.substring(0, 5) : null;
+const genId = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-const DAY_LABELS_GRID = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
-
-// ─── Grid / Calendar view ─────────────────────────────────────────────────────
-// Rows   = unique time_from slots (sorted)
-// Cols   = Mon–Fri always; Sat/Sun only when explicitly added or have entries
-// Left col = HORARIO (time range)
+// ─── Grid view ────────────────────────────────────────────────────────────────
 function GridView({
-  entries, activeTurno, primary, txt, sub, cardBg, navBord, isDark,
-  visibleDays, onCellClick, onAddPeriod, onAddDay,
+  periods, entries, activeTurno, locked,
+  primary, txt, sub, navBord, isDark,
+  onCellClick, onPeriodClick,
 }) {
-  // Derive sorted time slots from entries in this turno that have a time_from
-  const timed = entries.filter(e => e.turno === activeTurno && e.time_from);
-  const slotKeys = [...new Set(timed.map(e => e.time_from))].sort();
-  const slots = slotKeys.map(tf => {
-    const rep = timed.find(e => e.time_from === tf);
-    return { time_from: tf, time_to: rep?.time_to || null };
-  });
-
-  // Entries without time
-  const noTime = entries.filter(e => e.turno === activeTurno && !e.time_from);
-
-  // Cell lookup
-  const cellEntry = (dow, tf) =>
-    entries.find(e =>
+  const cellEntry = (dow, periodId) => {
+    const p = periods.find(x => x.id === periodId);
+    if (!p) return null;
+    return entries.find(e =>
       e.turno === activeTurno &&
       e.day_of_week === dow &&
-      e.time_from === tf
+      e.time_from === p.time_from
     ) || null;
-
-  const canAddSat = !visibleDays.includes(5);
-  const canAddSun = visibleDays.includes(5) && !visibleDays.includes(6);
-  const showAddDay = canAddSat || canAddSun;
-
-  const HORARIO_W = 84;
-  const DAY_MIN   = 64;
-  const ADD_BTN_W = 34;
-
-  const headBg  = isDark ? "rgba(255,255,255,.05)" : "#f9f7f2";
-  const borderC = navBord;
-
-  const cellBase = {
-    minHeight:58, minWidth:DAY_MIN, flex:1,
-    borderLeft:`1px solid ${borderC}`,
-    padding:"6px 7px", cursor:"pointer",
-    display:"flex", flexDirection:"column", justifyContent:"center",
-    transition:"background .12s",
   };
 
-  // Empty state
-  if (slots.length === 0 && noTime.length === 0) {
-    return (
-      <div style={{ textAlign:"center", padding:"36px 20px" }}>
-        <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
-        <div style={{ fontWeight:800, color:txt, fontSize:15, marginBottom:6 }}>
-          Sin períodos cargados
-        </div>
-        <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55 }}>
-          Agregá clases con horario para que aparezcan en la grilla.
-        </div>
-        <button onClick={onAddPeriod} style={{
-          background:primary, border:"none", borderRadius:50,
-          padding:"11px 28px", color:"white", fontWeight:900, fontSize:13,
-          cursor:"pointer", fontFamily:"Nunito,sans-serif",
-        }}>+ Agregar período</button>
-      </div>
-    );
-  }
+  const HORARIO_W = 82;
+  const DAY_MIN   = 42;
+  const headBg    = isDark ? "rgba(255,255,255,.05)" : "#f9f7f1";
+  const borderC   = navBord;
+
+  const cellStyle = {
+    minHeight:56, flex:1, minWidth:DAY_MIN,
+    borderLeft:`1px solid ${borderC}`,
+    padding:"5px 6px", cursor: locked ? "default" : "pointer",
+    display:"flex", flexDirection:"column", justifyContent:"center",
+    transition:"background .1s",
+  };
+
+  if (periods.length === 0) return null; // empty state handled by parent
 
   return (
     <div style={{ overflowX:"auto" }}>
-      <div style={{ minWidth: HORARIO_W + visibleDays.length * DAY_MIN + (showAddDay ? ADD_BTN_W : 0) }}>
+      <div style={{ minWidth: HORARIO_W + ALL_DAYS.length * DAY_MIN }}>
 
-        {/* ── Header row ── */}
+        {/* Header */}
         <div style={{ display:"flex", borderBottom:`2px solid ${borderC}` }}>
           <div style={{ width:HORARIO_W, flexShrink:0, padding:"8px 10px",
             fontSize:9, fontWeight:900, color:sub, letterSpacing:".08em",
             background:headBg, display:"flex", alignItems:"center" }}>
             HORARIO
           </div>
-          {visibleDays.map(dow => (
+          {ALL_DAYS.map(dow => (
             <div key={dow} style={{
-              flex:1, minWidth:DAY_MIN, padding:"8px 4px",
-              fontSize:9, fontWeight:900, color:sub, letterSpacing:".06em",
+              flex:1, minWidth:DAY_MIN, padding:"7px 3px",
+              fontSize:9, fontWeight:900, color:sub, letterSpacing:".04em",
               textAlign:"center", background:headBg,
               borderLeft:`1px solid ${borderC}`,
             }}>
-              {DAY_LABELS_GRID[dow].toUpperCase()}
+              {DAYS_SHORT[dow].toUpperCase()}
             </div>
           ))}
-          {/* Add day (+Sáb / +Dom) */}
-          {showAddDay && (
-            <button onClick={onAddDay} title={canAddSat ? "Agregar Sábado" : "Agregar Domingo"}
-              style={{
-                width:ADD_BTN_W, flexShrink:0,
-                background:headBg, border:"none",
-                borderLeft:`1px solid ${borderC}`,
-                cursor:"pointer", color:primary,
-                fontSize:18, fontWeight:900,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontFamily:"Nunito,sans-serif",
-              }}>+</button>
-          )}
         </div>
 
-        {/* ── Time slot rows ── */}
-        {slots.map((slot, si) => (
-          <div key={si} style={{ display:"flex",
-            borderBottom:`1px solid ${borderC}` }}>
-            {/* Time label */}
-            <div style={{
-              width:HORARIO_W, flexShrink:0,
-              padding:"6px 10px",
-              background: isDark ? "rgba(255,255,255,.02)" : "#fdfcf8",
-              display:"flex", flexDirection:"column", justifyContent:"center",
-            }}>
-              <div style={{ fontSize:11, fontWeight:800, color:sub, lineHeight:1.5 }}>
-                {fmtTime(slot.time_from)}
+        {/* Period rows */}
+        {periods.map(period => (
+          <div key={period.id} style={{ display:"flex", borderBottom:`1px solid ${borderC}` }}>
+            {/* HORARIO cell — click = edit time only */}
+            <div
+              onClick={() => !locked && onPeriodClick(period)}
+              style={{
+                width:HORARIO_W, flexShrink:0, padding:"6px 10px",
+                background: isDark ? "rgba(255,255,255,.025)" : "#fdfcf8",
+                display:"flex", flexDirection:"column", justifyContent:"center",
+                cursor: locked ? "default" : "pointer",
+                transition:"background .1s",
+              }}>
+              <div style={{ fontSize:12, fontWeight:800, color: locked ? sub : primary,
+                lineHeight:1.4 }}>
+                {fmtTime(period.time_from) || "—"}
               </div>
-              {slot.time_to && (
-                <div style={{ fontSize:10, color:sub, opacity:.55, fontWeight:700 }}>
-                  {fmtTime(slot.time_to)}
+              {period.time_to && (
+                <div style={{ fontSize:10, color:sub, opacity:.6, fontWeight:700 }}>
+                  {fmtTime(period.time_to)}
                 </div>
               )}
             </div>
 
-            {/* Day cells */}
-            {visibleDays.map(dow => {
-              const entry = cellEntry(dow, slot.time_from);
+            {/* Day cells — click = edit subject only */}
+            {ALL_DAYS.map(dow => {
+              const entry = cellEntry(dow, period.id);
               return (
                 <div key={dow}
-                  onClick={() => onCellClick(dow, entry, slot)}
+                  onClick={() => !locked && onCellClick(dow, entry, period)}
                   style={{
-                    ...cellBase,
+                    ...cellStyle,
                     background: entry
-                      ? (isDark ? `${entry.color}1a` : `${entry.color}10`)
+                      ? (isDark ? `${entry.color}1c` : `${entry.color}12`)
                       : "transparent",
                     borderTop: entry ? `2px solid ${entry.color}` : "none",
                   }}>
                   {entry ? (
                     <div style={{
-                      fontSize:11, fontWeight:800, color:entry.color,
+                      fontSize:10, fontWeight:800, color:entry.color,
                       lineHeight:1.3, overflow:"hidden",
                       display:"-webkit-box", WebkitLineClamp:2,
                       WebkitBoxOrient:"vertical", wordBreak:"break-word",
                     }}>{entry.subject}</div>
-                  ) : (
-                    <div style={{ textAlign:"center", fontSize:15,
-                      color:borderC, opacity:.4 }}>+</div>
-                  )}
+                  ) : !locked ? (
+                    <div style={{ textAlign:"center", fontSize:14,
+                      color:borderC, opacity:.3 }}>+</div>
+                  ) : null}
                 </div>
               );
             })}
-            {showAddDay && (
-              <div style={{ width:ADD_BTN_W, flexShrink:0,
-                borderLeft:`1px solid ${borderC}` }}/>
-            )}
           </div>
         ))}
-
-        {/* ── Sin horario row (entries without time_from) ── */}
-        {noTime.length > 0 && (
-          <div style={{ display:"flex", borderBottom:`1px solid ${borderC}` }}>
-            <div style={{ width:HORARIO_W, flexShrink:0, padding:"6px 10px",
-              fontSize:9, fontWeight:700, color:sub, opacity:.45,
-              background: isDark ? "rgba(255,255,255,.02)" : "#fdfcf8",
-              display:"flex", alignItems:"center" }}>
-              SIN HORA
-            </div>
-            {visibleDays.map(dow => {
-              const dayNoTime = noTime.filter(e => e.day_of_week === dow);
-              return (
-                <div key={dow} style={{
-                  ...cellBase, flexWrap:"wrap", gap:3, alignContent:"flex-start",
-                }}>
-                  {dayNoTime.map(entry => (
-                    <div key={entry.id}
-                      onClick={ev => { ev.stopPropagation(); onCellClick(dow, entry, null); }}
-                      style={{
-                        background:`${entry.color}18`,
-                        borderLeft:`2px solid ${entry.color}`,
-                        borderRadius:4, padding:"2px 5px",
-                        fontSize:9, fontWeight:800, color:entry.color,
-                        cursor:"pointer", whiteSpace:"nowrap",
-                        overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%",
-                      }}>{entry.subject}</div>
-                  ))}
-                  {dayNoTime.length === 0 && (
-                    <div style={{ fontSize:14, color:borderC, opacity:.3, margin:"auto" }}>+</div>
-                  )}
-                </div>
-              );
-            })}
-            {showAddDay && <div style={{ width:ADD_BTN_W, flexShrink:0 }}/>}
-          </div>
-        )}
-
-        {/* ── Add period button ── */}
-        <div style={{ padding:"10px 12px" }}>
-          <button onClick={onAddPeriod} style={{
-            background: isDark ? "rgba(255,255,255,.05)" : "#f4f4f0",
-            border:`1.5px dashed ${borderC}`,
-            borderRadius:10, padding:"8px 18px",
-            color:sub, fontSize:12, fontWeight:800,
-            cursor:"pointer", fontFamily:"Nunito,sans-serif",
-            display:"flex", alignItems:"center", gap:7,
-          }}>
-            <span style={{ fontSize:16, lineHeight:1 }}>+</span> Agregar período
-          </button>
-        </div>
 
       </div>
     </div>
@@ -261,140 +162,244 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [loading,     setLoading]     = useState(true);
   const [activeTurno, setActiveTurno] = useState("manana");
   const [selectedDay, setSelectedDay] = useState(() => todayDow());
-  const [drawerOpen,  setDrawerOpen]  = useState(false);
-  const [editTarget,  setEditTarget]  = useState(null);
-  const [form,        setForm]        = useState(EMPTY_FORM);
   const [saving,      setSaving]      = useState(false);
 
-  // ── UI prefs (server-persisted) ─────────────────────────────────────────────
-  const [viewMode,    setViewMode]    = useState("list");
-  const [turnoOrder,  setTurnoOrder]  = useState(TURNOS.map(t => t.key));
-  const [visibleDays, setVisibleDays] = useState([0,1,2,3,4]); // Mon–Fri default
+  // ── UI prefs ────────────────────────────────────────────────────────────────
+  const [viewMode,   setViewMode]   = useState("list");
+  const [turnoOrder, setTurnoOrder] = useState(TURNOS.map(t => t.key));
+  const [periods,    setPeriods]    = useState([]); // [{id, time_from, time_to}]
+  const [locked,     setLocked]     = useState(false);
+
+  // ── Drawer ──────────────────────────────────────────────────────────────────
+  // mode: "full" | "cell" | "period-new" | "period-edit"
+  const [drawerOpen,   setDrawerOpen]   = useState(false);
+  const [drawerMode,   setDrawerMode]   = useState("full");
+  const [editEntry,    setEditEntry]    = useState(null);  // entry being edited
+  const [editPeriod,   setEditPeriod]   = useState(null);  // period being edited
+  const [form,         setForm]         = useState(EMPTY_FORM);
 
   // Long-press ref
   const lpTimer = useRef(null);
 
-  // ── Load schedule + prefs ───────────────────────────────────────────────────
+  // ── Load ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
       api.getSchedule().catch(() => []),
       api.getSchedulePrefs().catch(() => ({})),
     ]).then(([scheduleData, prefs]) => {
-      // Schedule entries
       const arr = Array.isArray(scheduleData) ? scheduleData : [];
       setEntries(arr);
+
+      // Auto-select turno with most entries
       if (arr.length > 0) {
         const counts = arr.reduce((acc, e) => {
           acc[e.turno] = (acc[e.turno] || 0) + 1; return acc;
         }, {});
-        const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-        setActiveTurno(best);
+        setActiveTurno(Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0]);
       }
-      // View prefs
+
       if (prefs.sch_view) setViewMode(prefs.sch_view);
       if (Array.isArray(prefs.sch_turno_order) &&
           prefs.sch_turno_order.length === TURNOS.length) {
         setTurnoOrder(prefs.sch_turno_order);
       }
-      // Auto-reveal Sat/Sun if entries exist for those days
-      const hasSat = arr.some(e => e.day_of_week === 5);
-      const hasSun = arr.some(e => e.day_of_week === 6);
-      if (hasSat || hasSun) {
-        setVisibleDays(prev => {
-          let d = [...prev];
-          if (hasSat && !d.includes(5)) d = [...d, 5];
-          if (hasSun && !d.includes(6)) d = [...d, 6];
-          return d;
+      if (typeof prefs.sch_locked === "boolean") setLocked(prefs.sch_locked);
+
+      // Load or derive periods
+      if (Array.isArray(prefs.sch_periods) && prefs.sch_periods.length > 0) {
+        setPeriods([...prefs.sch_periods].sort((a,b) =>
+          (a.time_from||"") < (b.time_from||"") ? -1 : 1));
+      } else if (arr.length > 0) {
+        // First time: derive from existing entries for backward compat
+        const seen = new Set();
+        const derived = [];
+        arr.filter(e => e.time_from).sort((a,b) =>
+          (a.time_from||"") < (b.time_from||"") ? -1 : 1
+        ).forEach(e => {
+          if (!seen.has(e.time_from)) {
+            seen.add(e.time_from);
+            derived.push({ id:genId(), time_from:e.time_from, time_to:e.time_to||null });
+          }
         });
+        if (derived.length > 0) {
+          setPeriods(derived);
+          api.patchSchedulePrefs({ sch_periods: derived }).catch(() => {});
+        }
       }
     }).finally(() => setLoading(false));
-  }, []);
+  }, []); // eslint-disable-line
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
-  const orderedTurnos = turnoOrder
-    .map(key => TURNOS.find(t => t.key === key))
-    .filter(Boolean);
+  // ── Derived ──────────────────────────────────────────────────────────────────
+  const orderedTurnos = turnoOrder.map(k => TURNOS.find(t => t.key === k)).filter(Boolean);
+  const turnoLabel    = TURNOS.find(t => t.key === activeTurno)?.label || "";
 
   const dayEntries = entries
     .filter(e => e.turno === activeTurno && e.day_of_week === selectedDay)
-    .sort((a, b) => (a.time_from || "99:99") < (b.time_from || "99:99") ? -1 : 1);
+    .sort((a,b) => (a.time_from||"99:99") < (b.time_from||"99:99") ? -1 : 1);
 
-  const turnoLabel = TURNOS.find(t => t.key === activeTurno)?.label || "";
-
-  // ── Handlers ────────────────────────────────────────────────────────────────
-  const openNew = (dow = selectedDay, prefillTime = null) => {
+  // ── Drawer openers ───────────────────────────────────────────────────────────
+  const openFull = (dow = selectedDay) => {
     setSelectedDay(dow);
-    setEditTarget(null);
-    setForm(prefillTime
-      ? { ...EMPTY_FORM, time_from: prefillTime.time_from || "", time_to: prefillTime.time_to || "" }
-      : EMPTY_FORM
-    );
-    setDrawerOpen(true);
+    setEditEntry(null); setEditPeriod(null);
+    setForm(EMPTY_FORM);
+    setDrawerMode("full"); setDrawerOpen(true);
   };
 
-  const openEdit = entry => {
-    setEditTarget(entry);
-    setForm({
-      subject:   entry.subject,
-      time_from: entry.time_from || "",
-      time_to:   entry.time_to   || "",
-      color:     entry.color     || PRESET_COLORS[0],
-    });
-    setDrawerOpen(true);
+  const openFullEdit = entry => {
+    setEditEntry(entry); setEditPeriod(null);
+    setForm({ subject:entry.subject, time_from:entry.time_from||"",
+              time_to:entry.time_to||"", color:entry.color||PRESET_COLORS[0] });
+    setDrawerMode("full"); setDrawerOpen(true);
   };
 
-  const closeDrawer = () => { if (!saving) setDrawerOpen(false); };
-
-  const handleSave = async () => {
-    if (!form.subject.trim()) {
-      showToast?.("Ingresá el nombre de la materia", "error"); return;
+  const openCell = (dow, entry, period) => {
+    setSelectedDay(dow); setEditPeriod(period);
+    if (entry) {
+      setEditEntry(entry);
+      setForm({ ...EMPTY_FORM, subject:entry.subject, color:entry.color||PRESET_COLORS[0] });
+    } else {
+      setEditEntry(null);
+      setForm(EMPTY_FORM);
     }
+    setDrawerMode("cell"); setDrawerOpen(true);
+  };
+
+  const openPeriodNew = () => {
+    setEditEntry(null); setEditPeriod(null);
+    setForm(EMPTY_FORM);
+    setDrawerMode("period-new"); setDrawerOpen(true);
+  };
+
+  const openPeriodEdit = period => {
+    setEditEntry(null); setEditPeriod(period);
+    setForm({ ...EMPTY_FORM, time_from:period.time_from, time_to:period.time_to||"" });
+    setDrawerMode("period-edit"); setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => { if (!saving) { setDrawerOpen(false); } };
+
+  // ── Save handlers ────────────────────────────────────────────────────────────
+  const handleSave = async () => {
     setSaving(true);
     try {
-      if (editTarget) {
-        const d = await api.patchSchedule(editTarget.id, {
-          subject:   form.subject.trim(),
-          time_from: form.time_from || null,
-          time_to:   form.time_to   || null,
-          color:     form.color,
-        });
-        setEntries(prev => prev.map(e => e.id === editTarget.id ? d : e));
-      } else {
-        const d = await api.postSchedule({
-          turno:       activeTurno,
-          day_of_week: selectedDay,
-          subject:     form.subject.trim(),
-          time_from:   form.time_from || null,
-          time_to:     form.time_to   || null,
-          color:       form.color,
-        });
-        setEntries(prev => [...prev, d]);
+      if (drawerMode === "period-new") {
+        if (!form.time_from) { showToast?.("Ingresá la hora de inicio", "error"); return; }
+        const np = { id:genId(), time_from:form.time_from, time_to:form.time_to||null };
+        const next = [...periods, np].sort((a,b) => a.time_from < b.time_from ? -1 : 1);
+        setPeriods(next);
+        await api.patchSchedulePrefs({ sch_periods: next });
+        setDrawerOpen(false);
+
+      } else if (drawerMode === "period-edit") {
+        if (!form.time_from) { showToast?.("Ingresá la hora de inicio", "error"); return; }
+        const oldTf = editPeriod.time_from;
+        const updP  = { ...editPeriod, time_from:form.time_from, time_to:form.time_to||null };
+        const next  = periods.map(p => p.id === editPeriod.id ? updP : p)
+          .sort((a,b) => a.time_from < b.time_from ? -1 : 1);
+        setPeriods(next);
+        // Update all entries that used the old time
+        const affected = entries.filter(e => e.turno === activeTurno && e.time_from === oldTf);
+        await Promise.all(affected.map(e =>
+          api.patchSchedule(e.id, {
+            subject: e.subject, color: e.color,
+            time_from: form.time_from, time_to: form.time_to || null,
+          }).then(d => setEntries(prev => prev.map(x => x.id === e.id ? d : x)))
+        ));
+        await api.patchSchedulePrefs({ sch_periods: next });
+        setDrawerOpen(false);
+
+      } else if (drawerMode === "cell") {
+        if (!form.subject.trim()) { showToast?.("Ingresá el nombre de la materia", "error"); return; }
+        if (editEntry) {
+          const d = await api.patchSchedule(editEntry.id, {
+            subject:   form.subject.trim(),
+            time_from: editEntry.time_from,
+            time_to:   editEntry.time_to,
+            color:     form.color,
+          });
+          setEntries(prev => prev.map(e => e.id === editEntry.id ? d : e));
+        } else {
+          const d = await api.postSchedule({
+            turno: activeTurno, day_of_week: selectedDay,
+            subject:   form.subject.trim(),
+            time_from: editPeriod?.time_from || null,
+            time_to:   editPeriod?.time_to   || null,
+            color:     form.color,
+          });
+          setEntries(prev => [...prev, d]);
+        }
+        setDrawerOpen(false);
+
+      } else { // "full"
+        if (!form.subject.trim()) { showToast?.("Ingresá el nombre de la materia", "error"); return; }
+        if (editEntry) {
+          const d = await api.patchSchedule(editEntry.id, {
+            subject:   form.subject.trim(),
+            time_from: form.time_from || null,
+            time_to:   form.time_to   || null,
+            color:     form.color,
+          });
+          setEntries(prev => prev.map(e => e.id === editEntry.id ? d : e));
+        } else {
+          const d = await api.postSchedule({
+            turno: activeTurno, day_of_week: selectedDay,
+            subject:   form.subject.trim(),
+            time_from: form.time_from || null,
+            time_to:   form.time_to   || null,
+            color:     form.color,
+          });
+          setEntries(prev => [...prev, d]);
+        }
+        setDrawerOpen(false);
       }
-      setDrawerOpen(false);
     } catch(e) {
       showToast?.(e.message || "Error al guardar", "error");
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async () => {
-    if (!editTarget) return;
+  const handleDeleteEntry = async () => {
+    if (!editEntry) return;
     setSaving(true);
     try {
-      await api.deleteSchedule(editTarget.id);
-      setEntries(prev => prev.filter(e => e.id !== editTarget.id));
+      await api.deleteSchedule(editEntry.id);
+      setEntries(prev => prev.filter(e => e.id !== editEntry.id));
       setDrawerOpen(false);
     } catch(e) {
       showToast?.(e.message || "Error al eliminar", "error");
     } finally { setSaving(false); }
   };
 
+  const handleDeletePeriod = async () => {
+    if (!editPeriod) return;
+    setSaving(true);
+    try {
+      await api.deleteSchedulePeriod(activeTurno, editPeriod.time_from);
+      setEntries(prev => prev.filter(e =>
+        !(e.turno === activeTurno && e.time_from === editPeriod.time_from)
+      ));
+      const next = periods.filter(p => p.id !== editPeriod.id);
+      setPeriods(next);
+      await api.patchSchedulePrefs({ sch_periods: next });
+      setDrawerOpen(false);
+    } catch(e) {
+      showToast?.(e.message || "Error al eliminar período", "error");
+    } finally { setSaving(false); }
+  };
+
+  // ── Prefs helpers ────────────────────────────────────────────────────────────
   const toggleView = () => {
     const next = viewMode === "list" ? "grid" : "list";
     setViewMode(next);
     api.patchSchedulePrefs({ sch_view: next }).catch(() => {});
   };
 
-  // Long-press: pin turno to first position
+  const toggleLock = () => {
+    const next = !locked;
+    setLocked(next);
+    api.patchSchedulePrefs({ sch_locked: next }).catch(() => {});
+    if (next) setDrawerOpen(false);
+  };
+
   const onTurnoDown = key => {
     lpTimer.current = setTimeout(() => {
       setTurnoOrder(prev => {
@@ -408,107 +413,110 @@ export default function AHorarios({ me, showToast, onBack }) {
   };
   const onTurnoUp = () => clearTimeout(lpTimer.current);
 
-  // Grid: cell click (passes slot for time prefill)
-  const onCellClick = (dow, entry, slot = null) => {
-    if (entry) openEdit(entry);
-    else openNew(dow, slot);
+  // ── Render helpers ───────────────────────────────────────────────────────────
+  const drawerTitle = () => {
+    if (drawerMode === "period-new")  return "⏱️ Nuevo período";
+    if (drawerMode === "period-edit") return "⏱️ Editar período";
+    if (drawerMode === "cell")        return editEntry ? "✏️ Editar clase" : "➕ Nueva clase";
+    return editEntry ? "✏️ Editar clase" : "➕ Nueva clase";
   };
 
-  // Grid: add a new day column (Sat → Sun)
-  const onAddDay = () => {
-    setVisibleDays(prev => {
-      if (!prev.includes(5)) return [...prev, 5];
-      if (!prev.includes(6)) return [...prev, 6];
-      return prev;
-    });
+  const saveDisabled = () => {
+    if (saving) return true;
+    if (drawerMode === "period-new" || drawerMode === "period-edit") return !form.time_from;
+    return !form.subject.trim();
   };
-
-  // Grid: add a new period row = open drawer for currently selected day
-  const onAddPeriod = () => openNew(selectedDay, null);
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s",
       fontFamily:"Nunito,sans-serif" }}>
 
-      {/* ── Header ───────────────────────────────────────────────────────── */}
+      {/* ── Header ── */}
       <div style={{
-        background:primary, color:"white",
-        padding:"52px 20px 20px",
+        background: locked ? (dark ? "#1a1a2e" : "#4a4a6a") : primary,
+        color:"white", padding:"52px 20px 18px",
         position:"sticky", top:0, zIndex:50, overflow:"hidden",
+        transition:"background .4s",
       }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
-          background:"rgba(255,255,255,.08)", top:-60, right:-40, pointerEvents:"none" }}/>
-        <div style={{ display:"flex", alignItems:"center", gap:12, position:"relative" }}>
+          background:"rgba(255,255,255,.07)", top:-60, right:-40, pointerEvents:"none" }}/>
+        <div style={{ display:"flex", alignItems:"center", gap:10, position:"relative" }}>
           <button onClick={onBack} style={{
             background:"rgba(255,255,255,.2)", border:"none", borderRadius:99,
             width:34, height:34, cursor:"pointer", color:"white", fontSize:18,
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>←</button>
           <div style={{ flex:1 }}>
-            <div style={{ fontWeight:900, fontSize:20 }}>📅 Horarios</div>
-            <div style={{ fontSize:12, opacity:.85 }}>Tu calendario semanal</div>
+            <div style={{ fontWeight:900, fontSize:19 }}>
+              📅 Horarios {locked && <span style={{ fontSize:14 }}>🔒</span>}
+            </div>
+            <div style={{ fontSize:11, opacity:.82 }}>Tu calendario semanal</div>
           </div>
-          {/* View mode toggle */}
-          <button onClick={toggleView} style={{
-            background:"rgba(255,255,255,.22)", border:"none", borderRadius:11,
-            padding:"7px 13px", cursor:"pointer", color:"white",
-            fontFamily:"Nunito,sans-serif", fontSize:13, fontWeight:800,
-            display:"flex", alignItems:"center", gap:6, flexShrink:0,
+          {/* Lock toggle */}
+          <button onClick={toggleLock} style={{
+            background:"rgba(255,255,255,.18)", border:"none", borderRadius:10,
+            padding:"6px 11px", cursor:"pointer", color:"white",
+            fontFamily:"Nunito,sans-serif", fontSize:12, fontWeight:800,
+            display:"flex", alignItems:"center", gap:5, flexShrink:0,
           }}>
-            <span style={{ fontSize:16, lineHeight:1 }}>
-              {viewMode === "list" ? "⊞" : "☰"}
-            </span>
-            <span style={{ fontSize:11 }}>
-              {viewMode === "list" ? "Cuadro" : "Lista"}
-            </span>
+            <span>{locked ? "🔓" : "🔒"}</span>
+            <span style={{ fontSize:10 }}>{locked ? "Desbloquear" : "Bloquear"}</span>
+          </button>
+          {/* View toggle */}
+          <button onClick={toggleView} style={{
+            background:"rgba(255,255,255,.22)", border:"none", borderRadius:10,
+            padding:"6px 11px", cursor:"pointer", color:"white",
+            fontFamily:"Nunito,sans-serif", fontSize:12, fontWeight:800,
+            display:"flex", alignItems:"center", gap:5, flexShrink:0,
+          }}>
+            <span style={{ fontSize:15, lineHeight:1 }}>{viewMode === "list" ? "⊞" : "☰"}</span>
+            <span style={{ fontSize:10 }}>{viewMode === "list" ? "Cuadro" : "Lista"}</span>
           </button>
         </div>
       </div>
 
-      {/* ── Body ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding:"18px 14px 100px" }}>
+      {/* ── Body ── */}
+      <div style={{ padding:"16px 14px 100px" }}>
 
-        {/* ── Turno selector ────────────────────────────────────────────── */}
-        <div style={{ marginBottom:20 }}>
+        {/* ── Turno selector ── */}
+        <div style={{ marginBottom:18 }}>
           <div style={{ fontSize:10, fontWeight:900, color:sub,
             letterSpacing:".08em", textTransform:"uppercase",
             marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
             Turno escolar
-            <span style={{ fontSize:9, color:sub, opacity:.55, fontWeight:700,
-              letterSpacing:0, textTransform:"none" }}>
-              · mantené presionado para fijar al inicio
-            </span>
+            {!locked && (
+              <span style={{ fontSize:9, color:sub, opacity:.5, fontWeight:700,
+                letterSpacing:0, textTransform:"none" }}>
+                · mantené presionado para fijar
+              </span>
+            )}
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7 }}>
             {orderedTurnos.map((t, idx) => {
               const active = activeTurno === t.key;
-              const pinned = idx === 0;
               return (
-                <button
-                  key={t.key}
+                <button key={t.key}
                   onClick={() => setActiveTurno(t.key)}
-                  onMouseDown={() => onTurnoDown(t.key)}
-                  onMouseUp={onTurnoUp}
-                  onMouseLeave={onTurnoUp}
-                  onTouchStart={() => onTurnoDown(t.key)}
-                  onTouchEnd={onTurnoUp}
-                  onTouchCancel={onTurnoUp}
+                  onMouseDown={() => !locked && onTurnoDown(t.key)}
+                  onMouseUp={onTurnoUp} onMouseLeave={onTurnoUp}
+                  onTouchStart={() => !locked && onTurnoDown(t.key)}
+                  onTouchEnd={onTurnoUp} onTouchCancel={onTurnoUp}
                   style={{
-                    background: active ? primary : (dark ? "rgba(255,255,255,.06)" : cardBg),
+                    background: active
+                      ? (locked ? (dark ? "#333" : "#888") : primary)
+                      : (dark ? "rgba(255,255,255,.06)" : cardBg),
                     border:`1.5px solid ${active ? "transparent" : navBord}`,
                     borderRadius:14, padding:"10px 4px",
                     display:"flex", flexDirection:"column", alignItems:"center", gap:4,
                     cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                    transition:"all .2s",
-                    boxShadow: active ? `0 4px 12px ${primary}44` : "none",
-                    position:"relative",
+                    transition:"all .2s", position:"relative",
+                    boxShadow: active && !locked ? `0 4px 12px ${primary}44` : "none",
                     userSelect:"none", WebkitUserSelect:"none",
                   }}>
-                  {/* Pin indicator (only when not active and it's in first slot) */}
-                  {pinned && !active && (
+                  {idx === 0 && !active && !locked && (
                     <div style={{ position:"absolute", top:3, right:5,
-                      fontSize:8, opacity:.45 }}>📌</div>
+                      fontSize:8, opacity:.4 }}>📌</div>
                   )}
                   <span style={{ fontSize:20 }}>{t.emoji}</span>
                   <span style={{ fontSize:11, fontWeight:800,
@@ -525,24 +533,74 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
 
         ) : viewMode === "grid" ? (
-          /* ── Calendar / grid view ────────────────────────────────────── */
-          <GridView
-            entries={entries}
-            activeTurno={activeTurno}
-            primary={primary}
-            txt={txt} sub={sub} cardBg={cardBg}
-            navBord={navBord} isDark={dark}
-            visibleDays={visibleDays}
-            onCellClick={onCellClick}
-            onAddPeriod={onAddPeriod}
-            onAddDay={onAddDay}
-          />
+          /* ── Grid view ── */
+          <>
+            {periods.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"36px 16px" }}>
+                <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
+                <div style={{ fontWeight:800, color:txt, fontSize:15, marginBottom:6 }}>
+                  Sin períodos
+                </div>
+                <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55 }}>
+                  Agregá un período para construir la grilla.
+                </div>
+                {!locked && (
+                  <button onClick={openPeriodNew} style={{
+                    background:primary, border:"none", borderRadius:50,
+                    padding:"11px 28px", color:"white", fontWeight:900, fontSize:13,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                  }}>+ Agregar período</button>
+                )}
+              </div>
+            ) : (
+              <GridView
+                periods={periods} entries={entries}
+                activeTurno={activeTurno} locked={locked}
+                primary={primary} txt={txt} sub={sub}
+                navBord={navBord} isDark={dark}
+                onCellClick={openCell}
+                onPeriodClick={openPeriodEdit}
+              />
+            )}
+
+            {/* Grid bottom toolbar */}
+            {!locked && (
+              <div style={{ display:"flex", gap:10, marginTop:12, flexWrap:"wrap" }}>
+                <button onClick={openPeriodNew} style={{
+                  background: dark ? "rgba(255,255,255,.06)" : "#f4f4f0",
+                  border:`1.5px dashed ${navBord}`,
+                  borderRadius:10, padding:"8px 16px",
+                  color:sub, fontSize:12, fontWeight:800,
+                  cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                  display:"flex", alignItems:"center", gap:6,
+                }}>
+                  <span style={{ fontSize:16, lineHeight:1 }}>+</span> Agregar período
+                </button>
+                {periods.length > 0 && (
+                  <button onClick={() => {
+                    // Enter period-edit mode for the last period as a shortcut
+                    // or open a picker — for simplicity open the last one
+                    openPeriodEdit(periods[periods.length - 1]);
+                  }} style={{
+                    background: dark ? "rgba(255,255,255,.06)" : "#f4f4f0",
+                    border:`1.5px dashed ${navBord}`,
+                    borderRadius:10, padding:"8px 16px",
+                    color:sub, fontSize:12, fontWeight:800,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                    display:"flex", alignItems:"center", gap:6,
+                  }}>
+                    <span style={{ fontSize:15, lineHeight:1 }}>×</span> Eliminar período
+                  </button>
+                )}
+              </div>
+            )}
+          </>
 
         ) : (
-          /* ── List view ───────────────────────────────────────────────── */
+          /* ── List view ── */
           <>
             {/* Day pills */}
-            <div style={{ marginBottom:18 }}>
+            <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:10, fontWeight:900, color:sub,
                 letterSpacing:".08em", textTransform:"uppercase", marginBottom:8 }}>Día</div>
               <div style={{ display:"flex", gap:6, overflowX:"auto",
@@ -555,8 +613,10 @@ export default function AHorarios({ me, showToast, onBack }) {
                   return (
                     <button key={d} onClick={() => setSelectedDay(i)} style={{
                       flexShrink:0, position:"relative",
-                      background: active ? primary : (dark ? "rgba(255,255,255,.06)" : cardBg),
-                      border:`1.5px solid ${active ? primary : navBord}`,
+                      background: active
+                        ? (locked ? (dark ? "#333" : "#888") : primary)
+                        : (dark ? "rgba(255,255,255,.06)" : cardBg),
+                      border:`1.5px solid ${active ? (locked ? "transparent" : primary) : navBord}`,
                       borderRadius:99, padding:"7px 15px",
                       fontSize:12, fontWeight:800,
                       color: active ? "white" : txt,
@@ -565,11 +625,9 @@ export default function AHorarios({ me, showToast, onBack }) {
                     }}>
                       {d}
                       {hasDot && (
-                        <span style={{
-                          position:"absolute", top:3, right:4,
+                        <span style={{ position:"absolute", top:3, right:4,
                           width:5, height:5, borderRadius:"50%",
-                          background:primary, display:"block",
-                        }}/>
+                          background: locked ? sub : primary, display:"block" }}/>
                       )}
                     </button>
                   );
@@ -577,59 +635,63 @@ export default function AHorarios({ me, showToast, onBack }) {
               </div>
             </div>
 
-            {/* List header + add button */}
+            {/* List header */}
             <div style={{ display:"flex", alignItems:"center",
               justifyContent:"space-between", marginBottom:12 }}>
               <div>
-                <span style={{ fontWeight:900, fontSize:15, color:txt,
-                  transition:"color .3s" }}>
+                <span style={{ fontWeight:900, fontSize:15, color:txt }}>
                   {DAYS_FULL[selectedDay]}
                 </span>
-                <span style={{ fontSize:12, color:sub, marginLeft:6, transition:"color .3s" }}>
+                <span style={{ fontSize:12, color:sub, marginLeft:6 }}>
                   · turno {turnoLabel.toLowerCase()}
                 </span>
               </div>
-              <button onClick={() => openNew()} style={{
-                background:primary, border:"none", borderRadius:99,
-                padding:"7px 16px", color:"white", fontWeight:900, fontSize:12,
-                cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                display:"flex", alignItems:"center", gap:5,
-                boxShadow:`0 4px 12px ${primary}44`,
-              }}>
-                <span style={{ fontSize:15, lineHeight:1 }}>+</span> Agregar
-              </button>
+              {!locked && (
+                <button onClick={() => openFull(selectedDay)} style={{
+                  background:primary, border:"none", borderRadius:99,
+                  padding:"7px 16px", color:"white", fontWeight:900, fontSize:12,
+                  cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                  display:"flex", alignItems:"center", gap:5,
+                  boxShadow:`0 4px 12px ${primary}44`,
+                }}>
+                  <span style={{ fontSize:15, lineHeight:1 }}>+</span> Agregar
+                </button>
+              )}
             </div>
 
-            {/* Period cards */}
+            {/* Entry cards */}
             {dayEntries.length === 0 ? (
               <div style={{ textAlign:"center", padding:"36px 20px" }}>
                 <div style={{ fontSize:52, marginBottom:12 }}>📚</div>
-                <div style={{ fontWeight:800, color:txt, marginBottom:6, fontSize:15,
-                  transition:"color .3s" }}>
+                <div style={{ fontWeight:800, color:txt, marginBottom:6, fontSize:15 }}>
                   Sin clases cargadas
                 </div>
-                <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55,
-                  transition:"color .3s" }}>
+                <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55 }}>
                   No hay materias para {DAYS_FULL[selectedDay].toLowerCase()}
                   {" "}en el turno {turnoLabel.toLowerCase()}.
                 </div>
-                <button onClick={() => openNew()} style={{
-                  background:primary, border:"none", borderRadius:50,
-                  padding:"12px 28px", color:"white", fontWeight:900, fontSize:13,
-                  cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                }}>+ Agregar clase</button>
+                {!locked && (
+                  <button onClick={() => openFull(selectedDay)} style={{
+                    background:primary, border:"none", borderRadius:50,
+                    padding:"12px 28px", color:"white", fontWeight:900, fontSize:13,
+                    cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                  }}>+ Agregar clase</button>
+                )}
               </div>
             ) : (
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {dayEntries.map(entry => (
-                  <div key={entry.id} onClick={() => openEdit(entry)} style={{
-                    background:cardBg,
-                    borderLeft:`4px solid ${entry.color || primary}`,
-                    borderRadius:16, padding:"13px 16px", cursor:"pointer",
-                    display:"flex", alignItems:"center", gap:12,
-                    boxShadow: dark ? "0 2px 8px rgba(0,0,0,.3)" : "0 1px 6px rgba(0,0,0,.07)",
-                    transition:"background .3s",
-                  }}>
+                  <div key={entry.id}
+                    onClick={() => !locked && openFullEdit(entry)}
+                    style={{
+                      background:cardBg,
+                      borderLeft:`4px solid ${entry.color || primary}`,
+                      borderRadius:16, padding:"13px 16px",
+                      cursor: locked ? "default" : "pointer",
+                      display:"flex", alignItems:"center", gap:12,
+                      boxShadow: dark ? "0 2px 8px rgba(0,0,0,.3)" : "0 1px 6px rgba(0,0,0,.07)",
+                      transition:"background .3s", opacity: locked ? .75 : 1,
+                    }}>
                     <div style={{
                       width:38, height:38, borderRadius:11, flexShrink:0,
                       background:`${entry.color || primary}20`,
@@ -641,20 +703,18 @@ export default function AHorarios({ me, showToast, onBack }) {
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontWeight:800, fontSize:14, color:txt,
-                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                        transition:"color .3s" }}>
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                         {entry.subject}
                       </div>
                       {(entry.time_from || entry.time_to) && (
-                        <div style={{ fontSize:12, color:sub, marginTop:2, transition:"color .3s" }}>
-                          🕐{" "}
-                          {fmtTime(entry.time_from)}
+                        <div style={{ fontSize:12, color:sub, marginTop:2 }}>
+                          🕐{" "}{fmtTime(entry.time_from)}
                           {entry.time_from && entry.time_to ? " — " : ""}
                           {fmtTime(entry.time_to)}
                         </div>
                       )}
                     </div>
-                    <span style={{ color:sub, fontSize:14, transition:"color .3s" }}>✏️</span>
+                    {!locked && <span style={{ color:sub, fontSize:14 }}>✏️</span>}
                   </div>
                 ))}
               </div>
@@ -663,7 +723,7 @@ export default function AHorarios({ me, showToast, onBack }) {
         )}
       </div>
 
-      {/* ── Bottom drawer ─────────────────────────────────────────────────── */}
+      {/* ── Drawer ── */}
       {drawerOpen && (
         <>
           <div onClick={closeDrawer} style={{
@@ -677,105 +737,146 @@ export default function AHorarios({ me, showToast, onBack }) {
             boxShadow:"0 -8px 40px rgba(0,0,0,.2)",
             padding:"0 20px 44px", zIndex:200,
           }}>
-            {/* Handle */}
             <div style={{ width:40, height:4, borderRadius:99,
               background:dark?"#444":"#e0e0e0", margin:"12px auto 18px" }}/>
 
             {/* Title */}
-            <div style={{ fontWeight:900, fontSize:15, color:txt,
-              marginBottom:16, transition:"color .3s" }}>
-              {editTarget ? "✏️ Editar clase" : "➕ Nueva clase"}
-              <span style={{ fontSize:11, fontWeight:700, color:sub, marginLeft:8,
-                transition:"color .3s" }}>
-                {DAYS_FULL[selectedDay]} · {turnoLabel}
-              </span>
+            <div style={{ fontWeight:900, fontSize:15, color:txt, marginBottom:16 }}>
+              {drawerTitle()}
+              {(drawerMode === "cell" || drawerMode === "full") && (
+                <span style={{ fontSize:11, fontWeight:700, color:sub, marginLeft:8 }}>
+                  {DAYS_FULL[selectedDay]} · {turnoLabel}
+                </span>
+              )}
             </div>
 
-            {/* Subject */}
-            <div style={{ fontSize:10, fontWeight:900, color:sub,
-              letterSpacing:".07em", marginBottom:6 }}>MATERIA / ACTIVIDAD</div>
-            <input
-              autoFocus
-              value={form.subject}
-              onChange={e => setForm(f => ({ ...f, subject:e.target.value }))}
-              onKeyDown={e => e.key === "Enter" && handleSave()}
-              placeholder="Ej: Matemáticas, Inglés, Ed. Física..."
-              style={{
-                width:"100%", boxSizing:"border-box",
-                border:`1.5px solid ${form.subject.trim() ? primary : navBord}`,
-                borderRadius:12, padding:"11px 14px", fontSize:14,
-                fontFamily:"Nunito,sans-serif", outline:"none",
-                color:txt, background:inputBg, marginBottom:14,
-                transition:"border-color .2s, background .3s, color .3s",
-              }}
-            />
-
-            {/* Times */}
-            <div style={{ fontSize:10, fontWeight:900, color:sub,
-              letterSpacing:".07em", marginBottom:6 }}>HORARIO (OPCIONAL)</div>
-            <div style={{ display:"flex", gap:10, marginBottom:16 }}>
-              {[["time_from","Desde"],["time_to","Hasta"]].map(([key, label]) => (
-                <div key={key} style={{ flex:1 }}>
-                  <div style={{ fontSize:11, color:sub, marginBottom:4,
-                    fontWeight:700, transition:"color .3s" }}>{label}</div>
-                  <input
-                    type="time"
-                    value={form[key]}
-                    onChange={e => setForm(f => ({ ...f, [key]:e.target.value }))}
-                    style={{
-                      width:"100%", boxSizing:"border-box",
-                      border:`1.5px solid ${navBord}`,
-                      borderRadius:12, padding:"10px 12px", fontSize:13,
-                      fontFamily:"Nunito,sans-serif", outline:"none",
-                      color:txt, background:inputBg,
-                      transition:"background .3s, color .3s",
-                    }}
-                  />
+            {/* ── Period mode: only time fields ── */}
+            {(drawerMode === "period-new" || drawerMode === "period-edit") && (
+              <>
+                <div style={{ fontSize:10, fontWeight:900, color:sub,
+                  letterSpacing:".07em", marginBottom:6 }}>HORARIO</div>
+                <div style={{ display:"flex", gap:10, marginBottom:20 }}>
+                  {[["time_from","Inicio *"],["time_to","Fin (opcional)"]].map(([key, label]) => (
+                    <div key={key} style={{ flex:1 }}>
+                      <div style={{ fontSize:11, color:sub, marginBottom:4, fontWeight:700 }}>
+                        {label}
+                      </div>
+                      <input type="time"
+                        autoFocus={key === "time_from"}
+                        value={form[key]}
+                        onChange={e => setForm(f => ({ ...f, [key]:e.target.value }))}
+                        style={{
+                          width:"100%", boxSizing:"border-box",
+                          border:`1.5px solid ${key === "time_from" && form.time_from ? primary : navBord}`,
+                          borderRadius:12, padding:"10px 12px", fontSize:13,
+                          fontFamily:"Nunito,sans-serif", outline:"none",
+                          color:txt, background:inputBg,
+                          transition:"background .3s, color .3s, border-color .2s",
+                        }}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
-            {/* Color picker */}
-            <div style={{ fontSize:10, fontWeight:900, color:sub,
-              letterSpacing:".07em", marginBottom:8 }}>COLOR</div>
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
-              {PRESET_COLORS.map(c => (
-                <button key={c} onClick={() => setForm(f => ({ ...f, color:c }))} style={{
-                  width:30, height:30, borderRadius:"50%", background:c,
-                  border:`3px solid ${form.color === c ? txt : "transparent"}`,
-                  cursor:"pointer", flexShrink:0, outline:"none",
-                  transition:"border-color .15s",
-                }}/>
-              ))}
-            </div>
+            {/* ── Cell / full mode: subject + color (+ time if full) ── */}
+            {(drawerMode === "cell" || drawerMode === "full") && (
+              <>
+                <div style={{ fontSize:10, fontWeight:900, color:sub,
+                  letterSpacing:".07em", marginBottom:6 }}>MATERIA / ACTIVIDAD</div>
+                <input
+                  autoFocus
+                  value={form.subject}
+                  onChange={e => setForm(f => ({ ...f, subject:e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && handleSave()}
+                  placeholder="Ej: Matemáticas, Inglés, Ed. Física..."
+                  style={{
+                    width:"100%", boxSizing:"border-box",
+                    border:`1.5px solid ${form.subject.trim() ? primary : navBord}`,
+                    borderRadius:12, padding:"11px 14px", fontSize:14,
+                    fontFamily:"Nunito,sans-serif", outline:"none",
+                    color:txt, background:inputBg, marginBottom:14,
+                    transition:"border-color .2s, background .3s, color .3s",
+                  }}
+                />
+
+                {drawerMode === "full" && (
+                  <>
+                    <div style={{ fontSize:10, fontWeight:900, color:sub,
+                      letterSpacing:".07em", marginBottom:6 }}>HORARIO (OPCIONAL)</div>
+                    <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+                      {[["time_from","Desde"],["time_to","Hasta"]].map(([key, label]) => (
+                        <div key={key} style={{ flex:1 }}>
+                          <div style={{ fontSize:11, color:sub, marginBottom:4, fontWeight:700 }}>
+                            {label}
+                          </div>
+                          <input type="time"
+                            value={form[key]}
+                            onChange={e => setForm(f => ({ ...f, [key]:e.target.value }))}
+                            style={{
+                              width:"100%", boxSizing:"border-box",
+                              border:`1.5px solid ${navBord}`,
+                              borderRadius:12, padding:"10px 12px", fontSize:13,
+                              fontFamily:"Nunito,sans-serif", outline:"none",
+                              color:txt, background:inputBg,
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div style={{ fontSize:10, fontWeight:900, color:sub,
+                  letterSpacing:".07em", marginBottom:8 }}>COLOR</div>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
+                  {PRESET_COLORS.map(c => (
+                    <button key={c} onClick={() => setForm(f => ({ ...f, color:c }))} style={{
+                      width:30, height:30, borderRadius:"50%", background:c,
+                      border:`3px solid ${form.color === c ? txt : "transparent"}`,
+                      cursor:"pointer", flexShrink:0, outline:"none",
+                      transition:"border-color .15s",
+                    }}/>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* Save */}
-            <button
-              onClick={handleSave}
-              disabled={saving || !form.subject.trim()}
-              style={{
-                width:"100%", padding:"13px", borderRadius:50, border:"none",
-                background: (!form.subject.trim() || saving) ? navBord : primary,
-                color:"white", fontWeight:900, fontSize:15,
-                cursor: (!form.subject.trim() || saving) ? "not-allowed" : "pointer",
-                fontFamily:"Nunito,sans-serif", marginBottom:10,
-                transition:"all .2s",
-              }}>
+            <button onClick={handleSave} disabled={saveDisabled()} style={{
+              width:"100%", padding:"13px", borderRadius:50, border:"none",
+              background: saveDisabled() ? navBord : primary,
+              color:"white", fontWeight:900, fontSize:15,
+              cursor: saveDisabled() ? "not-allowed" : "pointer",
+              fontFamily:"Nunito,sans-serif", marginBottom:10,
+              transition:"all .2s",
+            }}>
               {saving ? "Guardando..." : "Guardar"}
             </button>
 
-            {/* Delete */}
-            {editTarget && (
-              <button
-                onClick={handleDelete}
-                disabled={saving}
-                style={{
-                  width:"100%", padding:"12px", borderRadius:50,
-                  border:`1.5px solid #ef444466`, background:"transparent",
-                  color:"#ef4444", fontWeight:800, fontSize:14,
-                  cursor:saving ? "not-allowed" : "pointer",
-                  fontFamily:"Nunito,sans-serif", transition:"all .2s",
-                }}>
+            {/* Delete period */}
+            {drawerMode === "period-edit" && editPeriod && (
+              <button onClick={handleDeletePeriod} disabled={saving} style={{
+                width:"100%", padding:"12px", borderRadius:50,
+                border:`1.5px solid #ef444466`, background:"transparent",
+                color:"#ef4444", fontWeight:800, fontSize:14,
+                cursor:saving?"not-allowed":"pointer",
+                fontFamily:"Nunito,sans-serif",
+              }}>
+                Eliminar este período
+              </button>
+            )}
+
+            {/* Delete entry */}
+            {(drawerMode === "cell" || drawerMode === "full") && editEntry && (
+              <button onClick={handleDeleteEntry} disabled={saving} style={{
+                width:"100%", padding:"12px", borderRadius:50,
+                border:`1.5px solid #ef444466`, background:"transparent",
+                color:"#ef4444", fontWeight:800, fontSize:14,
+                cursor:saving?"not-allowed":"pointer",
+                fontFamily:"Nunito,sans-serif",
+              }}>
                 Eliminar clase
               </button>
             )}
