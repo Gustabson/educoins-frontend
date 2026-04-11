@@ -485,10 +485,10 @@ export default function AHorarios({ me, showToast, onBack }) {
   };
 
   // ── CSS rotation pre-computed ────────────────────────────────────────────────
-  // Wrapper gets an explicit height = screenW when transverse, so after rotate(90°/270°)
-  // the grid (width=100%=screenW, height=gridH) is centered and fills the wrapper correctly.
+  // Wrapper height = 100vw when transverse: after rotate(90°/270°) the grid's visual height
+  // equals its original width (= 100vw). Using CSS units avoids window.innerWidth pitfalls
+  // (e.g. DevTools open on desktop reporting wrong values).
   const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
-  const cssScreenW = typeof window !== "undefined" ? window.innerWidth : 390;
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -611,7 +611,7 @@ export default function AHorarios({ me, showToast, onBack }) {
               </div>
             ) : (
               <div style={{
-                height:         cssTransverse ? cssScreenW + "px" : "auto",
+                height:         cssTransverse ? "100vw" : "auto",
                 overflow:       cssTransverse ? "hidden" : "visible",
                 display:        "flex",
                 flexDirection:  "column",
