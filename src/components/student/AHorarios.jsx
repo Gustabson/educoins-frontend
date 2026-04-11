@@ -504,7 +504,7 @@ export default function AHorarios({ me, showToast, onBack }) {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s",
-      fontFamily:"Nunito,sans-serif", overflowX:"hidden" }}>
+      fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
       <div style={{
@@ -603,62 +603,62 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
 
         ) : viewMode === "grid" ? (
-          /* ── Grid view ── */
-          <>
-            {periods.length === 0 ? (
-              <div style={{ textAlign:"center", padding:"36px 16px" }}>
-                <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
-                <div style={{ fontWeight:800, color:txt, fontSize:15, marginBottom:6 }}>Sin períodos</div>
-                <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55 }}>
-                  Agregá un período para construir la grilla.
-                </div>
-                {!locked && (
-                  <button onClick={openPeriodNew} style={{
-                    background:primary, border:"none", borderRadius:50,
-                    padding:"11px 28px", color:"white", fontWeight:900, fontSize:13,
-                    cursor:"pointer", fontFamily:"Nunito,sans-serif",
-                  }}>+ Agregar período</button>
-                )}
-              </div>
-            ) : (
-              <div ref={gridContainerRef} style={{
-                height:         cssTransverse ? containerW + "px" : "auto",
-                minHeight:      cssTransverse ? undefined : "calc(100vh - 340px)",
-                overflow:       "visible",
-                display:        "flex",
-                flexDirection:  "column",
-                justifyContent: cssTransverse ? "center" : "flex-start",
-                paddingBottom:  cssTransverse ? 0 : 90,
-                transition:     "height .35s ease",
-              }}>
-                <div style={{
-                  transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
-                  transformOrigin: "center center",
-                  transition:      "transform .35s ease",
-                }}>
-                  <GridView
-                    periods={periods} entries={entries}
-                    activeTurno={activeTurno} locked={locked}
-                    rotated={gridRotated} visibleDays={visibleDays}
-                    primary={primary} txt={txt} sub={sub}
-                    navBord={navBord} isDark={dark}
-                    onCellClick={openCell}
-                    onPeriodClick={openPeriodEdit}
-                  />
-                </div>
-              </div>
-            )}
+          /* ── Grid view — flex column filling available screen height ── */
+          <div style={{
+            display:"flex", flexDirection:"column",
+            height:"calc(100vh - 265px)", /* header ~130px + turno ~120px + padding 16px */
+          }}>
 
-            {/* Grid toolbar — fixed at bottom, hidden when locked */}
+            {/* Grid area — fills remaining space, clips rotation overflow */}
+            <div ref={gridContainerRef} style={{ flex:1, overflow:"hidden", position:"relative" }}>
+              {periods.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"36px 16px" }}>
+                  <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
+                  <div style={{ fontWeight:800, color:txt, fontSize:15, marginBottom:6 }}>Sin períodos</div>
+                  <div style={{ fontSize:13, color:sub, marginBottom:20, lineHeight:1.55 }}>
+                    Agregá un período para construir la grilla.
+                  </div>
+                  {!locked && (
+                    <button onClick={openPeriodNew} style={{
+                      background:primary, border:"none", borderRadius:50,
+                      padding:"11px 28px", color:"white", fontWeight:900, fontSize:13,
+                      cursor:"pointer", fontFamily:"Nunito,sans-serif",
+                    }}>+ Agregar período</button>
+                  )}
+                </div>
+              ) : (
+                <div style={{
+                  height:         cssTransverse ? containerW + "px" : "100%",
+                  display:        "flex",
+                  flexDirection:  "column",
+                  justifyContent: cssTransverse ? "center" : "flex-start",
+                  transition:     "height .35s ease",
+                }}>
+                  <div style={{
+                    transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
+                    transformOrigin: "center center",
+                    transition:      "transform .35s ease",
+                  }}>
+                    <GridView
+                      periods={periods} entries={entries}
+                      activeTurno={activeTurno} locked={locked}
+                      rotated={gridRotated} visibleDays={visibleDays}
+                      primary={primary} txt={txt} sub={sub}
+                      navBord={navBord} isDark={dark}
+                      onCellClick={openCell}
+                      onPeriodClick={openPeriodEdit}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Grid toolbar — bottom of flex column, hidden when locked */}
             {!locked && (
               <div style={{
-                position:"fixed", bottom:0, left:0, right:0,
-                display:"flex", gap:8, flexWrap:"wrap",
-                padding:"10px 14px 14px",
-                background: dark ? "rgba(10,10,10,.96)" : "rgba(245,245,245,.96)",
+                display:"flex", gap:8, flexWrap:"wrap", flexShrink:0,
+                padding:"10px 0 4px",
                 borderTop:`1px solid ${navBord}`,
-                backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
-                zIndex:40,
               }}>
 
                 {/* Agregar período */}
@@ -694,7 +694,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                   <span style={{ fontSize:15 }}>↻</span> Rotar
                 </ToolBtn>
 
-                {/* CSS 90° rotation — new button */}
+                {/* CSS 90° rotation */}
                 <ToolBtn onClick={rotateCss} dark={dark} navBord={navBord} sub={sub}
                   active={gridCssAngle > 0} primary={primary}>
                   <span style={{ fontSize:15 }}>⤢</span> Rotar cuadro
@@ -705,7 +705,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
               </div>
             )}
-          </>
+          </div>
 
         ) : (
           /* ── List view ── */
