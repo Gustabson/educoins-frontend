@@ -485,10 +485,13 @@ export default function AHorarios({ me, showToast, onBack }) {
   };
 
   // ── CSS rotation pre-computed ────────────────────────────────────────────────
+  // Grid keeps width=100% (≈ screenW). After rotate(90°/270°) its visual height = screenW.
+  // The layout box stays screenW×gridH, so add margin=(screenW-gridH)/2 on each side
+  // so total occupied height = screenW (matching the visual height post-rotation).
   const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
-  const cssRotW   = typeof window !== "undefined" ? Math.round(window.innerHeight - 195) : 550;
-  const cssGridH  = 38 + Math.max(1, periods.length) * 62;
-  const cssMarginV = cssTransverse ? Math.max(0, Math.round((cssRotW - cssGridH) / 2)) : 0;
+  const cssGridH   = 38 + Math.max(1, periods.length) * 62;
+  const cssScreenW = typeof window !== "undefined" ? window.innerWidth : 390;
+  const cssMarginV = cssTransverse ? Math.round((cssScreenW - cssGridH) / 2) : 0;
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -617,10 +620,9 @@ export default function AHorarios({ me, showToast, onBack }) {
                 transition:   "margin .35s ease",
               }}>
                 <div style={{
-                  width:           cssTransverse ? cssRotW + "px" : "100%",
                   transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
                   transformOrigin: "center center",
-                  transition:      "transform .35s ease, width .35s ease",
+                  transition:      "transform .35s ease",
                 }}>
                   <GridView
                     periods={periods} entries={entries}
