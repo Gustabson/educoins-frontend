@@ -324,7 +324,9 @@ const api = {
   diwyAdminAttendanceDetail:(classroomId,fecha) =>
     apiFetch(`/diwy/admin/attendance/${classroomId}/detail?fecha=${fecha}`),
   // ── Horarios ──────────────────────────────────────────────
-  getSchedule:    ()         => apiFetch("/schedules"),
+  getSchedule:      ()         => apiFetch("/schedules"),
+  getSchedulePrefs: ()         => apiFetch("/schedules/prefs"),
+  patchSchedulePrefs: (data)   => apiFetch("/schedules/prefs", { method:"PATCH", body:data }),
   postSchedule:   (data)     => apiFetch("/schedules",       { method:"POST",  body:data }),
   patchSchedule:  (id, data) => apiFetch(`/schedules/${id}`, { method:"PATCH", body:data }),
   deleteSchedule: (id)       => apiFetch(`/schedules/${id}`, { method:"DELETE" }),
