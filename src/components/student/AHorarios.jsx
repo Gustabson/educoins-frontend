@@ -485,13 +485,10 @@ export default function AHorarios({ me, showToast, onBack }) {
   };
 
   // ── CSS rotation pre-computed ────────────────────────────────────────────────
-  // Grid keeps width=100% (≈ screenW). After rotate(90°/270°) its visual height = screenW.
-  // The layout box stays screenW×gridH, so add margin=(screenW-gridH)/2 on each side
-  // so total occupied height = screenW (matching the visual height post-rotation).
+  // Wrapper gets an explicit height = screenW when transverse, so after rotate(90°/270°)
+  // the grid (width=100%=screenW, height=gridH) is centered and fills the wrapper correctly.
   const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
-  const cssGridH   = 38 + Math.max(1, periods.length) * 62;
   const cssScreenW = typeof window !== "undefined" ? window.innerWidth : 390;
-  const cssMarginV = cssTransverse ? Math.round((cssScreenW - cssGridH) / 2) : 0;
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -614,10 +611,12 @@ export default function AHorarios({ me, showToast, onBack }) {
               </div>
             ) : (
               <div style={{
-                overflow: "visible",
-                marginTop:    cssMarginV + "px",
-                marginBottom: cssMarginV + "px",
-                transition:   "margin .35s ease",
+                height:         cssTransverse ? cssScreenW + "px" : "auto",
+                overflow:       cssTransverse ? "hidden" : "visible",
+                display:        "flex",
+                flexDirection:  "column",
+                justifyContent: cssTransverse ? "center" : "flex-start",
+                transition:     "height .35s ease",
               }}>
                 <div style={{
                   transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
