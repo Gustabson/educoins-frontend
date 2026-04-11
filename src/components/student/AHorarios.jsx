@@ -484,6 +484,12 @@ export default function AHorarios({ me, showToast, onBack }) {
     return !form.subject.trim();
   };
 
+  // ── CSS rotation pre-computed ────────────────────────────────────────────────
+  const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
+  const cssRotW   = typeof window !== "undefined" ? Math.round(window.innerHeight - 195) : 550;
+  const cssGridH  = 38 + Math.max(1, periods.length) * 62;
+  const cssMarginV = cssTransverse ? Math.max(0, Math.round((cssRotW - cssGridH) / 2)) : 0;
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight:"100vh", background:pageBg, transition:"background .3s",
@@ -603,38 +609,30 @@ export default function AHorarios({ me, showToast, onBack }) {
                   }}>+ Agregar período</button>
                 )}
               </div>
-            ) : (() => {
-              // CSS rotation math
-              const isTransverse = gridCssAngle === 90 || gridCssAngle === 270;
-              const rotW    = typeof window !== "undefined" ? Math.round(window.innerHeight - 195) : 550;
-              const gridH   = 38 + Math.max(1, periods.length) * 62; // approx px
-              const marginV = isTransverse ? Math.max(0, Math.round((rotW - gridH) / 2)) : 0;
-              return (
+            ) : (
+              <div style={{
+                overflow: "visible",
+                marginTop:    cssMarginV + "px",
+                marginBottom: cssMarginV + "px",
+                transition:   "margin .35s ease",
+              }}>
                 <div style={{
-                  overflow: "visible",
-                  marginTop:    marginV + "px",
-                  marginBottom: marginV + "px",
-                  transition:   "margin .35s ease",
+                  width:           cssTransverse ? cssRotW + "px" : "100%",
+                  transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
+                  transformOrigin: "center center",
+                  transition:      "transform .35s ease, width .35s ease",
                 }}>
-                  <div style={{
-                    width:           isTransverse ? rotW + "px" : "100%",
-                    transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
-                    transformOrigin: "center center",
-                    transition:      "transform .35s ease, width .35s ease",
-                  }}>
-                    <GridView
-                      periods={periods} entries={entries}
-                      activeTurno={activeTurno} locked={locked}
-                      rotated={gridRotated} visibleDays={visibleDays}
-                      primary={primary} txt={txt} sub={sub}
-                      navBord={navBord} isDark={dark}
-                      onCellClick={openCell}
-                      onPeriodClick={openPeriodEdit}
-                    />
-                  </div>
+                  <GridView
+                    periods={periods} entries={entries}
+                    activeTurno={activeTurno} locked={locked}
+                    rotated={gridRotated} visibleDays={visibleDays}
+                    primary={primary} txt={txt} sub={sub}
+                    navBord={navBord} isDark={dark}
+                    onCellClick={openCell}
+                    onPeriodClick={openPeriodEdit}
+                  />
                 </div>
-              );
-            })()
+              </div>
             )}
 
             {/* Grid toolbar — hidden when locked */}
