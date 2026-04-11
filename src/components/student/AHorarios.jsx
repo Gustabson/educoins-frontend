@@ -623,7 +623,7 @@ export default function AHorarios({ me, showToast, onBack }) {
             ) : (
               <div ref={gridContainerRef} style={{
                 height:         cssTransverse ? containerW + "px" : "auto",
-                overflow:       cssTransverse ? "hidden" : "visible",
+                overflow:       "visible",
                 display:        "flex",
                 flexDirection:  "column",
                 justifyContent: cssTransverse ? "center" : "flex-start",
