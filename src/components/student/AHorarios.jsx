@@ -254,6 +254,18 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [form,        setForm]        = useState(EMPTY_FORM);
 
   const lpTimer = useRef(null);
+  const gridContainerRef = useRef(null);
+  const [containerW, setContainerW] = useState(390);
+
+  // Measure the actual rendered container width (reliable on any screen/DevTools state)
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    setContainerW(el.offsetWidth);
+    const ro = new ResizeObserver(() => setContainerW(el.offsetWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Derived visible days for grid
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
@@ -485,9 +497,8 @@ export default function AHorarios({ me, showToast, onBack }) {
   };
 
   // ── CSS rotation pre-computed ────────────────────────────────────────────────
-  // Wrapper height = 100vw when transverse: after rotate(90°/270°) the grid's visual height
-  // equals its original width (= 100vw). Using CSS units avoids window.innerWidth pitfalls
-  // (e.g. DevTools open on desktop reporting wrong values).
+  // After rotate(90°/270°) the grid's visual height = its original width = containerW.
+  // containerW is measured from the real DOM element (ResizeObserver), not window.innerWidth.
   const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -610,8 +621,8 @@ export default function AHorarios({ me, showToast, onBack }) {
                 )}
               </div>
             ) : (
-              <div style={{
-                height:         cssTransverse ? "100vw" : "auto",
+              <div ref={gridContainerRef} style={{
+                height:         cssTransverse ? containerW + "px" : "auto",
                 overflow:       cssTransverse ? "hidden" : "visible",
                 display:        "flex",
                 flexDirection:  "column",
