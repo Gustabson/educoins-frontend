@@ -500,6 +500,11 @@ export default function AHorarios({ me, showToast, onBack }) {
   // After rotate(90°/270°) the grid's visual height = its original width = containerW.
   // containerW is measured from the real DOM element (ResizeObserver), not window.innerWidth.
   const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
+  // rotate(Xdeg) keeps the layout box in place but moves the visual center.
+  // Visual top = layoutTop + gridH/2 - containerW/2  → overflows above when containerW > gridH.
+  // Compensate with marginTop so the visual top aligns with the container edge.
+  const cssGridH   = 38 + Math.max(1, periods.length) * 62;
+  const cssMarginV = cssTransverse ? Math.max(0, Math.round((containerW - cssGridH) / 2)) : 0;
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -626,16 +631,15 @@ export default function AHorarios({ me, showToast, onBack }) {
                 </div>
               ) : (
                 <div style={{
-                  height:         cssTransverse ? containerW + "px" : "100%",
-                  display:        "flex",
-                  flexDirection:  "column",
-                  justifyContent: cssTransverse ? "center" : "flex-start",
-                  transition:     "height .35s ease",
+                  height:     cssTransverse ? containerW + "px" : "100%",
+                  transition: "height .35s ease",
                 }}>
                   <div style={{
                     transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
                     transformOrigin: "center center",
-                    transition:      "transform .35s ease",
+                    transition:      "transform .35s ease, margin .35s ease",
+                    marginTop:       cssMarginV + "px",
+                    marginBottom:    cssMarginV + "px",
                   }}>
                     <GridView
                       periods={periods} entries={entries}
