@@ -268,6 +268,12 @@ export default function AHorarios({ me, showToast, onBack }) {
     return () => ro.disconnect();
   }, []);
 
+  // Force re-measure after layout-changing toggles (toolbar appears/disappears, etc.)
+  const remeasure = () => requestAnimationFrame(() => {
+    const el = gridContainerRef.current;
+    if (el) { setContainerW(el.offsetWidth); setContainerH(el.offsetHeight); }
+  });
+
   // Derived visible days for grid
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
 
@@ -334,20 +340,25 @@ export default function AHorarios({ me, showToast, onBack }) {
   const toggleLock = () => {
     const next = !locked; setLocked(next); setPref({ sch_locked: next });
     if (next) setDrawerOpen(false);
+    remeasure();
   };
   const toggleSat = () => {
     const next = !showSat; setShowSat(next); setPref({ sch_show_sat: next });
     if (!next) { setShowDom(false); setPref({ sch_show_dom: false }); }
+    remeasure();
   };
   const toggleDom = () => {
     const next = !showDom; setShowDom(next); setPref({ sch_show_dom: next });
+    remeasure();
   };
   const toggleRotation = () => {
     const next = !gridRotated; setGridRotated(next); setPref({ sch_grid_rotated: next });
+    remeasure();
   };
   const rotateCss = () => {
     const next = (gridCssAngle + 90) % 360;
     setGridCssAngle(next); setPref({ sch_grid_css_angle: next });
+    remeasure();
   };
 
   // ── Turno long-press ─────────────────────────────────────────────────────────
