@@ -535,7 +535,7 @@ export default function AHorarios({ me, showToast, onBack }) {
       <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", padding:"16px 14px 0" }}>
 
         {/* ── Turno selector ── */}
-        <div style={{ marginBottom:18, flexShrink:0 }}>
+        <div style={{ marginBottom:0, flexShrink:0 }}>
           <div style={{ fontSize:10, fontWeight:900, color:sub,
             letterSpacing:".08em", textTransform:"uppercase",
             marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
@@ -585,8 +585,8 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
 
         ) : viewMode === "grid" ? (
-          /* ── Grid + toolbar — own flex unit ── */
-          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column" }}>
+          /* ── Grid + toolbar — own flex unit, paddingBottom reserves space for fixed toolbar ── */
+          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:56 }}>
 
             {/* Grid: fills all space, containerType size enables 100cqb = container height */}
             <div style={{
