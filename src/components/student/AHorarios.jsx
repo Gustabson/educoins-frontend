@@ -224,7 +224,7 @@ function GridView({
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function AHorarios({ me, showToast, onBack }) {
+export default function AHorarios({ showToast, onBack }) {
   const {
     primary, isDark:dark, txt, sub,
     cardBg, pageBg, navBord, inputBg,
@@ -535,7 +535,7 @@ export default function AHorarios({ me, showToast, onBack }) {
       <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", padding:"16px 14px 0" }}>
 
         {/* ── Turno selector ── */}
-        <div style={{ marginBottom:0, flexShrink:0 }}>
+        <div style={{ marginBottom:3, flexShrink:0 }}>
           <div style={{ fontSize:10, fontWeight:900, color:sub,
             letterSpacing:".08em", textTransform:"uppercase",
             marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
