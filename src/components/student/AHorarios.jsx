@@ -588,8 +588,8 @@ export default function AHorarios({ me, showToast, onBack }) {
           /* ── Grid view ── */
           <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:8 }}>
 
-            {/* Grid area — flex fill, overflow:hidden clips rotation */}
-            <div style={{ flex:1, minHeight:0, overflow:"hidden" }}>
+            {/* Grid area — flex fill, overflow:hidden clips rotation, container for cqh */}
+            <div style={{ flex:1, minHeight:0, overflow:"hidden", containerType:"size" }}>
               {periods.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"36px 16px" }}>
                   <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
@@ -607,7 +607,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                 </div>
               ) : (
                 <div style={{
-                  width:           (gridCssAngle === 90 || gridCssAngle === 270) ? "100dvh" : "100%",
+                  width:           (gridCssAngle === 90 || gridCssAngle === 270) ? "100cqh" : "100%",
                   transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
                   transformOrigin: "center center",
                   transition:      "transform .35s ease",
