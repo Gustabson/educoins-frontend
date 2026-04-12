@@ -586,10 +586,16 @@ export default function AHorarios({ me, showToast, onBack }) {
 
         ) : viewMode === "grid" ? (
           /* ── Grid view ── */
-          <div style={{ paddingBottom:8 }}>
+          <div style={{ paddingBottom:8, containerType:"inline-size" }}>
 
-            {/* Grid area — overflow:hidden clips rotation */}
-            <div style={{ overflow:"hidden" }}>
+            {/* overflow container — when transverse: min-height=100cqi so rotated content isn't clipped */}
+            <div style={{
+              overflow:"hidden",
+              minHeight: (gridCssAngle === 90 || gridCssAngle === 270) ? "100cqi" : "auto",
+              display: (gridCssAngle === 90 || gridCssAngle === 270) ? "flex" : "block",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
               {periods.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"36px 16px" }}>
                   <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
@@ -607,8 +613,8 @@ export default function AHorarios({ me, showToast, onBack }) {
                 </div>
               ) : (
                 <div style={{
-                  height:          "auto",
-                  flexShrink:      1,
+                  width:           "100%",
+                  flexShrink:      0,
                   transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
                   transformOrigin: "center center",
                   transition:      "transform .35s ease",
