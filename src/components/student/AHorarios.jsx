@@ -486,8 +486,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height:"100%", display:"flex", flexDirection:"column",
-      background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
+    <div style={{ height:"100%", display:"flex", flexDirection:"column", background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
       <div style={{
@@ -684,7 +683,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
         ) : (
           /* ── List view — scrollable ── */
-          <div style={{ flex:1, minHeight:0, overflowY:"auto", paddingBottom:16 }}>
+          <div style={{ paddingBottom:16 }}>
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:10, fontWeight:900, color:sub,
                 letterSpacing:".08em", textTransform:"uppercase", marginBottom:8 }}>Día</div>
