@@ -41,7 +41,7 @@ const genId = () =>
 // ─── Grid view ────────────────────────────────────────────────────────────────
 function GridView({
   periods, entries, activeTurno, locked, rotated, visibleDays,
-  primary, txt, sub, navBord, isDark, cssAngle,
+  primary, txt, sub, navBord, isDark,
   onCellClick, onPeriodClick,
 }) {
   const cellEntry = (dow, periodId) => {
@@ -54,8 +54,6 @@ function GridView({
 
   const headBg  = isDark ? "rgba(255,255,255,.05)" : "#f9f7f1";
   const borderC = navBord;
-  // counter-rotate text so it stays horizontal when grid is CSS-rotated
-  const tr = cssAngle ? { transform:`rotate(${-cssAngle}deg)`, display:"inline-block" } : {};
 
   // ── Normal layout: rows = periods, cols = days ──────────────────────────────
   if (!rotated) {
@@ -87,7 +85,7 @@ function GridView({
                 textAlign:"center", background:headBg, borderLeft:`1px solid ${borderC}`,
                 display:"flex", alignItems:"center", justifyContent:"center",
               }}>
-                <span style={tr}>{DAYS_SHORT[dow].toUpperCase()}</span>
+                {DAYS_SHORT[dow].toUpperCase()}
               </div>
             ))}
           </div>
@@ -103,11 +101,11 @@ function GridView({
                 cursor: locked ? "default" : "pointer",
               }}>
                 <div style={{ fontSize:12, fontWeight:800, color: primary, lineHeight:1.4 }}>
-                  <span style={tr}>{fmtTime(period.time_from) || "—"}</span>
+                  {fmtTime(period.time_from) || "—"}
                 </div>
                 {period.time_to && (
                   <div style={{ fontSize:10, color:sub, opacity:.6, fontWeight:700 }}>
-                    <span style={tr}>{fmtTime(period.time_to)}</span>
+                    {fmtTime(period.time_to)}
                   </div>
                 )}
               </div>
@@ -126,7 +124,7 @@ function GridView({
                       <div style={{ fontSize:10, fontWeight:800, color:entry.color,
                         lineHeight:1.3, overflow:"hidden", display:"-webkit-box",
                         WebkitLineClamp:2, WebkitBoxOrient:"vertical", wordBreak:"break-word" }}>
-                        <span style={tr}>{entry.subject}</span>
+                        {entry.subject}
                       </div>
                     ) : !locked ? (
                       <div style={{ textAlign:"center", fontSize:14, color:borderC, opacity:.3 }}>+</div>
@@ -173,11 +171,11 @@ function GridView({
                 display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
               }}>
               <div style={{ fontSize:10, fontWeight:800, color: primary, lineHeight:1.4 }}>
-                <span style={tr}>{fmtTime(period.time_from) || "—"}</span>
+                {fmtTime(period.time_from) || "—"}
               </div>
               {period.time_to && (
                 <div style={{ fontSize:8, color:sub, opacity:.6, fontWeight:700 }}>
-                  <span style={tr}>{fmtTime(period.time_to)}</span>
+                  {fmtTime(period.time_to)}
                 </div>
               )}
             </div>
@@ -194,7 +192,7 @@ function GridView({
               display:"flex", alignItems:"center", justifyContent:"center",
               fontSize:9, fontWeight:900, color:sub, letterSpacing:".04em",
             }}>
-              <span style={tr}>{DAYS_SHORT[dow].toUpperCase()}</span>
+              {DAYS_SHORT[dow].toUpperCase()}
             </div>
 
             {/* Period cells */}
@@ -211,7 +209,7 @@ function GridView({
                     <div style={{ fontSize:10, fontWeight:800, color:entry.color,
                       lineHeight:1.3, overflow:"hidden", display:"-webkit-box",
                       WebkitLineClamp:2, WebkitBoxOrient:"vertical", wordBreak:"break-word" }}>
-                      <span style={tr}>{entry.subject}</span>
+                      {entry.subject}
                     </div>
                   ) : !locked ? (
                     <div style={{ textAlign:"center", fontSize:14, color:borderC, opacity:.3 }}>+</div>
@@ -635,7 +633,6 @@ export default function AHorarios({ showToast, onBack }) {
                     rotated={gridRotated} visibleDays={visibleDays}
                     primary={primary} txt={txt} sub={sub}
                     navBord={navBord} isDark={dark}
-                    cssAngle={gridCssAngle}
                     onCellClick={openCell}
                     onPeriodClick={openPeriodEdit}
                   />
