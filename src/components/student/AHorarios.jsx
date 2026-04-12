@@ -486,7 +486,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
+    <div style={{ background:pageBg, transition:"background 0.3s", fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
       <div style={{
