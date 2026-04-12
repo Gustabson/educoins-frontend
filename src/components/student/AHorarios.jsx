@@ -501,7 +501,7 @@ export default function AHorarios({ showToast, onBack }) {
       {/* ── Header ── */}
       <div style={{
         background:primary, color:"white",
-        padding:"52px 20px 18px",
+        padding:"22px 20px 14px",
         position:"sticky", top:0, zIndex:50, overflow:"hidden",
       }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
