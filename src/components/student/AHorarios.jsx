@@ -532,7 +532,7 @@ export default function AHorarios({ me, showToast, onBack }) {
       </div>
 
       {/* ── Body ── */}
-      <div style={{ padding:"16px 14px", paddingBottom: viewMode === "grid" && !locked ? 80 : 16 }}>
+      <div style={{ padding:"16px 14px 0" }}>
 
         {/* ── Turno selector ── */}
         <div style={{ marginBottom:18 }}>
