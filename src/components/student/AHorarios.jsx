@@ -254,25 +254,6 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [form,        setForm]        = useState(EMPTY_FORM);
 
   const lpTimer = useRef(null);
-  const gridContainerRef = useRef(null);
-  const [containerW, setContainerW] = useState(390);
-  const [containerH, setContainerH] = useState(500);
-
-  useEffect(() => {
-    const el = gridContainerRef.current;
-    if (!el) return;
-    const update = () => { setContainerW(el.offsetWidth); setContainerH(el.offsetHeight); };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Force re-measure after layout-changing toggles (toolbar appears/disappears, etc.)
-  const remeasure = () => requestAnimationFrame(() => {
-    const el = gridContainerRef.current;
-    if (el) { setContainerW(el.offsetWidth); setContainerH(el.offsetHeight); }
-  });
 
   // Derived visible days for grid
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
@@ -340,25 +321,20 @@ export default function AHorarios({ me, showToast, onBack }) {
   const toggleLock = () => {
     const next = !locked; setLocked(next); setPref({ sch_locked: next });
     if (next) setDrawerOpen(false);
-    remeasure();
   };
   const toggleSat = () => {
     const next = !showSat; setShowSat(next); setPref({ sch_show_sat: next });
     if (!next) { setShowDom(false); setPref({ sch_show_dom: false }); }
-    remeasure();
   };
   const toggleDom = () => {
     const next = !showDom; setShowDom(next); setPref({ sch_show_dom: next });
-    remeasure();
   };
   const toggleRotation = () => {
     const next = !gridRotated; setGridRotated(next); setPref({ sch_grid_rotated: next });
-    remeasure();
   };
   const rotateCss = () => {
     const next = (gridCssAngle + 90) % 360;
     setGridCssAngle(next); setPref({ sch_grid_css_angle: next });
-    remeasure();
   };
 
   // ── Turno long-press ─────────────────────────────────────────────────────────
@@ -508,21 +484,15 @@ export default function AHorarios({ me, showToast, onBack }) {
     return !form.subject.trim();
   };
 
-  // ── CSS rotation pre-computed ────────────────────────────────────────────────
-  // After rotate(90°/270°) the grid's visual height = its original width = containerW.
-  // containerW is measured from the real DOM element (ResizeObserver), not window.innerWidth.
-  const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
-
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height:"100%", display:"flex", flexDirection:"column",
-      background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
+    <div style={{ background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
       <div style={{
         background:primary, color:"white",
         padding:"52px 20px 18px",
-        flexShrink:0, zIndex:50, overflow:"hidden",
+        position:"sticky", top:0, zIndex:50, overflow:"hidden",
       }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%",
           background:"rgba(255,255,255,.07)", top:-60, right:-40, pointerEvents:"none" }}/>
@@ -561,12 +531,11 @@ export default function AHorarios({ me, showToast, onBack }) {
         </div>
       </div>
 
-      {/* ── Body ── fills remaining height below header ── */}
-      <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column",
-        overflow:"hidden", padding:"16px 14px 0" }}>
+      {/* ── Body ── */}
+      <div style={{ padding:"16px 14px 0" }}>
 
         {/* ── Turno selector ── */}
-        <div style={{ marginBottom:18, flexShrink:0 }}>
+        <div style={{ marginBottom:18 }}>
           <div style={{ fontSize:10, fontWeight:900, color:sub,
             letterSpacing:".08em", textTransform:"uppercase",
             marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
@@ -616,11 +585,11 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
 
         ) : viewMode === "grid" ? (
-          /* ── Grid view — fills all space below turno selector ── */
-          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:8 }}>
+          /* ── Grid view ── */
+          <div style={{ paddingBottom:8 }}>
 
-            {/* Grid area — fills remaining space, clips rotation overflow */}
-            <div ref={gridContainerRef} style={{ flex:1, overflow:"hidden", position:"relative" }}>
+            {/* Grid area — overflow:hidden clips rotation */}
+            <div style={{ overflow:"hidden" }}>
               {periods.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"36px 16px" }}>
                   <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
@@ -637,32 +606,22 @@ export default function AHorarios({ me, showToast, onBack }) {
                   )}
                 </div>
               ) : (
-                /* Wrapper: when transverse, height=containerW (square) with flex centering.
-                   Transform div gets explicit width=containerW so its rotation axis is
-                   exactly centered — no margin math needed, works at any container width. */
                 <div style={{
-                  height:         "100%",
-                  display:        "flex",
-                  alignItems:     "center",
-                  justifyContent: "center",
+                  height:          "auto",
+                  flexShrink:      1,
+                  transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
+                  transformOrigin: "center center",
+                  transition:      "transform .35s ease",
                 }}>
-                  <div style={{
-                    width:      cssTransverse ? containerH + "px" : "100%",
-                    flexShrink: 0,
-                    transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
-                    transformOrigin: "center center",
-                    transition:      "transform .35s ease",
-                  }}>
-                    <GridView
-                      periods={periods} entries={entries}
-                      activeTurno={activeTurno} locked={locked}
-                      rotated={gridRotated} visibleDays={visibleDays}
-                      primary={primary} txt={txt} sub={sub}
-                      navBord={navBord} isDark={dark}
-                      onCellClick={openCell}
-                      onPeriodClick={openPeriodEdit}
-                    />
-                  </div>
+                  <GridView
+                    periods={periods} entries={entries}
+                    activeTurno={activeTurno} locked={locked}
+                    rotated={gridRotated} visibleDays={visibleDays}
+                    primary={primary} txt={txt} sub={sub}
+                    navBord={navBord} isDark={dark}
+                    onCellClick={openCell}
+                    onPeriodClick={openPeriodEdit}
+                  />
                 </div>
               )}
             </div>
@@ -723,7 +682,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
         ) : (
           /* ── List view — scrollable ── */
-          <div style={{ flex:1, minHeight:0, overflowY:"auto", paddingBottom:16 }}>
+          <div style={{ paddingBottom:16 }}>
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:10, fontWeight:900, color:sub,
                 letterSpacing:".08em", textTransform:"uppercase", marginBottom:8 }}>Día</div>
