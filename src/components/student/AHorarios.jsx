@@ -486,7 +486,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ background:pageBg, transition:"background 0.3s", fontFamily:"Nunito,sans-serif" }}>
+    <div style={{ height:"100%", display:"flex", flexDirection:"column", background:pageBg, transition:"background 0.3s", fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
       <div style={{
@@ -532,10 +532,10 @@ export default function AHorarios({ me, showToast, onBack }) {
       </div>
 
       {/* ── Body ── */}
-      <div style={{ padding:"16px 14px 0" }}>
+      <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", padding:"16px 14px 0" }}>
 
         {/* ── Turno selector ── */}
-        <div style={{ marginBottom:18 }}>
+        <div style={{ marginBottom:18, flexShrink:0 }}>
           <div style={{ fontSize:10, fontWeight:900, color:sub,
             letterSpacing:".08em", textTransform:"uppercase",
             marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
@@ -585,16 +585,14 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
 
         ) : viewMode === "grid" ? (
-          /* ── Grid view ── */
-          <div style={{ paddingBottom:8, containerType:"inline-size" }}>
+          /* ── Grid + toolbar — own flex unit ── */
+          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column" }}>
 
-            {/* overflow container — when transverse: min-height=100cqi so rotated content isn't clipped */}
+            {/* Grid: fills all space, containerType size enables 100cqb = container height */}
             <div style={{
-              overflow:"hidden",
-              minHeight: (gridCssAngle === 90 || gridCssAngle === 270) ? "100cqi" : "auto",
-              display: (gridCssAngle === 90 || gridCssAngle === 270) ? "flex" : "block",
-              alignItems: "center",
-              justifyContent: "center",
+              flex:1, minHeight:0, overflow:"hidden",
+              containerType:"size",
+              display:"flex", alignItems:"center", justifyContent:"center",
             }}>
               {periods.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"36px 16px" }}>
@@ -613,7 +611,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                 </div>
               ) : (
                 <div style={{
-                  width:           "100%",
+                  width:           (gridCssAngle === 90 || gridCssAngle === 270) ? "100cqb" : "100%",
                   flexShrink:      0,
                   transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
                   transformOrigin: "center center",
@@ -632,7 +630,7 @@ export default function AHorarios({ me, showToast, onBack }) {
               )}
             </div>
 
-            {/* Grid toolbar — fixed bottom */}
+            {/* Toolbar — fixed bottom */}
             {!locked && (
               <div style={{
                 display:"flex", gap:8, flexWrap:"wrap",
