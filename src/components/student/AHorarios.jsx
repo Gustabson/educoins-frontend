@@ -9,7 +9,7 @@
 //   • Sáb/Dom toggle in toolbar
 //   • Grid rotation toggle (transpose: days↔periods)
 
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 
@@ -254,19 +254,6 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [form,        setForm]        = useState(EMPTY_FORM);
 
   const lpTimer = useRef(null);
-  const gridContainerRef = useRef(null);
-  const [containerH, setContainerH] = useState(500);
-
-  useLayoutEffect(() => {
-    const el = gridContainerRef.current;
-    if (!el) return;
-    setContainerH(el.offsetHeight);
-    const ro = new ResizeObserver(() => setContainerH(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
 
   // Derived visible days for grid
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
@@ -603,7 +590,7 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:8 }}>
 
             {/* Grid area — flex fill, overflow:hidden clips rotation */}
-            <div ref={gridContainerRef} style={{ flex:1, minHeight:0, overflow:"hidden" }}>
+            <div style={{ flex:1, minHeight:0, overflow:"hidden" }}>
               {periods.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"36px 16px" }}>
                   <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
@@ -620,24 +607,22 @@ export default function AHorarios({ me, showToast, onBack }) {
                   )}
                 </div>
               ) : (
-                <div style={{ height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <div style={{
-                    width:           cssTransverse ? containerH + "px" : "100%",
-                    flexShrink:      0,
-                    transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
-                    transformOrigin: "center center",
-                    transition:      "transform .35s ease",
-                  }}>
-                    <GridView
-                      periods={periods} entries={entries}
-                      activeTurno={activeTurno} locked={locked}
-                      rotated={gridRotated} visibleDays={visibleDays}
-                      primary={primary} txt={txt} sub={sub}
-                      navBord={navBord} isDark={dark}
-                      onCellClick={openCell}
-                      onPeriodClick={openPeriodEdit}
-                    />
-                  </div>
+                <div style={{
+                  height:          "auto",
+                  flexShrink:      1,
+                  transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
+                  transformOrigin: "center center",
+                  transition:      "transform .35s ease",
+                }}>
+                  <GridView
+                    periods={periods} entries={entries}
+                    activeTurno={activeTurno} locked={locked}
+                    rotated={gridRotated} visibleDays={visibleDays}
+                    primary={primary} txt={txt} sub={sub}
+                    navBord={navBord} isDark={dark}
+                    onCellClick={openCell}
+                    onPeriodClick={openPeriodEdit}
+                  />
                 </div>
               )}
             </div>
