@@ -532,7 +532,7 @@ export default function AHorarios({ me, showToast, onBack }) {
       </div>
 
       {/* ── Body ── */}
-      <div style={{ padding:"16px 14px 0" }}>
+      <div style={{ padding:"16px 14px", paddingBottom: viewMode === "grid" && !locked ? 80 : 16 }}>
 
         {/* ── Turno selector ── */}
         <div style={{ marginBottom:18 }}>
@@ -626,14 +626,14 @@ export default function AHorarios({ me, showToast, onBack }) {
               )}
             </div>
 
-            {/* Grid toolbar — sticky bottom */}
+            {/* Grid toolbar — fixed bottom */}
             {!locked && (
               <div style={{
                 display:"flex", gap:8, flexWrap:"wrap",
-                padding:"10px 0 4px",
+                padding:"10px 14px 12px",
                 borderTop:`1px solid ${navBord}`,
-                position:"sticky", bottom:0,
-                background:pageBg,
+                position:"fixed", bottom:0, left:0, right:0,
+                background:pageBg, zIndex:80,
               }}>
 
                 {/* Agregar período */}
