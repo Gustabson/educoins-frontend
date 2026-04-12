@@ -26,6 +26,7 @@ import AAsistente  from "./AAsistente";
 import ATiendaCustom from "./personalizar/ATiendaCustom";
 import AWellness from "./AWellness";
 import AHorarios from "./AHorarios";
+import ACalendario from "./ACalendario";
 
 const SIREN_STYLE = `
   @keyframes sirenPulse {
@@ -430,6 +431,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="veredictos" && <AVeredictos me={me} onBack={()=>navTo("home")}/>}
         {tab==="asistente"  && <AAsistente  me={me} onBack={()=>navTo("home")}/>}
         {tab==="horarios"   && <AHorarios   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
+        {tab==="calendario" && <ACalendario me={me} onBack={()=>navTo("home")}/>}
       </div>
 
       {/* Modal Bienestar */}

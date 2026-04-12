@@ -22,12 +22,13 @@ import PQuemar       from "./PQuemar";
 import PEnviar       from "./PEnviar";
 import PIngresar     from "./PIngresar";
 import PContacto     from "./PContacto";
+import ACalendario  from "../student/ACalendario";
 
 // Sub-páginas que ocultan la barra de nav (tienen su propio botón ←)
 const HIDE_NAV = new Set([
   "diwy","veredictos-hijo","sugerencias","noticias","asistente",
   "personalizar","exchange","quemar","vincular","chat","amigos",
-  "enviar","ingresar","contacto",
+  "enviar","ingresar","contacto","calendario",
 ]);
 
 // ─────────────────────────────────────────────────────────────
@@ -139,6 +140,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
         {tab==="quemar"          && <PQuemar me={me} balance={balance}
                                      refreshBalance={refreshBalance} showToast={showToast} setTab={setTab}/>}
         {tab==="contacto"        && <PContacto me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="calendario"      && <ACalendario me={me} onBack={()=>setTab("home")}/>}
 
       </div>
 

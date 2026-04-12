@@ -331,6 +331,11 @@ const api = {
   postSchedule:   (data)     => apiFetch("/schedules",       { method:"POST",  body:data }),
   patchSchedule:  (id, data) => apiFetch(`/schedules/${id}`, { method:"PATCH", body:data }),
   deleteSchedule: (id)       => apiFetch(`/schedules/${id}`, { method:"DELETE" }),
+  // ── Calendario Académico ──────────────────────────────────────
+  academicEvents:      ()         => apiFetch("/academic"),
+  academicEventCreate: (data)     => apiFetch("/academic",      { method:"POST",   body:data }),
+  academicEventUpdate: (id, data) => apiFetch(`/academic/${id}`,{ method:"PATCH",  body:data }),
+  academicEventDelete: (id)       => apiFetch(`/academic/${id}`,{ method:"DELETE" }),
   diwyAdminEditRequests:()        => apiFetch("/diwy/admin/attendance/edit-requests"),
   diwyAdminReviewRequest:(id,action) =>
     apiFetch(`/diwy/admin/attendance/edit-requests/${id}`,{ method:"PATCH", body:{action} }),
