@@ -41,7 +41,7 @@ const genId = () =>
 // ─── Grid view ────────────────────────────────────────────────────────────────
 function GridView({
   periods, entries, activeTurno, locked, rotated, visibleDays,
-  primary, txt, sub, navBord, isDark,
+  primary, txt, sub, navBord, isDark, cssAngle,
   onCellClick, onPeriodClick,
 }) {
   const cellEntry = (dow, periodId) => {
@@ -54,6 +54,8 @@ function GridView({
 
   const headBg  = isDark ? "rgba(255,255,255,.05)" : "#f9f7f1";
   const borderC = navBord;
+  // counter-rotate text so it stays horizontal when grid is CSS-rotated
+  const tr = cssAngle ? { transform:`rotate(${-cssAngle}deg)`, display:"inline-block" } : {};
 
   // ── Normal layout: rows = periods, cols = days ──────────────────────────────
   if (!rotated) {
@@ -83,8 +85,9 @@ function GridView({
                 flex:1, minWidth:DAY_MIN, padding:"7px 3px",
                 fontSize:9, fontWeight:900, color:sub, letterSpacing:".04em",
                 textAlign:"center", background:headBg, borderLeft:`1px solid ${borderC}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
               }}>
-                {DAYS_SHORT[dow].toUpperCase()}
+                <span style={tr}>{DAYS_SHORT[dow].toUpperCase()}</span>
               </div>
             ))}
           </div>
@@ -100,11 +103,11 @@ function GridView({
                 cursor: locked ? "default" : "pointer",
               }}>
                 <div style={{ fontSize:12, fontWeight:800, color: primary, lineHeight:1.4 }}>
-                  {fmtTime(period.time_from) || "—"}
+                  <span style={tr}>{fmtTime(period.time_from) || "—"}</span>
                 </div>
                 {period.time_to && (
                   <div style={{ fontSize:10, color:sub, opacity:.6, fontWeight:700 }}>
-                    {fmtTime(period.time_to)}
+                    <span style={tr}>{fmtTime(period.time_to)}</span>
                   </div>
                 )}
               </div>
@@ -123,7 +126,7 @@ function GridView({
                       <div style={{ fontSize:10, fontWeight:800, color:entry.color,
                         lineHeight:1.3, overflow:"hidden", display:"-webkit-box",
                         WebkitLineClamp:2, WebkitBoxOrient:"vertical", wordBreak:"break-word" }}>
-                        {entry.subject}
+                        <span style={tr}>{entry.subject}</span>
                       </div>
                     ) : !locked ? (
                       <div style={{ textAlign:"center", fontSize:14, color:borderC, opacity:.3 }}>+</div>
@@ -170,11 +173,11 @@ function GridView({
                 display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
               }}>
               <div style={{ fontSize:10, fontWeight:800, color: primary, lineHeight:1.4 }}>
-                {fmtTime(period.time_from) || "—"}
+                <span style={tr}>{fmtTime(period.time_from) || "—"}</span>
               </div>
               {period.time_to && (
                 <div style={{ fontSize:8, color:sub, opacity:.6, fontWeight:700 }}>
-                  {fmtTime(period.time_to)}
+                  <span style={tr}>{fmtTime(period.time_to)}</span>
                 </div>
               )}
             </div>
@@ -191,7 +194,7 @@ function GridView({
               display:"flex", alignItems:"center", justifyContent:"center",
               fontSize:9, fontWeight:900, color:sub, letterSpacing:".04em",
             }}>
-              {DAYS_SHORT[dow].toUpperCase()}
+              <span style={tr}>{DAYS_SHORT[dow].toUpperCase()}</span>
             </div>
 
             {/* Period cells */}
@@ -208,7 +211,7 @@ function GridView({
                     <div style={{ fontSize:10, fontWeight:800, color:entry.color,
                       lineHeight:1.3, overflow:"hidden", display:"-webkit-box",
                       WebkitLineClamp:2, WebkitBoxOrient:"vertical", wordBreak:"break-word" }}>
-                      {entry.subject}
+                      <span style={tr}>{entry.subject}</span>
                     </div>
                   ) : !locked ? (
                     <div style={{ textAlign:"center", fontSize:14, color:borderC, opacity:.3 }}>+</div>
@@ -259,48 +262,57 @@ export default function AHorarios({ showToast, onBack }) {
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
 
   // ── Load ─────────────────────────────────────────────────────────────────────
+  const applyData = (arr, prefs) => {
+    setEntries(arr);
+    if (arr.length > 0) {
+      const counts = arr.reduce((acc, e) => {
+        acc[e.turno] = (acc[e.turno] || 0) + 1; return acc;
+      }, {});
+      setActiveTurno(Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0]);
+    }
+    if (prefs.sch_view)        setViewMode(prefs.sch_view);
+    if (typeof prefs.sch_locked === "boolean")       setLocked(prefs.sch_locked);
+    if (typeof prefs.sch_show_sat === "boolean")     setShowSat(prefs.sch_show_sat);
+    if (typeof prefs.sch_show_dom === "boolean")     setShowDom(prefs.sch_show_dom);
+    if (typeof prefs.sch_grid_rotated === "boolean")  setGridRotated(prefs.sch_grid_rotated);
+    if (typeof prefs.sch_grid_css_angle === "number") setGridCssAngle(prefs.sch_grid_css_angle);
+    if (Array.isArray(prefs.sch_turno_order) &&
+        prefs.sch_turno_order.length === TURNOS.length) {
+      setTurnoOrder(prefs.sch_turno_order);
+    }
+    if (Array.isArray(prefs.sch_periods) && prefs.sch_periods.length > 0) {
+      setPeriods([...prefs.sch_periods].sort((a,b) =>
+        (a.time_from||"") < (b.time_from||"") ? -1 : 1));
+    } else if (arr.length > 0) {
+      const seen = new Set();
+      const derived = [];
+      arr.filter(e => e.time_from)
+        .sort((a,b) => (a.time_from||"") < (b.time_from||"") ? -1 : 1)
+        .forEach(e => {
+          if (!seen.has(e.time_from)) {
+            seen.add(e.time_from);
+            derived.push({ id:genId(), time_from:e.time_from, time_to:e.time_to||null });
+          }
+        });
+      if (derived.length > 0) setPeriods(derived);
+    }
+  };
+
   useEffect(() => {
+    // Load from cache immediately for offline support
+    try {
+      const cached = JSON.parse(localStorage.getItem('sch_cache') || 'null');
+      if (cached) { applyData(cached.entries, cached.prefs); setLoading(false); }
+    } catch(e) {}
+
     Promise.all([
-      api.getSchedule().catch(() => []),
-      api.getSchedulePrefs().catch(() => ({})),
+      api.getSchedule().catch(() => null),
+      api.getSchedulePrefs().catch(() => null),
     ]).then(([scheduleData, prefs]) => {
+      if (scheduleData === null) return; // offline, cache already applied
       const arr = Array.isArray(scheduleData) ? scheduleData : [];
-      setEntries(arr);
-      if (arr.length > 0) {
-        const counts = arr.reduce((acc, e) => {
-          acc[e.turno] = (acc[e.turno] || 0) + 1; return acc;
-        }, {});
-        setActiveTurno(Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0]);
-      }
-      if (prefs.sch_view)        setViewMode(prefs.sch_view);
-      if (typeof prefs.sch_locked === "boolean")       setLocked(prefs.sch_locked);
-      if (typeof prefs.sch_show_sat === "boolean")     setShowSat(prefs.sch_show_sat);
-      if (typeof prefs.sch_show_dom === "boolean")     setShowDom(prefs.sch_show_dom);
-      if (typeof prefs.sch_grid_rotated === "boolean")  setGridRotated(prefs.sch_grid_rotated);
-      if (typeof prefs.sch_grid_css_angle === "number") setGridCssAngle(prefs.sch_grid_css_angle);
-      if (Array.isArray(prefs.sch_turno_order) &&
-          prefs.sch_turno_order.length === TURNOS.length) {
-        setTurnoOrder(prefs.sch_turno_order);
-      }
-      if (Array.isArray(prefs.sch_periods) && prefs.sch_periods.length > 0) {
-        setPeriods([...prefs.sch_periods].sort((a,b) =>
-          (a.time_from||"") < (b.time_from||"") ? -1 : 1));
-      } else if (arr.length > 0) {
-        const seen = new Set();
-        const derived = [];
-        arr.filter(e => e.time_from)
-          .sort((a,b) => (a.time_from||"") < (b.time_from||"") ? -1 : 1)
-          .forEach(e => {
-            if (!seen.has(e.time_from)) {
-              seen.add(e.time_from);
-              derived.push({ id:genId(), time_from:e.time_from, time_to:e.time_to||null });
-            }
-          });
-        if (derived.length > 0) {
-          setPeriods(derived);
-          api.patchSchedulePrefs({ sch_periods: derived }).catch(() => {});
-        }
-      }
+      try { localStorage.setItem('sch_cache', JSON.stringify({ entries:arr, prefs:prefs||{} })); } catch(e) {}
+      applyData(arr, prefs || {});
     }).finally(() => setLoading(false));
   }, []); // eslint-disable-line
 
@@ -623,6 +635,7 @@ export default function AHorarios({ showToast, onBack }) {
                     rotated={gridRotated} visibleDays={visibleDays}
                     primary={primary} txt={txt} sub={sub}
                     navBord={navBord} isDark={dark}
+                    cssAngle={gridCssAngle}
                     onCellClick={openCell}
                     onPeriodClick={openPeriodEdit}
                   />
