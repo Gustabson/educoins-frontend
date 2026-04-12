@@ -608,8 +608,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                 </div>
               ) : (
                 <div style={{
-                  height:          "auto",
-                  flexShrink:      1,
+                  width:           (gridCssAngle === 90 || gridCssAngle === 270) ? "100dvh" : "100%",
                   transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
                   transformOrigin: "center center",
                   transition:      "transform .35s ease",
