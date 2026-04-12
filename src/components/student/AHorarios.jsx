@@ -254,6 +254,19 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [form,        setForm]        = useState(EMPTY_FORM);
 
   const lpTimer = useRef(null);
+  const gridContainerRef = useRef(null);
+  const [containerH, setContainerH] = useState(500);
+
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setContainerH(el.offsetHeight));
+    ro.observe(el);
+    setContainerH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+
+  const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
 
   // Derived visible days for grid
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
@@ -590,7 +603,7 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:8 }}>
 
             {/* Grid area — flex fill, overflow:hidden clips rotation */}
-            <div style={{ flex:1, minHeight:0, overflow:"hidden" }}>
+            <div ref={gridContainerRef} style={{ flex:1, minHeight:0, overflow:"hidden" }}>
               {periods.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"36px 16px" }}>
                   <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
@@ -608,8 +621,7 @@ export default function AHorarios({ me, showToast, onBack }) {
                 </div>
               ) : (
                 <div style={{
-                  height:          "auto",
-                  flexShrink:      1,
+                  width:           cssTransverse ? containerH + "px" : "100%",
                   transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
                   transformOrigin: "center center",
                   transition:      "transform .35s ease",
