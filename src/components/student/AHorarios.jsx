@@ -99,7 +99,7 @@ function GridView({
                 display:"flex", flexDirection:"column", justifyContent:"center",
                 cursor: locked ? "default" : "pointer",
               }}>
-                <div style={{ fontSize:12, fontWeight:800, color: locked ? sub : primary, lineHeight:1.4 }}>
+                <div style={{ fontSize:12, fontWeight:800, color: primary, lineHeight:1.4 }}>
                   {fmtTime(period.time_from) || "—"}
                 </div>
                 {period.time_to && (
@@ -169,7 +169,7 @@ function GridView({
                 cursor: locked ? "default" : "pointer",
                 display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
               }}>
-              <div style={{ fontSize:10, fontWeight:800, color: locked ? sub : primary, lineHeight:1.4 }}>
+              <div style={{ fontSize:10, fontWeight:800, color: primary, lineHeight:1.4 }}>
                 {fmtTime(period.time_from) || "—"}
               </div>
               {period.time_to && (
