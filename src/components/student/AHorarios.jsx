@@ -626,12 +626,14 @@ export default function AHorarios({ me, showToast, onBack }) {
               )}
             </div>
 
-            {/* Grid toolbar — bottom of flex column, hidden when locked */}
+            {/* Grid toolbar — sticky bottom */}
             {!locked && (
               <div style={{
-                display:"flex", gap:8, flexWrap:"wrap", flexShrink:0,
+                display:"flex", gap:8, flexWrap:"wrap",
                 padding:"10px 0 4px",
                 borderTop:`1px solid ${navBord}`,
+                position:"sticky", bottom:0,
+                background:pageBg,
               }}>
 
                 {/* Agregar período */}
