@@ -256,13 +256,14 @@ export default function AHorarios({ me, showToast, onBack }) {
   const lpTimer = useRef(null);
   const gridContainerRef = useRef(null);
   const [containerW, setContainerW] = useState(390);
+  const [containerH, setContainerH] = useState(500);
 
-  // Measure actual container width for rotation math
   useEffect(() => {
     const el = gridContainerRef.current;
     if (!el) return;
-    setContainerW(el.offsetWidth);
-    const ro = new ResizeObserver(() => setContainerW(el.offsetWidth));
+    const update = () => { setContainerW(el.offsetWidth); setContainerH(el.offsetHeight); };
+    update();
+    const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -629,15 +630,14 @@ export default function AHorarios({ me, showToast, onBack }) {
                    Transform div gets explicit width=containerW so its rotation axis is
                    exactly centered — no margin math needed, works at any container width. */
                 <div style={{
-                  height:          cssTransverse ? containerW + "px" : "100%",
-                  display:         "flex",
-                  alignItems:      "center",
-                  justifyContent:  "center",
-                  transition:      "height .35s ease",
+                  height:         "100%",
+                  display:        "flex",
+                  alignItems:     "center",
+                  justifyContent: "center",
                 }}>
                   <div style={{
-                    width:           cssTransverse ? containerW + "px" : "100%",
-                    flexShrink:      0,
+                    width:      cssTransverse ? containerH + "px" : "100%",
+                    flexShrink: 0,
                     transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
                     transformOrigin: "center center",
                     transition:      "transform .35s ease",
