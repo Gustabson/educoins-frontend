@@ -9,7 +9,7 @@
 //   • Sáb/Dom toggle in toolbar
 //   • Grid rotation toggle (transpose: days↔periods)
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 
@@ -257,12 +257,12 @@ export default function AHorarios({ me, showToast, onBack }) {
   const gridContainerRef = useRef(null);
   const [containerH, setContainerH] = useState(500);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = gridContainerRef.current;
     if (!el) return;
+    setContainerH(el.offsetHeight);
     const ro = new ResizeObserver(() => setContainerH(el.offsetHeight));
     ro.observe(el);
-    setContainerH(el.offsetHeight);
     return () => ro.disconnect();
   }, []);
 
@@ -620,21 +620,24 @@ export default function AHorarios({ me, showToast, onBack }) {
                   )}
                 </div>
               ) : (
-                <div style={{
-                  width:           cssTransverse ? containerH + "px" : "100%",
-                  transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
-                  transformOrigin: "center center",
-                  transition:      "transform .35s ease",
-                }}>
-                  <GridView
-                    periods={periods} entries={entries}
-                    activeTurno={activeTurno} locked={locked}
-                    rotated={gridRotated} visibleDays={visibleDays}
-                    primary={primary} txt={txt} sub={sub}
-                    navBord={navBord} isDark={dark}
-                    onCellClick={openCell}
-                    onPeriodClick={openPeriodEdit}
-                  />
+                <div style={{ height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <div style={{
+                    width:           cssTransverse ? containerH + "px" : "100%",
+                    flexShrink:      0,
+                    transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
+                    transformOrigin: "center center",
+                    transition:      "transform .35s ease",
+                  }}>
+                    <GridView
+                      periods={periods} entries={entries}
+                      activeTurno={activeTurno} locked={locked}
+                      rotated={gridRotated} visibleDays={visibleDays}
+                      primary={primary} txt={txt} sub={sub}
+                      navBord={navBord} isDark={dark}
+                      onCellClick={openCell}
+                      onPeriodClick={openPeriodEdit}
+                    />
+                  </div>
                 </div>
               )}
             </div>
