@@ -9,7 +9,7 @@
 //   • Sáb/Dom toggle in toolbar
 //   • Grid rotation toggle (transpose: days↔periods)
 
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 
@@ -254,18 +254,6 @@ export default function AHorarios({ me, showToast, onBack }) {
   const [form,        setForm]        = useState(EMPTY_FORM);
 
   const lpTimer = useRef(null);
-  const gridContainerRef = useRef(null);
-  const [containerH, setContainerH] = useState(500);
-  const cssTransverse = gridCssAngle === 90 || gridCssAngle === 270;
-
-  useLayoutEffect(() => {
-    const el = gridContainerRef.current;
-    if (!el) return;
-    setContainerH(el.offsetHeight);
-    const ro = new ResizeObserver(() => setContainerH(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   // Derived visible days for grid
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
@@ -498,7 +486,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height:"100%", display:"flex", flexDirection:"column", background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
+    <div style={{ background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
       <div style={{
@@ -544,10 +532,10 @@ export default function AHorarios({ me, showToast, onBack }) {
       </div>
 
       {/* ── Body ── */}
-      <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", padding:"16px 14px 0" }}>
+      <div style={{ padding:"16px 14px", paddingBottom: viewMode === "grid" && !locked ? 80 : 16 }}>
 
         {/* ── Turno selector ── */}
-        <div style={{ marginBottom:18, flexShrink:0 }}>
+        <div style={{ marginBottom:18 }}>
           <div style={{ fontSize:10, fontWeight:900, color:sub,
             letterSpacing:".08em", textTransform:"uppercase",
             marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
@@ -598,9 +586,10 @@ export default function AHorarios({ me, showToast, onBack }) {
 
         ) : viewMode === "grid" ? (
           /* ── Grid view ── */
-          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:8 }}>
+          <div style={{ paddingBottom:8 }}>
 
-            <div ref={gridContainerRef} style={{ flex:1, minHeight:0, overflow:"hidden" }}>
+            {/* Grid area — overflow:hidden clips rotation */}
+            <div style={{ overflow:"hidden" }}>
               {periods.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"36px 16px" }}>
                   <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
@@ -617,14 +606,13 @@ export default function AHorarios({ me, showToast, onBack }) {
                   )}
                 </div>
               ) : (
-                <div style={{ height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <div style={{
-                    width:           cssTransverse ? containerH + "px" : "100%",
-                    flexShrink:      0,
-                    transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
-                    transformOrigin: "center center",
-                    transition:      "transform .35s ease",
-                  }}>
+                <div style={{
+                  height:          "auto",
+                  flexShrink:      1,
+                  transform:       gridCssAngle > 0 ? `rotate(${gridCssAngle}deg)` : undefined,
+                  transformOrigin: "center center",
+                  transition:      "transform .35s ease",
+                }}>
                   <GridView
                     periods={periods} entries={entries}
                     activeTurno={activeTurno} locked={locked}
@@ -634,7 +622,6 @@ export default function AHorarios({ me, showToast, onBack }) {
                     onCellClick={openCell}
                     onPeriodClick={openPeriodEdit}
                   />
-                  </div>
                 </div>
               )}
             </div>
