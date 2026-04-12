@@ -106,13 +106,13 @@ function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,
       .map(([ic,lb,sb,col,dest]) => [ic,lb,sb,col,dest, badgeMap[dest]||0]);
   };
 
-  // Drag handlers
+  // Drag handlers — only update local state, save on "Listo"
   const onDragStart = (e, idx) => {
     dragItem.current = idx;
     e.dataTransfer.effectAllowed = "move";
   };
   const onDragEnter = (idx) => { dragOver.current = idx; };
-  const onDragEnd   = async () => {
+  const onDragEnd   = () => {
     if (dragItem.current === null || dragOver.current === null) return;
     const from = dragItem.current, to = dragOver.current;
     dragItem.current = null; dragOver.current = null;
@@ -121,8 +121,12 @@ function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,
     const [moved] = newOrder.splice(from, 1);
     newOrder.splice(to, 0, moved);
     setItemOrder(newOrder);
+  };
+
+  const finishEditOrder = async () => {
+    setEditOrder(false);
     setSavingOrder(true);
-    try { await api.patchSchedulePrefs({ accesos_order: newOrder }); }
+    try { await api.patchSchedulePrefs({ accesos_order: itemOrder }); }
     catch(e) { /* silent */ }
     finally { setSavingOrder(false); }
   };
@@ -255,13 +259,13 @@ function AHome({me,balance,onNav,badges={},nameColorConfig,todayMood,moodLoaded,
             {savingOrder && <div style={{fontSize:10,color:sub,fontWeight:700}}>guardando...</div>}
           </div>
           <div style={{display:"flex",gap:6}}>
-            <button onClick={()=>setEditOrder(e=>!e)}
+            <button onClick={editOrder ? finishEditOrder : ()=>setEditOrder(true)}
               style={{background:editOrder?(accent+"22"):(dark?"rgba(255,255,255,.1)":"rgba(0,0,0,.06)"),
                 border:editOrder?`1.5px solid ${accent}`:"none",
                 borderRadius:8,padding:"5px 10px",cursor:"pointer",display:"flex",
                 alignItems:"center",gap:5,fontFamily:"Nunito,sans-serif",
                 fontSize:11,fontWeight:800,color:editOrder?accent:sub,transition:"all .2s"}}>
-              {editOrder ? "✓ Listo" : "✦ Reordenar"}
+              {editOrder ? (savingOrder ? "Guardando..." : "✓ Listo") : "✦ Reordenar"}
             </button>
             <button onClick={toggleGrid}
               style={{background:dark?"rgba(255,255,255,.1)":"rgba(0,0,0,.06)",border:"none",
