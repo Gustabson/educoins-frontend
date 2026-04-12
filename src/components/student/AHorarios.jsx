@@ -585,8 +585,8 @@ export default function AHorarios({ me, showToast, onBack }) {
           <div style={{ textAlign:"center", color:sub, padding:32 }}>Cargando...</div>
 
         ) : viewMode === "grid" ? (
-          /* ── Grid + toolbar — own flex unit, paddingBottom reserves space for fixed toolbar ── */
-          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:56 }}>
+          /* ── Grid + toolbar — own flex unit ── */
+          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column" }}>
 
             {/* Grid: fills all space, containerType size enables 100cqb = container height */}
             <div style={{
@@ -630,14 +630,13 @@ export default function AHorarios({ me, showToast, onBack }) {
               )}
             </div>
 
-            {/* Toolbar — fixed bottom */}
+            {/* Toolbar — flex child, stops the grid exactly here */}
             {!locked && (
               <div style={{
                 display:"flex", gap:8, flexWrap:"wrap",
-                padding:"10px 14px 12px",
+                padding:"10px 0 12px",
                 borderTop:`1px solid ${navBord}`,
-                position:"fixed", bottom:0, left:0, right:0,
-                background:pageBg, zIndex:80,
+                flexShrink:0,
               }}>
 
                 {/* Agregar período */}
