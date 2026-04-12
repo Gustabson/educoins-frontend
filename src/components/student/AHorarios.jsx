@@ -504,7 +504,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height:"100vh", display:"flex", flexDirection:"column",
+    <div style={{ height:"100%", display:"flex", flexDirection:"column",
       background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
