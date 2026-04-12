@@ -486,7 +486,7 @@ export default function AHorarios({ me, showToast, onBack }) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height:"100%", display:"flex", flexDirection:"column", background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
+    <div style={{ background:pageBg, transition:"background .3s", fontFamily:"Nunito,sans-serif" }}>
 
       {/* ── Header ── */}
       <div style={{
@@ -532,10 +532,10 @@ export default function AHorarios({ me, showToast, onBack }) {
       </div>
 
       {/* ── Body ── */}
-      <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", padding:"16px 14px 0" }}>
+      <div style={{ padding:"16px 14px", paddingBottom: viewMode === "grid" && !locked ? 80 : 16 }}>
 
         {/* ── Turno selector ── */}
-        <div style={{ marginBottom:18, flexShrink:0 }}>
+        <div style={{ marginBottom:18 }}>
           <div style={{ fontSize:10, fontWeight:900, color:sub,
             letterSpacing:".08em", textTransform:"uppercase",
             marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
@@ -586,9 +586,10 @@ export default function AHorarios({ me, showToast, onBack }) {
 
         ) : viewMode === "grid" ? (
           /* ── Grid view ── */
-          <div style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", paddingBottom:8 }}>
+          <div style={{ paddingBottom:8 }}>
 
-            <div style={{ flex:1, minHeight:0, overflow:"hidden" }}>
+            {/* Grid area — overflow:hidden clips rotation */}
+            <div style={{ overflow:"hidden" }}>
               {periods.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"36px 16px" }}>
                   <div style={{ fontSize:48, marginBottom:10 }}>🗓️</div>
