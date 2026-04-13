@@ -5,8 +5,8 @@ import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shared/index";
 
 
-function ARanking({nameColorConfig}){
-  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg} = useTheme();
+function ARanking({nameColorConfig, onBack}){
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, navBord} = useTheme();
   const [periodo,setPeriodo] = useState("weekly");
   const [scope,setScope]     = useState("global");
   const [classrooms,setCl]   = useState([]);
@@ -73,42 +73,61 @@ function ARanking({nameColorConfig}){
   useEffect(()=>{ load(); },[periodo, scope, selClass]);
 
   return(
-    <div style={{background:bg}}>
-      {/* Header con tabs */}
+    <div style={{background:bg, display:"flex", flexDirection:"column", height:"100%"}}>
+      {/* ── Header: solo título centrado + back ─────────────── */}
       <div style={{background:accent,position:"sticky",top:0,zIndex:50,color:"white",
-        paddingBottom:12}}>
-        <div style={{padding:"20px 16px 8px",display:"flex",alignItems:"center",gap:10}}>
-          <div style={{flex:1,fontWeight:900,fontSize:20}}>🏆 Ranking</div>
+        overflow:"hidden", transition:"background .3s"}}>
+        <div style={{position:"absolute",width:220,height:220,borderRadius:"50%",
+          background:"rgba(255,255,255,.1)",top:-60,right:-50,pointerEvents:"none"}}/>
+        <div style={{padding:"22px 20px 18px",position:"relative"}}>
+          <div style={{display:"flex",alignItems:"center",position:"relative",minHeight:32}}>
+            {onBack && (
+              <button onClick={onBack} style={{background:"rgba(0,0,0,.15)",border:"none",
+                borderRadius:50,color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
+                display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,zIndex:1}}>←</button>
+            )}
+            <div style={{position:"absolute",left:0,right:0,textAlign:"center",
+              pointerEvents:"none",fontWeight:900,fontSize:20,color:"white"}}>
+              🏆 Ranking
+            </div>
+          </div>
         </div>
+      </div>
 
+      {/* ── Filtros (fuera del header) ──────────────────────── */}
+      <div style={{background:cardBg, borderBottom:`1px solid ${navBord}`,
+        padding:"12px 14px", transition:"background .3s, border-color .3s"}}>
         {/* Período */}
-        <div style={{display:"flex",gap:6,padding:"0 14px",marginBottom:8}}>
+        <div style={{display:"flex",gap:6,marginBottom:8}}>
           {Object.entries(PERIODO_LABEL).map(([k,v])=>(
             <button key={k} onClick={()=>setPeriodo(k)}
-              style={{flex:1,background:periodo===k?"rgba(255,255,255,.3)":"rgba(255,255,255,.15)",
-                border:`1.5px solid ${periodo===k?"rgba(255,255,255,.7)":"rgba(255,255,255,.2)"}`,
-                borderRadius:99,padding:"7px 4px",fontSize:11,fontWeight:800,color:"white",
-                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              style={{flex:1, background:periodo===k?accent:"transparent",
+                border:`1.5px solid ${periodo===k?accent:navBord}`,
+                borderRadius:99,padding:"7px 4px",fontSize:11,fontWeight:800,
+                color:periodo===k?"white":sub,
+                cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                transition:"all .2s"}}>
               {v}
             </button>
           ))}
         </div>
-
         {/* Scope */}
-        <div style={{display:"flex",gap:6,padding:"0 14px"}}>
+        <div style={{display:"flex",gap:6}}>
           {[["global","🌐 Global"],["aula","🏫 Mi Aula"]].map(([k,v])=>(
             <button key={k} onClick={()=>setScope(k)}
-              style={{flex:1,background:scope===k?"rgba(255,255,255,.3)":"rgba(255,255,255,.15)",
-                border:`1.5px solid ${scope===k?"rgba(255,255,255,.7)":"rgba(255,255,255,.2)"}`,
-                borderRadius:99,padding:"7px 4px",fontSize:12,fontWeight:800,color:"white",
-                cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+              style={{flex:1, background:scope===k?accent:"transparent",
+                border:`1.5px solid ${scope===k?accent:navBord}`,
+                borderRadius:99,padding:"7px 4px",fontSize:12,fontWeight:800,
+                color:scope===k?"white":sub,
+                cursor:"pointer",fontFamily:"Nunito,sans-serif",
+                transition:"all .2s"}}>
               {v}
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{padding:"12px 14px"}}>
+      <div style={{flex:1,overflowY:"auto",padding:"12px 14px"}}>
         {/* Banner período + premios */}
         {data?.config?.length>0&&(
           <div style={{background:cardBg,borderRadius:16,padding:"12px 14px",marginBottom:12,

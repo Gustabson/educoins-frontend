@@ -26,7 +26,7 @@ function formatFullDate(d) {
 }
 
 export default function ACalendario({ me, onBack, today: todayProp }) {
-  const { primary, isDark, txt, sub, cardBg, pageBg } = useTheme();
+  const { primary, isDark, txt, sub, cardBg, pageBg, navBord } = useTheme();
   const today = todayProp || new Date();
 
   const [events,     setEvents]     = useState([]);
@@ -58,29 +58,17 @@ export default function ACalendario({ me, onBack, today: todayProp }) {
     .map(ev => ({ ...ev, _date: parseDate(ev.fecha) }))
     .sort((a, b) => a._date - b._date);
 
-  const navBtn = (onClick, label) => (
-    <button onClick={onClick} style={{
-      background:"rgba(255,255,255,.2)", border:"none", borderRadius:50,
-      color:"white", width:36, height:36, cursor:"pointer", fontSize:18,
-      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-      fontFamily:"Nunito,sans-serif" }}>
-      {label}
-    </button>
-  );
-
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%",
       background:pageBg, fontFamily:"Nunito,sans-serif", transition:"background .3s" }}>
 
-      {/* ── Header ─────────────────────────────────────────────── */}
+      {/* ── Header (solo título + back) ────────────────────────── */}
       <div style={{ background:primary, position:"sticky", top:0, zIndex:50,
         overflow:"hidden", color:"white", transition:"background .3s" }}>
         <div style={{ position:"absolute", width:220, height:220, borderRadius:"50%",
           background:"rgba(255,255,255,.1)", top:-60, right:-50, pointerEvents:"none" }}/>
-        <div style={{ padding:"22px 20px 14px", position:"relative" }}>
-
-          {/* Fila 1: ← + título */}
-          <div style={{ display:"flex", alignItems:"center", position:"relative", minHeight:32, marginBottom:16 }}>
+        <div style={{ padding:"22px 20px 18px", position:"relative" }}>
+          <div style={{ display:"flex", alignItems:"center", position:"relative", minHeight:32 }}>
             <button onClick={onBack} style={{ background:"rgba(0,0,0,.15)", border:"none",
               borderRadius:50, color:"white", width:34, height:34, cursor:"pointer", fontSize:18,
               display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, zIndex:1 }}>←</button>
@@ -89,16 +77,25 @@ export default function ACalendario({ me, onBack, today: todayProp }) {
               Calendario Académico
             </div>
           </div>
-
-          {/* Fila 2: nav de mes */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-            {navBtn(prevMonth, "‹")}
-            <div style={{ fontWeight:900, fontSize:22, letterSpacing:"-.5px" }}>
-              {MESES[viewMonth]} {viewYear}
-            </div>
-            {navBtn(nextMonth, "›")}
-          </div>
         </div>
+      </div>
+
+      {/* ── Navegación de mes (fuera del header) ───────────────── */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"12px 20px", background:cardBg, borderBottom:`1px solid ${navBord}`,
+        transition:"background .3s, border-color .3s" }}>
+        <button onClick={prevMonth} style={{ background:primary+"18", border:"none",
+          borderRadius:50, color:primary, width:38, height:38, cursor:"pointer", fontSize:22,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontFamily:"Nunito,sans-serif", fontWeight:900 }}>‹</button>
+        <div style={{ fontWeight:900, fontSize:20, color:txt, letterSpacing:"-.3px",
+          transition:"color .3s" }}>
+          {MESES[viewMonth]} {viewYear}
+        </div>
+        <button onClick={nextMonth} style={{ background:primary+"18", border:"none",
+          borderRadius:50, color:primary, width:38, height:38, cursor:"pointer", fontSize:22,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontFamily:"Nunito,sans-serif", fontWeight:900 }}>›</button>
       </div>
 
       {/* ── Lista de eventos ───────────────────────────────────── */}
