@@ -222,6 +222,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       setActivePrimary(primary||null);
       if(primary) localStorage.setItem(lk("ec_primary"), primary);
       else localStorage.removeItem(lk("ec_primary"));
+      // Guardar en servidor en background
+      api.patchSchedulePrefs({ ec_primary: primary||"" }).catch(()=>{});
     }
   };
 
@@ -229,18 +231,18 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   const setMode=(modeId, modeCfg=null)=>{
     setPreviewPrimary(null);
     if(modeCfg){
-      // Normalizar al mismo formato que BUILTIN_SCREEN_MODES antes de aplicar
       const normalized = normalizeMode({...modeCfg, id: modeCfg.id||modeId||"personalizado"});
       setDbModeCfg(normalized);
       setActiveModeId(normalized.id);
       localStorage.setItem(lk("ec_mode_id"), normalized.id);
       localStorage.setItem(lk("ec_mode_cfg"), JSON.stringify(normalized));
+      api.patchSchedulePrefs({ ec_mode_id: normalized.id, ec_mode_cfg: JSON.stringify(normalized) }).catch(()=>{});
     } else {
-      // Modo built-in (claro/oscuro)
       setDbModeCfg(null);
       setActiveModeId(modeId||"claro");
       localStorage.setItem(lk("ec_mode_id"), modeId||"claro");
       localStorage.removeItem(lk("ec_mode_cfg"));
+      api.patchSchedulePrefs({ ec_mode_id: modeId||"claro", ec_mode_cfg: "" }).catch(()=>{});
     }
   };
 
@@ -303,16 +305,35 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
   };
 
   useEffect(()=>{
-    api.customMe().then(d=>{
-      const data=d.data||d;
-      setCustomActive(data?.active||null);
-      applyActive(data?.active||null);
-    }).catch(()=>{});
+    // Load customization + server-saved theme prefs in parallel
+    Promise.all([
+      api.customMe().catch(()=>null),
+      api.getSchedulePrefs().catch(()=>null),
+    ]).then(([customData, prefs])=>{
+      const active = customData ? (customData.data||customData)?.active||null : null;
+      setCustomActive(active);
+      applyActive(active);
+      // Apply server-saved theme prefs only when customMe has no theme config
+      if(prefs && !active?.screen_mode_config && !active?.custom_mode_config){
+        if(prefs.ec_mode_cfg && prefs.ec_mode_id){
+          try {
+            const cfg = typeof prefs.ec_mode_cfg==="string" ? JSON.parse(prefs.ec_mode_cfg) : prefs.ec_mode_cfg;
+            if(cfg && Object.keys(cfg).length > 0) setMode(prefs.ec_mode_id, cfg);
+            else setMode(prefs.ec_mode_id||"claro", null);
+          } catch { setMode(prefs.ec_mode_id||"claro", null); }
+        } else if(prefs.ec_mode_id){
+          setMode(prefs.ec_mode_id, null);
+        }
+      }
+      if(prefs && !active?.theme_config && prefs.ec_primary){
+        setAccent(prefs.ec_primary, false);
+      }
+    });
     api.wellnessToday().then(d=>{
       if(d?.mood) setTodayMood(d.mood);
       setMoodLoaded(true);
     }).catch(()=>{ setMoodLoaded(true); });
-  },[]);
+  },[]);// eslint-disable-line
 
   const nameColorConfig = customActive?.name_color_config
     ? (typeof customActive.name_color_config==="string"

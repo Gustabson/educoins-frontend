@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "../../api";
 import { GS, BUILTIN_SCREEN_MODES, normalizeMode } from "../../constants";
 import { ThemeCtx } from "../../ThemeContext";
 import { Toast, useToast } from "../shared/index";
@@ -83,6 +84,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
       setActivePrimary(p || null);
       if (p) localStorage.setItem(lk("ec_primary"), p);
       else localStorage.removeItem(lk("ec_primary"));
+      api.patchSchedulePrefs({ ec_primary: p || "" }).catch(() => {});
     }
   };
 
@@ -94,15 +96,41 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
       setActiveModeId(normalized.id);
       localStorage.setItem(lk("ec_mode_id"), normalized.id);
       localStorage.setItem(lk("ec_mode_cfg"), JSON.stringify(normalized));
+      api.patchSchedulePrefs({ ec_mode_id: normalized.id, ec_mode_cfg: JSON.stringify(normalized) }).catch(() => {});
     } else {
       setDbModeCfg(null);
       setActiveModeId(modeId || "claro");
       localStorage.setItem(lk("ec_mode_id"), modeId || "claro");
       localStorage.removeItem(lk("ec_mode_cfg"));
+      api.patchSchedulePrefs({ ec_mode_id: modeId || "claro", ec_mode_cfg: "" }).catch(() => {});
     }
   };
 
   const clearPreview = () => { setPreviewPrimary(null); };
+
+  // Cargar tema guardado en servidor al montar (fallback si no hay en localStorage)
+  useEffect(() => {
+    api.getSchedulePrefs().then(prefs => {
+      if (!prefs) return;
+      // Solo aplicar si el localStorage no tiene nada guardado aún
+      const localModeId = localStorage.getItem(lk("ec_mode_id"));
+      const localPrimary = localStorage.getItem(lk("ec_primary"));
+      if (!localModeId && prefs.ec_mode_id) {
+        if (prefs.ec_mode_cfg) {
+          try {
+            const cfg = typeof prefs.ec_mode_cfg === "string" ? JSON.parse(prefs.ec_mode_cfg) : prefs.ec_mode_cfg;
+            if (cfg && Object.keys(cfg).length > 0) setMode(prefs.ec_mode_id, cfg);
+            else setMode(prefs.ec_mode_id, null);
+          } catch { setMode(prefs.ec_mode_id, null); }
+        } else {
+          setMode(prefs.ec_mode_id, null);
+        }
+      }
+      if (!localPrimary && prefs.ec_primary) {
+        setAccent(prefs.ec_primary, false);
+      }
+    }).catch(() => {});
+  }, []); // eslint-disable-line
 
   return (
     <ThemeCtx.Provider value={theme}>
