@@ -259,9 +259,12 @@ function compressMisionImg(file, maxWidth=600, quality=0.75) {
   });
 }
 
+// helpers
+function toLocalDatetimeValue(iso){ if(!iso) return ""; const d=new Date(iso); const pad=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
 function MMisiones({me,showToast}){
   const [missions,setMissions]=useState([]);
-  const [form,setForm]=useState(false);
+  const [form,setForm]=useState(false);          // 'new' | mission_obj | false
   const [titulo,setTitulo]=useState("");
   const [desc,setDesc]=useState("");
   const [rec,setRec]=useState("");
@@ -274,146 +277,209 @@ function MMisiones({me,showToast}){
   const [imgLoading,setImgLoading]=useState(false);
   const [misionIcon,setMisionIcon]=useState("⚡");
   const [autoApprove,setAutoApprove]=useState(false);
+  const [activarMasTarde,setActivarMasTarde]=useState(false);
+  const [fechaInicio,setFechaInicio]=useState("");
   const fileRef=useRef(null);
   const [loading,setLoading]=useState(true);
+  const [deleting,setDeleting]=useState(null);
 
-  useEffect(()=>{ api.teacherMissions().then(d=>setMissions(d.data||d||[])).finally(()=>setLoading(false)); },[]);
+  const reload=()=>api.teacherMissions().then(d=>setMissions(d.data||d||[])).catch(()=>{});
+  useEffect(()=>{ reload().finally(()=>setLoading(false)); },[]);
+
+  const resetForm=()=>{
+    setTitulo("");setDesc("");setRec("");setDif("facil");setTipo("normal");
+    setDurVal("24");setDurUnidad("horas");setMaxSub("");setImgUrl("");
+    setMisionIcon("⚡");setAutoApprove(false);setActivarMasTarde(false);setFechaInicio("");
+  };
+
+  const openEdit=(m)=>{
+    setTitulo(m.titulo||"");setDesc(m.descripcion||"");setRec(String(m.recompensa||""));
+    setDif(m.dificultad||"facil");setTipo(m.tipo||"normal");
+    setMaxSub(m.max_submissions?String(m.max_submissions):"");
+    setImgUrl(m.imagen_url||"");setMisionIcon(m.icon||"⚡");
+    setAutoApprove(!!m.auto_approve);
+    if(m.fecha_inicio){ setActivarMasTarde(true); setFechaInicio(toLocalDatetimeValue(m.fecha_inicio)); }
+    else { setActivarMasTarde(false); setFechaInicio(""); }
+    setForm(m);
+  };
 
   const calcFin=()=>{
     if(tipo!=="limitada"||!durVal) return null;
-    const d=new Date();
-    const v=parseInt(durVal)||1;
+    const d=new Date();const v=parseInt(durVal)||1;
     if(durUnidad==="minutos") d.setMinutes(d.getMinutes()+v);
     else if(durUnidad==="horas") d.setHours(d.getHours()+v);
     else d.setDate(d.getDate()+v);
     return d.toISOString();
   };
 
-  const crear=async()=>{
+  const guardar=async()=>{
     if(!titulo.trim()||!rec){showToast("Completa titulo y recompensa","error");return;}
+    const payload={
+      titulo:titulo.trim(),descripcion:desc.trim(),recompensa:parseInt(rec),dificultad:dif,
+      tipo, max_submissions:(tipo==="grupal"||tipo==="rol")&&maxSub?parseInt(maxSub):tipo==="rol"?1:null,
+      imagen_url:imgUrl||null, icon:misionIcon||"⚡",
+      auto_approve:autoApprove||tipo==="rapida",
+      fecha_inicio: activarMasTarde&&fechaInicio ? new Date(fechaInicio).toISOString() : null,
+    };
+    const isEdit=form&&typeof form==="object"&&form.id;
+    if(!isEdit) payload.fecha_fin=calcFin();
     try{
-      const d=await api.createMission({
-        titulo:titulo.trim(),descripcion:desc.trim(),recompensa:parseInt(rec),dificultad:dif,
-        tipo,fecha_fin:calcFin(),
-        max_submissions:(tipo==="grupal"||tipo==="rol")&&maxSub?parseInt(maxSub):tipo==="rol"?1:null,
-        imagen_url:imgUrl||null,
-        icon:misionIcon||"⚡",
-        auto_approve:autoApprove||tipo==="rapida",
-      });
-      setMissions(prev=>[d.data||d,...prev]);
-      setTitulo("");setDesc("");setRec("");setImgUrl("");setMisionIcon("⚡");setAutoApprove(false);setForm(false);
-      showToast("Mision creada!");
+      if(isEdit){
+        const d=await api.updateMission(form.id,payload);
+        setMissions(prev=>prev.map(m=>m.id===form.id?{...m,...(d.data||d)}:m));
+        showToast("Misión actualizada");
+      } else {
+        const d=await api.createMission(payload);
+        setMissions(prev=>[d.data||d,...prev]);
+        showToast("Misión creada!");
+      }
+      resetForm();setForm(false);
     }catch(e){showToast(e.message||"Error","error");}
+  };
+
+  const eliminar=async(m,e)=>{
+    e.stopPropagation();
+    if(!window.confirm(`¿Eliminar "${m.titulo}"?`)) return;
+    setDeleting(m.id);
+    try{
+      await api.deleteMission(m.id);
+      setMissions(prev=>prev.filter(x=>x.id!==m.id));
+      showToast("Misión eliminada");
+    }catch(ex){showToast(ex.message||"Error","error");}
+    finally{setDeleting(null);}
+  };
+
+  const premiarTodos=async(m,e)=>{
+    e.stopPropagation();
+    try{
+      const r=await api.missionRewardAll(m.id);
+      showToast(`✅ Premiaste a ${r.count||r.data?.count||0} alumno(s)`);
+      reload();
+    }catch(e2){showToast(e2.message||"Error","error");}
   };
 
   const TIPO_COL={normal:"#3b82f6",limitada:"#ef4444",grupal:"#10b981",encadenada:"#8b5cf6",rol:"#ec4899",rapida:"#10b981"};
   const TIPO_ICON_MAP={normal:"📋",limitada:"⏱",grupal:"👥",encadenada:"🔗",rol:"👑",rapida:"⚡"};
+  const isEdit=form&&typeof form==="object"&&form.id;
 
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando...</div>;
 
   return(
     <div>
       <OHdr title="Misiones" sub="EDUCOINS"
-        extra={<button onClick={()=>setForm(true)}
+        extra={<button onClick={()=>{resetForm();setForm("new");}}
           style={{marginTop:14,background:"rgba(255,255,255,.22)",border:"1.5px solid rgba(255,255,255,.35)",
             borderRadius:50,color:"white",padding:"8px 20px",fontWeight:800,fontSize:13,cursor:"pointer"}}>
           + Nueva
         </button>}/>
       <div style={{padding:"0 14px",marginTop:12}}>
-        {missions.map(m=>(
-          <WCard key={m.id} style={{marginBottom:10,borderLeft:`4px solid ${TIPO_COL[m.tipo||"normal"]||"#ddd"}`}}>
-            <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
-              <Pill text={m.dificultad} col={DIFCOL[m.dificultad]}/>
-              <span style={{background:TIPO_COL[m.tipo||"normal"]+"22",color:TIPO_COL[m.tipo||"normal"],
-                borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>
-                {TIPO_ICON_MAP[m.tipo||"normal"]} {m.tipo||"normal"}
-              </span>
-              {m.fecha_fin&&(
-                <span style={{fontSize:10,color:"#ef4444",fontWeight:700}}>
-                  Hasta {new Date(m.fecha_fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+        {missions.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#aaa",fontWeight:700}}>Sin misiones. Creá la primera ⚡</div>}
+        {missions.map(m=>{
+          const pendiente=m.fecha_inicio&&new Date(m.fecha_inicio)>new Date();
+          return(
+            <WCard key={m.id} style={{marginBottom:10,borderLeft:`4px solid ${TIPO_COL[m.tipo||"normal"]||"#ddd"}`,opacity:!m.activa?0.55:1}}>
+              <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center",flexWrap:"wrap"}}>
+                <Pill text={m.dificultad} col={DIFCOL[m.dificultad]}/>
+                <span style={{background:TIPO_COL[m.tipo||"normal"]+"22",color:TIPO_COL[m.tipo||"normal"],borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>
+                  {TIPO_ICON_MAP[m.tipo||"normal"]} {m.tipo||"normal"}
                 </span>
-              )}
-            </div>
-            <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{m.titulo}</div>
-            {m.descripcion&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{m.descripcion}</div>}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,flexWrap:"wrap",gap:6}}>
-              <div style={{fontWeight:800,color:"#00c1fc"}}>🪙 {m.recompensa}</div>
-              <div style={{fontSize:11,color:"#aaa"}}>
-                {m.pendientes||0} pendientes · {m.aprobadas||0} aprobadas
+                {m.auto_approve&&<span style={{background:"#10b98118",color:"#10b981",borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>⚡ auto</span>}
+                {pendiente&&<span style={{background:"#f59e0b18",color:"#f59e0b",borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>
+                  🕐 Activa {new Date(m.fecha_inicio).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                </span>}
+                {m.fecha_fin&&!pendiente&&<span style={{fontSize:10,color:"#ef4444",fontWeight:700}}>
+                  Hasta {new Date(m.fecha_fin).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                </span>}
               </div>
-              {m.pendientes > 0 && (
-                <button onClick={async (e) => {
-                  e.stopPropagation();
-                  try {
-                    const r = await api.missionRewardAll(m.id);
-                    showToast(`✅ Premiaste a ${r.count || r.data?.count || 0} alumno(s)`);
-                    api.teacherMissions().then(d => setMissions(d.data || d || [])).catch(() => {});
-                  } catch(e2) { showToast(e2.message || "Error", "error"); }
-                }} style={{background:"#10b98118",color:"#10b981",border:"none",borderRadius:8,
-                  padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif"}}>
-                  ✅ Premiar todos ({m.pendientes})
-                </button>
-              )}
-            </div>
-          </WCard>
-        ))}
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{m.icon||"⚡"} {m.titulo}</div>
+                  {m.descripcion&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{m.descripcion}</div>}
+                </div>
+                <div style={{display:"flex",gap:6,flexShrink:0}}>
+                  <button onClick={()=>openEdit(m)} style={{background:"#3b82f618",color:"#3b82f6",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>✏️</button>
+                  <button onClick={(e)=>eliminar(m,e)} disabled={deleting===m.id} style={{background:"#ef444418",color:"#ef4444",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>🗑️</button>
+                </div>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,flexWrap:"wrap",gap:6}}>
+                <div style={{fontWeight:800,color:"#00c1fc"}}>🪙 {m.recompensa}</div>
+                <div style={{fontSize:11,color:"#aaa"}}>{m.pendientes||0} pendientes · {m.aprobadas||0} aprobadas</div>
+                {(m.pendientes||0)>0&&(
+                  <button onClick={(e)=>premiarTodos(m,e)} style={{background:"#10b98118",color:"#10b981",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    ✅ Premiar todos ({m.pendientes})
+                  </button>
+                )}
+              </div>
+            </WCard>
+          );
+        })}
       </div>
       {form&&(
-        <Sheet title="Nueva mision" onClose={()=>setForm(false)}>
+        <Sheet title={isEdit?"Editar misión":"Nueva misión"} onClose={()=>{setForm(false);resetForm();}}>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <Inp val={titulo} set={setTitulo} ph="Titulo" icon="⚡"/>
-            <Inp val={desc}   set={setDesc}   ph="Descripcion (opcional)" icon="📝"/>
+            <Inp val={titulo} set={setTitulo} ph="Título" icon="⚡"/>
+            <Inp val={desc}   set={setDesc}   ph="Descripción (opcional)" icon="📝"/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               <Inp val={rec} set={setRec} ph="Recompensa" type="number" icon="🪙"/>
               <select value={dif} onChange={e=>setDif(e.target.value)}
-                style={{background:"#F7F7F7",border:"1.5px solid #E8E8E8",borderRadius:14,
-                  color:"#1a1a1a",padding:"12px 14px",fontSize:13,outline:"none",fontWeight:700}}>
-                <option value="facil">Facil</option>
-                <option value="media">Media</option>
-                <option value="dificil">Dificil</option>
+                style={{background:"#F7F7F7",border:"1.5px solid #E8E8E8",borderRadius:14,color:"#1a1a1a",padding:"12px 14px",fontSize:13,outline:"none",fontWeight:700}}>
+                <option value="facil">Fácil</option><option value="media">Media</option><option value="dificil">Difícil</option>
               </select>
             </div>
-            <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:2}}>Tipo de mision</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-              {[
-                ["normal","📋 Normal"],["limitada","⏱ Tiempo"],["grupal","👥 Grupal"],
-                ["rol","👑 Rol"],["rapida","⚡ Rápida"]
-              ].map(([v,l])=>(
-                <button key={v} onClick={()=>{ setTipo(v); if(v==="rapida") setAutoApprove(true); else setAutoApprove(false); }}
-                  style={{background:tipo===v?TIPO_COL[v]:"#f0f0f0",color:tipo===v?"white":"#555",
-                    border:"none",borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:11,
-                    cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
-              ))}
-            </div>
-            {tipo==="limitada"&&(
+
+            {/* Tipo */}
+            {!isEdit&&(<>
+              <div style={{fontWeight:700,fontSize:12,color:"#666"}}>Tipo de misión</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[["normal","📋 Normal"],["limitada","⏱ Tiempo"],["grupal","👥 Grupal"],["rol","👑 Rol"],["rapida","⚡ Rápida"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>{setTipo(v);setAutoApprove(v==="rapida");}}
+                    style={{background:tipo===v?TIPO_COL[v]:"#f0f0f0",color:tipo===v?"white":"#555",border:"none",borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:11,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
+                ))}
+              </div>
+            </>)}
+
+            {/* Duración para limitada */}
+            {tipo==="limitada"&&!isEdit&&(
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input type="number" value={durVal} min="1"
-                  onChange={e=>setDurVal(e.target.value)}
-                  style={{width:60,border:"1.5px solid #e8e8e8",borderRadius:10,padding:"9px 10px",
-                    fontSize:14,fontWeight:800,outline:"none",color:"#ef4444",textAlign:"center",
-                    fontFamily:"Nunito,sans-serif"}}/>
+                <input type="number" value={durVal} min="1" onChange={e=>setDurVal(e.target.value)}
+                  style={{width:60,border:"1.5px solid #e8e8e8",borderRadius:10,padding:"9px 10px",fontSize:14,fontWeight:800,outline:"none",color:"#ef4444",textAlign:"center",fontFamily:"Nunito,sans-serif"}}/>
                 <select value={durUnidad} onChange={e=>setDurUnidad(e.target.value)}
-                  style={{flex:1,background:"#f7f7f7",border:"1.5px solid #e8e8e8",borderRadius:10,
-                    padding:"9px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}>
-                  <option value="minutos">minutos</option>
-                  <option value="horas">horas</option>
-                  <option value="dias">dias</option>
+                  style={{flex:1,background:"#f7f7f7",border:"1.5px solid #e8e8e8",borderRadius:10,padding:"9px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}>
+                  <option value="minutos">minutos</option><option value="horas">horas</option><option value="dias">días</option>
                 </select>
               </div>
             )}
+
+            {/* Cupos */}
             {(tipo==="grupal"||tipo==="rol")&&(
-              <Inp val={maxSub} set={setMaxSub}
-                ph={tipo==="rol"?"Cupos para el rol (por defecto 1)":"Max. participantes (vacío = ilimitado)"}
-                type="number" icon={tipo==="rol"?"👑":"👥"}/>
+              <Inp val={maxSub} set={setMaxSub} ph={tipo==="rol"?"Cupos (por defecto 1)":"Máx. participantes (vacío=ilimitado)"} type="number" icon={tipo==="rol"?"👑":"👥"}/>
             )}
+
+            {/* Auto-approve toggle (si no es rapida) */}
+            {tipo!=="rapida"&&(
+              <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 0"}}>
+                <input type="checkbox" checked={autoApprove} onChange={e=>setAutoApprove(e.target.checked)} style={{accentColor:"#10b981",width:18,height:18}}/>
+                <span style={{fontSize:13,fontWeight:700,color:"#555"}}>⚡ Aprobación automática al entregar</span>
+              </label>
+            )}
+
+            {/* Activar más tarde */}
+            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"4px 0"}}>
+              <input type="checkbox" checked={activarMasTarde} onChange={e=>setActivarMasTarde(e.target.checked)} style={{accentColor:"#3b82f6",width:18,height:18}}/>
+              <span style={{fontSize:13,fontWeight:700,color:"#555"}}>🕐 Programar activación</span>
+            </label>
+            {activarMasTarde&&(
+              <input type="datetime-local" value={fechaInicio} onChange={e=>setFechaInicio(e.target.value)}
+                style={{border:"1.5px solid #E8E8E8",borderRadius:12,padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",fontWeight:700,color:"#1a1a1a",background:"#F7F7F7"}}/>
+            )}
+
             {/* Icon */}
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <input value={misionIcon} onChange={e=>setMisionIcon(e.target.value)} maxLength={4}
-                placeholder="⚡" style={{width:56,border:"1.5px solid #E8E8E8",borderRadius:12,
-                  padding:"10px",fontSize:22,textAlign:"center",outline:"none",fontFamily:"Nunito,sans-serif"}}/>
-              <span style={{fontSize:12,color:"#888",fontWeight:700}}>Emoji / ícono de la misión</span>
+                placeholder="⚡" style={{width:56,border:"1.5px solid #E8E8E8",borderRadius:12,padding:"10px",fontSize:22,textAlign:"center",outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+              <span style={{fontSize:12,color:"#888",fontWeight:700}}>Emoji / ícono</span>
             </div>
+
             {/* Image upload */}
             <input ref={fileRef} type="file" accept="image/*" onChange={async e=>{
               const f=e.target.files?.[0]; if(!f) return;
@@ -425,19 +491,15 @@ function MMisiones({me,showToast}){
             {imgUrl?(
               <div style={{position:"relative",borderRadius:12,overflow:"hidden",height:100}}>
                 <img src={imgUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                <button onClick={()=>setImgUrl("")} style={{position:"absolute",top:6,right:6,
-                  background:"rgba(0,0,0,.6)",border:"none",borderRadius:"50%",color:"white",
-                  width:26,height:26,cursor:"pointer",fontSize:12}}>✕</button>
+                <button onClick={()=>setImgUrl("")} style={{position:"absolute",top:6,right:6,background:"rgba(0,0,0,.6)",border:"none",borderRadius:"50%",color:"white",width:26,height:26,cursor:"pointer",fontSize:12}}>✕</button>
               </div>
             ):(
               <button onClick={()=>fileRef.current?.click()} disabled={imgLoading}
-                style={{width:"100%",padding:"10px",background:"#f0f0f0",color:"#555",
-                  border:"1.5px dashed #ccc",borderRadius:12,cursor:"pointer",
-                  fontFamily:"Nunito,sans-serif",fontSize:13,fontWeight:800}}>
+                style={{width:"100%",padding:"10px",background:"#f0f0f0",color:"#555",border:"1.5px dashed #ccc",borderRadius:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",fontSize:13,fontWeight:800}}>
                 {imgLoading?"Procesando...":"📷 Agregar imagen (opcional)"}
               </button>
             )}
-            <PBtn label="Crear mision" onClick={crear} full/>
+            <PBtn label={isEdit?"Guardar cambios":"Crear misión"} onClick={guardar} full/>
           </div>
         </Sheet>
       )}
