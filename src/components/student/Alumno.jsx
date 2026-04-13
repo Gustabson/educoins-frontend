@@ -423,7 +423,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       <div style={{flex:1,overflowY:"auto",paddingBottom:0,animation:"fadeIn .18s ease"}}>
         {tab==="home"       && <AHome       me={me} balance={balance} onNav={navTo} badges={badges} nameColorConfig={nameColorConfig} todayMood={todayMood} moodLoaded={moodLoaded} onOpenWellness={()=>setWellnessOpen(true)}/>}
         {tab==="misiones"   && <AMisiones   me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
-        {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
+        {tab==="tienda"     && <ATienda     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance} onBack={()=>navTo("home")}/>}
         {tab==="enviar"     && <AEnviar     me={me} balance={balance} showToast={showToast} refreshBalance={refreshBalance}/>}
         {tab==="movimientos"&& <AMovimientos/>}
         {tab==="ingresar"   && <AIngresar   me={me} onBack={()=>setTab("home")}/>}
