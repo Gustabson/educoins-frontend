@@ -15,10 +15,16 @@ const TIPO_CFG = {
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
                "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
+function parseDate(fecha) {
+  const s = typeof fecha === "string" ? fecha.slice(0,10) : String(fecha);
+  const [y,m,d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function groupByMonth(events) {
   const map = {};
   events.forEach(ev => {
-    const d = new Date(ev.fecha + "T12:00:00");
+    const d = parseDate(ev.fecha);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     if (!map[key]) map[key] = { year: d.getFullYear(), month: d.getMonth(), items: [] };
     map[key].items.push({ ...ev, _date: d });
