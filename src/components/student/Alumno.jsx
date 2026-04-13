@@ -125,6 +125,8 @@ function VerdictModal({ verdict, onDismiss }) {
 
 function Alumno({me,balance,refreshBalance,logout,setMe}){
   const [tab,setTab]=useState("home");
+  // Single date instance — shared across all child tabs to avoid redundant new Date() calls
+  const today = useMemo(()=>new Date(),[]);
   const [toast,showToast]=useToast();
   const [camOpen,setCamOpen]=useState(false);
   const [wellnessOpen,setWellnessOpen]=useState(false);
@@ -451,8 +453,8 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         {tab==="reportes"   && <AReportes   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
         {tab==="veredictos" && <AVeredictos me={me} onBack={()=>navTo("home")}/>}
         {tab==="asistente"  && <AAsistente  me={me} onBack={()=>navTo("home")}/>}
-        {tab==="horarios"   && <AHorarios   me={me} showToast={showToast} onBack={()=>navTo("home")}/>}
-        {tab==="calendario" && <ACalendario me={me} onBack={()=>navTo("home")}/>}
+        {tab==="horarios"   && <AHorarios   me={me} showToast={showToast} onBack={()=>navTo("home")} today={today}/>}
+        {tab==="calendario" && <ACalendario me={me} onBack={()=>navTo("home")} today={today}/>}
       </div>
 
       {/* Modal Bienestar */}

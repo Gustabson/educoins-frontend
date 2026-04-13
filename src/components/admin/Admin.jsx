@@ -1,5 +1,5 @@
 import { GS, ADMIN_THEME } from "../../constants";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useToast, Toast } from "../shared/index";
 import { ThemeCtx } from "../../ThemeContext";
 
@@ -56,6 +56,7 @@ const SECTION_PERMS = {
 function Admin({ me, logout }) {
   const [tab, setTab]     = useState("home");
   const [toast, showToast] = useToast();
+  const today = useMemo(()=>new Date(),[]);
 
   const isSuperAdmin = me?.rol === "admin";
   const userPerms    = me?.permisos || [];
@@ -112,7 +113,7 @@ function Admin({ me, logout }) {
         {tab==="link-requests"                           && <AdminVincular    showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="asistencias"  && canSee("asistencias")  && <AdminAsistencias showToast={showToast} onBack={()=>setTab("home")} me={me}/>}
         {tab==="contacto"     && canSee("contacto")     && <AdminContacto    showToast={showToast} onBack={()=>setTab("home")} me={me}/>}
-        {tab==="calendario"   && canSee("calendario")   && <AdminCalendario  showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="calendario"   && canSee("calendario")   && <AdminCalendario  showToast={showToast} onBack={()=>setTab("home")} today={today}/>}
 
       </div>
 

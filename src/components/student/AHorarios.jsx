@@ -31,7 +31,7 @@ const PRESET_COLORS = [
 
 const EMPTY_FORM = { subject:"", time_from:"", time_to:"", color:PRESET_COLORS[0] };
 
-function todayDow() { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; }
+function todayDow(today) { const d = (today||new Date()).getDay(); return d === 0 ? 6 : d - 1; }
 const fmtTime = t => t ? t.substring(0, 5) : null;
 const genId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
@@ -225,7 +225,7 @@ function GridView({
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function AHorarios({ showToast, onBack }) {
+export default function AHorarios({ showToast, onBack, today }) {
   const {
     primary, isDark:dark, txt, sub,
     cardBg, pageBg, navBord, inputBg,
@@ -234,7 +234,7 @@ export default function AHorarios({ showToast, onBack }) {
   const [entries,     setEntries]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [activeTurno, setActiveTurno] = useState("manana");
-  const [selectedDay, setSelectedDay] = useState(() => todayDow());
+  const [selectedDay, setSelectedDay] = useState(() => todayDow(today));
   const [saving,      setSaving]      = useState(false);
 
   // ── UI prefs ────────────────────────────────────────────────────────────────

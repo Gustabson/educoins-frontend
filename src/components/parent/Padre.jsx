@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { api } from "../../api";
 import { GS, BUILTIN_SCREEN_MODES, normalizeMode } from "../../constants";
 import { ThemeCtx } from "../../ThemeContext";
@@ -38,6 +38,7 @@ const HIDE_NAV = new Set([
 function Padre({ me, balance, refreshBalance, logout, setMe }) {
   const [tab, setTab]         = useState("home");
   const [toast, showToast]    = useToast();
+  const today = useMemo(()=>new Date(),[]);
   const [camOpen, setCamOpen] = useState(false);
   const showNav = !HIDE_NAV.has(tab);
 
@@ -168,7 +169,7 @@ function Padre({ me, balance, refreshBalance, logout, setMe }) {
         {tab==="quemar"          && <PQuemar me={me} balance={balance}
                                      refreshBalance={refreshBalance} showToast={showToast} setTab={setTab}/>}
         {tab==="contacto"        && <PContacto me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
-        {tab==="calendario"      && <ACalendario me={me} onBack={()=>setTab("home")}/>}
+        {tab==="calendario"      && <ACalendario me={me} onBack={()=>setTab("home")} today={today}/>}
 
       </div>
 
