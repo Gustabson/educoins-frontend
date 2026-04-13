@@ -238,6 +238,27 @@ function MHome({me,onNav}){
   );
 }
 
+function compressMisionImg(file, maxWidth=600, quality=0.75) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        const ratio = Math.min(maxWidth / img.width, 1);
+        c.width = Math.round(img.width * ratio);
+        c.height = Math.round(img.height * ratio);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = rej;
+      img.src = e.target.result;
+    };
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
 function MMisiones({me,showToast}){
   const [missions,setMissions]=useState([]);
   const [form,setForm]=useState(false);
@@ -246,10 +267,14 @@ function MMisiones({me,showToast}){
   const [rec,setRec]=useState("");
   const [dif,setDif]=useState("facil");
   const [tipo,setTipo]=useState("normal");
-  const [fechaFin,setFechaFin]=useState("");
   const [durVal,setDurVal]=useState("24");
   const [durUnidad,setDurUnidad]=useState("horas");
   const [maxSub,setMaxSub]=useState("");
+  const [imgUrl,setImgUrl]=useState("");
+  const [imgLoading,setImgLoading]=useState(false);
+  const [misionIcon,setMisionIcon]=useState("⚡");
+  const [autoApprove,setAutoApprove]=useState(false);
+  const fileRef=useRef(null);
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{ api.teacherMissions().then(d=>setMissions(d.data||d||[])).finally(()=>setLoading(false)); },[]);
@@ -270,16 +295,19 @@ function MMisiones({me,showToast}){
       const d=await api.createMission({
         titulo:titulo.trim(),descripcion:desc.trim(),recompensa:parseInt(rec),dificultad:dif,
         tipo,fecha_fin:calcFin(),
-        max_submissions:tipo==="grupal"&&maxSub?parseInt(maxSub):null,
+        max_submissions:(tipo==="grupal"||tipo==="rol")&&maxSub?parseInt(maxSub):tipo==="rol"?1:null,
+        imagen_url:imgUrl||null,
+        icon:misionIcon||"⚡",
+        auto_approve:autoApprove||tipo==="rapida",
       });
       setMissions(prev=>[d.data||d,...prev]);
-      setTitulo("");setDesc("");setRec("");setForm(false);
+      setTitulo("");setDesc("");setRec("");setImgUrl("");setMisionIcon("⚡");setAutoApprove(false);setForm(false);
       showToast("Mision creada!");
     }catch(e){showToast(e.message||"Error","error");}
   };
 
-  const TIPO_COL={normal:"#3b82f6",limitada:"#ef4444",grupal:"#10b981",encadenada:"#8b5cf6"};
-  const TIPO_ICON={normal:"📋",limitada:"⏱",grupal:"👥",encadenada:"🔗"};
+  const TIPO_COL={normal:"#3b82f6",limitada:"#ef4444",grupal:"#10b981",encadenada:"#8b5cf6",rol:"#ec4899",rapida:"#10b981"};
+  const TIPO_ICON_MAP={normal:"📋",limitada:"⏱",grupal:"👥",encadenada:"🔗",rol:"👑",rapida:"⚡"};
 
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando...</div>;
 
@@ -298,7 +326,7 @@ function MMisiones({me,showToast}){
               <Pill text={m.dificultad} col={DIFCOL[m.dificultad]}/>
               <span style={{background:TIPO_COL[m.tipo||"normal"]+"22",color:TIPO_COL[m.tipo||"normal"],
                 borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>
-                {TIPO_ICON[m.tipo||"normal"]} {m.tipo||"normal"}
+                {TIPO_ICON_MAP[m.tipo||"normal"]} {m.tipo||"normal"}
               </span>
               {m.fecha_fin&&(
                 <span style={{fontSize:10,color:"#ef4444",fontWeight:700}}>
@@ -308,11 +336,25 @@ function MMisiones({me,showToast}){
             </div>
             <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{m.titulo}</div>
             {m.descripcion&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{m.descripcion}</div>}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,flexWrap:"wrap",gap:6}}>
               <div style={{fontWeight:800,color:"#00c1fc"}}>🪙 {m.recompensa}</div>
               <div style={{fontSize:11,color:"#aaa"}}>
                 {m.pendientes||0} pendientes · {m.aprobadas||0} aprobadas
               </div>
+              {m.pendientes > 0 && (
+                <button onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    const r = await api.missionRewardAll(m.id);
+                    showToast(`✅ Premiaste a ${r.count || r.data?.count || 0} alumno(s)`);
+                    api.teacherMissions().then(d => setMissions(d.data || d || [])).catch(() => {});
+                  } catch(e2) { showToast(e2.message || "Error", "error"); }
+                }} style={{background:"#10b98118",color:"#10b981",border:"none",borderRadius:8,
+                  padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif"}}>
+                  ✅ Premiar todos ({m.pendientes})
+                </button>
+              )}
             </div>
           </WCard>
         ))}
@@ -334,8 +376,11 @@ function MMisiones({me,showToast}){
             </div>
             <div style={{fontWeight:700,fontSize:12,color:"#666",marginBottom:2}}>Tipo de mision</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-              {[["normal","📋 Normal"],["limitada","⏱ Tiempo"],["grupal","👥 Grupal"],["encadenada","🔗 Serie"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setTipo(v)}
+              {[
+                ["normal","📋 Normal"],["limitada","⏱ Tiempo"],["grupal","👥 Grupal"],
+                ["rol","👑 Rol"],["rapida","⚡ Rápida"]
+              ].map(([v,l])=>(
+                <button key={v} onClick={()=>{ setTipo(v); if(v==="rapida") setAutoApprove(true); else setAutoApprove(false); }}
                   style={{background:tipo===v?TIPO_COL[v]:"#f0f0f0",color:tipo===v?"white":"#555",
                     border:"none",borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:11,
                     cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
@@ -357,8 +402,40 @@ function MMisiones({me,showToast}){
                 </select>
               </div>
             )}
-            {tipo==="grupal"&&(
-              <Inp val={maxSub} set={setMaxSub} ph="Max. participantes (dejar vacio = ilimitado)" type="number" icon="👥"/>
+            {(tipo==="grupal"||tipo==="rol")&&(
+              <Inp val={maxSub} set={setMaxSub}
+                ph={tipo==="rol"?"Cupos para el rol (por defecto 1)":"Max. participantes (vacío = ilimitado)"}
+                type="number" icon={tipo==="rol"?"👑":"👥"}/>
+            )}
+            {/* Icon */}
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <input value={misionIcon} onChange={e=>setMisionIcon(e.target.value)} maxLength={4}
+                placeholder="⚡" style={{width:56,border:"1.5px solid #E8E8E8",borderRadius:12,
+                  padding:"10px",fontSize:22,textAlign:"center",outline:"none",fontFamily:"Nunito,sans-serif"}}/>
+              <span style={{fontSize:12,color:"#888",fontWeight:700}}>Emoji / ícono de la misión</span>
+            </div>
+            {/* Image upload */}
+            <input ref={fileRef} type="file" accept="image/*" onChange={async e=>{
+              const f=e.target.files?.[0]; if(!f) return;
+              setImgLoading(true);
+              try{ setImgUrl(await compressMisionImg(f)); }
+              catch{ showToast("Error al procesar imagen","error"); }
+              finally{ setImgLoading(false); }
+            }} style={{display:"none"}}/>
+            {imgUrl?(
+              <div style={{position:"relative",borderRadius:12,overflow:"hidden",height:100}}>
+                <img src={imgUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                <button onClick={()=>setImgUrl("")} style={{position:"absolute",top:6,right:6,
+                  background:"rgba(0,0,0,.6)",border:"none",borderRadius:"50%",color:"white",
+                  width:26,height:26,cursor:"pointer",fontSize:12}}>✕</button>
+              </div>
+            ):(
+              <button onClick={()=>fileRef.current?.click()} disabled={imgLoading}
+                style={{width:"100%",padding:"10px",background:"#f0f0f0",color:"#555",
+                  border:"1.5px dashed #ccc",borderRadius:12,cursor:"pointer",
+                  fontFamily:"Nunito,sans-serif",fontSize:13,fontWeight:800}}>
+                {imgLoading?"Procesando...":"📷 Agregar imagen (opcional)"}
+              </button>
             )}
             <PBtn label="Crear mision" onClick={crear} full/>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../../api";
 import { useTheme } from "../../ThemeContext";
 
@@ -91,6 +91,28 @@ function ItemCard({ item, onClick }) {
   );
 }
 
+// ── Image compression helper ──────────────────────────────────
+function compressImage(file, maxWidth = 600, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ratio = Math.min(maxWidth / img.width, 1);
+        canvas.width  = Math.round(img.width  * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 // ── Formulario nuevo anuncio ──────────────────────────────────
 function CreateSheet({ me, onClose, onCreated, showToast }) {
   const { primary, isDark, txt, sub, cardBg, navBord, inputBg } = useTheme();
@@ -100,7 +122,21 @@ function CreateSheet({ me, onClose, onCreated, showToast }) {
   const [precio,   setPrecio]   = useState("");
   const [stock,    setStock]    = useState("");
   const [imgUrl,   setImgUrl]   = useState("");
+  const [imgLoading, setImgLoading] = useState(false);
+  const fileRef = useRef(null);
   const [saving,   setSaving]   = useState(false);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10_000_000) { showToast("Imagen muy grande (máx 10MB)", "error"); return; }
+    setImgLoading(true);
+    try {
+      const base64 = await compressImage(file);
+      setImgUrl(base64);
+    } catch { showToast("Error al procesar imagen", "error"); }
+    finally { setImgLoading(false); }
+  };
 
   const inp = {
     background:inputBg, border:`1px solid ${navBord}`, borderRadius:10,
@@ -194,9 +230,32 @@ function CreateSheet({ me, onClose, onCreated, showToast }) {
               </div>
             </div>
             <div style={{ marginBottom:20 }}>
-              <div style={{ fontSize:11, fontWeight:800, color:sub, marginBottom:4 }}>URL DE IMAGEN</div>
-              <input value={imgUrl} onChange={e=>setImgUrl(e.target.value)}
-                placeholder="https://..." style={inp}/>
+              <div style={{ fontSize:11, fontWeight:800, color:sub, marginBottom:8 }}>IMAGEN</div>
+              {imgUrl && (
+                <div style={{ position:"relative", paddingBottom:"56%", borderRadius:14, overflow:"hidden",
+                  background:inputBg, marginBottom:10 }}>
+                  <img src={imgUrl} alt="preview" style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
+                  <button onClick={() => setImgUrl("")}
+                    style={{ position:"absolute", top:8, right:8, background:"rgba(0,0,0,.6)",
+                      border:"none", borderRadius:"50%", color:"white", width:28, height:28,
+                      cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+                </div>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display:"none" }}/>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => fileRef.current?.click()} disabled={imgLoading}
+                  style={{ flex:1, padding:"10px", background: primary+"18", color:primary,
+                    border:`1.5px dashed ${primary}55`, borderRadius:12, cursor:"pointer",
+                    fontFamily:"Nunito,sans-serif", fontSize:13, fontWeight:800,
+                    opacity: imgLoading ? .6 : 1 }}>
+                  {imgLoading ? "Procesando..." : "📷 Subir foto"}
+                </button>
+                {!imgUrl && (
+                  <input value={imgUrl} onChange={e => setImgUrl(e.target.value)}
+                    placeholder="o pegar URL..."
+                    style={{ ...inp, flex:1 }}/>
+                )}
+              </div>
             </div>
 
             <button onClick={submit} disabled={saving} style={{
