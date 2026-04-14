@@ -263,6 +263,7 @@ function compressMisionImg(file, maxWidth=600, quality=0.75) {
 function toLocalDatetimeValue(iso){ if(!iso) return ""; const d=new Date(iso); const pad=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 
 function MMisiones({me,showToast}){
+  const {primary,isDark,txt,sub,cardBg,pageBg,navBord,inputBg}=useTheme();
   const [missions,setMissions]=useState([]);
   const [form,setForm]=useState(false);          // 'new' | mission_obj | false
   const [titulo,setTitulo]=useState("");
@@ -373,7 +374,7 @@ function MMisiones({me,showToast}){
           + Nueva
         </button>}/>
       <div style={{padding:"0 14px",marginTop:12}}>
-        {missions.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#aaa",fontWeight:700}}>Sin misiones. Creá la primera ⚡</div>}
+        {missions.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:sub,fontWeight:700}}>Sin misiones. Creá la primera ⚡</div>}
         {missions.map(m=>{
           const pendiente=m.fecha_inicio&&new Date(m.fecha_inicio)>new Date();
           return(
@@ -393,17 +394,17 @@ function MMisiones({me,showToast}){
               </div>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{m.icon||"⚡"} {m.titulo}</div>
-                  {m.descripcion&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{m.descripcion}</div>}
+                  <div style={{fontWeight:800,fontSize:14,color:txt}}>{m.icon||"⚡"} {m.titulo}</div>
+                  {m.descripcion&&<div style={{fontSize:12,color:sub,marginTop:2}}>{m.descripcion}</div>}
                 </div>
                 <div style={{display:"flex",gap:6,flexShrink:0}}>
-                  <button onClick={()=>openEdit(m)} style={{background:"#3b82f618",color:"#3b82f6",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>✏️</button>
+                  <button onClick={()=>openEdit(m)} style={{background:primary+"18",color:primary,border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>✏️</button>
                   <button onClick={(e)=>eliminar(m,e)} disabled={deleting===m.id} style={{background:"#ef444418",color:"#ef4444",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>🗑️</button>
                 </div>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,flexWrap:"wrap",gap:6}}>
-                <div style={{fontWeight:800,color:"#00c1fc"}}>🪙 {m.recompensa}</div>
-                <div style={{fontSize:11,color:"#aaa"}}>{m.pendientes||0} pendientes · {m.aprobadas||0} aprobadas</div>
+                <div style={{fontWeight:800,color:primary}}>🪙 {m.recompensa}</div>
+                <div style={{fontSize:11,color:sub}}>{m.pendientes||0} pendientes · {m.aprobadas||0} aprobadas</div>
                 {(m.pendientes||0)>0&&(
                   <button onClick={(e)=>premiarTodos(m,e)} style={{background:"#10b98118",color:"#10b981",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                     ✅ Premiar todos ({m.pendientes})
@@ -422,18 +423,18 @@ function MMisiones({me,showToast}){
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               <Inp val={rec} set={setRec} ph="Recompensa" type="number" icon="🪙"/>
               <select value={dif} onChange={e=>setDif(e.target.value)}
-                style={{background:"#F7F7F7",border:"1.5px solid #E8E8E8",borderRadius:14,color:"#1a1a1a",padding:"12px 14px",fontSize:13,outline:"none",fontWeight:700}}>
+                style={{background:inputBg,border:`1.5px solid ${navBord}`,borderRadius:14,color:txt,padding:"12px 14px",fontSize:13,outline:"none",fontWeight:700}}>
                 <option value="facil">Fácil</option><option value="media">Media</option><option value="dificil">Difícil</option>
               </select>
             </div>
 
             {/* Tipo */}
             {!isEdit&&(<>
-              <div style={{fontWeight:700,fontSize:12,color:"#666"}}>Tipo de misión</div>
+              <div style={{fontWeight:700,fontSize:12,color:sub}}>Tipo de misión</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[["normal","📋 Normal"],["limitada","⏱ Tiempo"],["grupal","👥 Grupal"],["rol","👑 Rol"],["rapida","⚡ Rápida"]].map(([v,l])=>(
                   <button key={v} onClick={()=>{setTipo(v);setAutoApprove(v==="rapida");}}
-                    style={{background:tipo===v?TIPO_COL[v]:"#f0f0f0",color:tipo===v?"white":"#555",border:"none",borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:11,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
+                    style={{background:tipo===v?TIPO_COL[v]:inputBg,color:tipo===v?"white":sub,border:"none",borderRadius:10,padding:"9px 6px",fontWeight:800,fontSize:11,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>{l}</button>
                 ))}
               </div>
             </>)}
@@ -442,9 +443,9 @@ function MMisiones({me,showToast}){
             {tipo==="limitada"&&!isEdit&&(
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 <input type="number" value={durVal} min="1" onChange={e=>setDurVal(e.target.value)}
-                  style={{width:60,border:"1.5px solid #e8e8e8",borderRadius:10,padding:"9px 10px",fontSize:14,fontWeight:800,outline:"none",color:"#ef4444",textAlign:"center",fontFamily:"Nunito,sans-serif"}}/>
+                  style={{width:60,border:`1.5px solid ${navBord}`,borderRadius:10,padding:"9px 10px",fontSize:14,fontWeight:800,outline:"none",color:"#ef4444",textAlign:"center",fontFamily:"Nunito,sans-serif",background:inputBg}}/>
                 <select value={durUnidad} onChange={e=>setDurUnidad(e.target.value)}
-                  style={{flex:1,background:"#f7f7f7",border:"1.5px solid #e8e8e8",borderRadius:10,padding:"9px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif"}}>
+                  style={{flex:1,background:inputBg,border:`1.5px solid ${navBord}`,borderRadius:10,padding:"9px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",color:txt}}>
                   <option value="minutos">minutos</option><option value="horas">horas</option><option value="dias">días</option>
                 </select>
               </div>
@@ -459,25 +460,25 @@ function MMisiones({me,showToast}){
             {tipo!=="rapida"&&(
               <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 0"}}>
                 <input type="checkbox" checked={autoApprove} onChange={e=>setAutoApprove(e.target.checked)} style={{accentColor:"#10b981",width:18,height:18}}/>
-                <span style={{fontSize:13,fontWeight:700,color:"#555"}}>⚡ Aprobación automática al entregar</span>
+                <span style={{fontSize:13,fontWeight:700,color:sub}}>⚡ Aprobación automática al entregar</span>
               </label>
             )}
 
             {/* Activar más tarde */}
             <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"4px 0"}}>
-              <input type="checkbox" checked={activarMasTarde} onChange={e=>setActivarMasTarde(e.target.checked)} style={{accentColor:"#3b82f6",width:18,height:18}}/>
-              <span style={{fontSize:13,fontWeight:700,color:"#555"}}>🕐 Programar activación</span>
+              <input type="checkbox" checked={activarMasTarde} onChange={e=>setActivarMasTarde(e.target.checked)} style={{accentColor:primary,width:18,height:18}}/>
+              <span style={{fontSize:13,fontWeight:700,color:sub}}>🕐 Programar activación</span>
             </label>
             {activarMasTarde&&(
               <input type="datetime-local" value={fechaInicio} onChange={e=>setFechaInicio(e.target.value)}
-                style={{border:"1.5px solid #E8E8E8",borderRadius:12,padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",fontWeight:700,color:"#1a1a1a",background:"#F7F7F7"}}/>
+                style={{border:`1.5px solid ${navBord}`,borderRadius:12,padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",fontWeight:700,color:txt,background:inputBg}}/>
             )}
 
             {/* Icon */}
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <input value={misionIcon} onChange={e=>setMisionIcon(e.target.value)} maxLength={4}
-                placeholder="⚡" style={{width:56,border:"1.5px solid #E8E8E8",borderRadius:12,padding:"10px",fontSize:22,textAlign:"center",outline:"none",fontFamily:"Nunito,sans-serif"}}/>
-              <span style={{fontSize:12,color:"#888",fontWeight:700}}>Emoji / ícono</span>
+                placeholder="⚡" style={{width:56,border:`1.5px solid ${navBord}`,borderRadius:12,padding:"10px",fontSize:22,textAlign:"center",outline:"none",fontFamily:"Nunito,sans-serif",background:inputBg,color:txt}}/>
+              <span style={{fontSize:12,color:sub,fontWeight:700}}>Emoji / ícono</span>
             </div>
 
             {/* Image upload */}
@@ -495,7 +496,7 @@ function MMisiones({me,showToast}){
               </div>
             ):(
               <button onClick={()=>fileRef.current?.click()} disabled={imgLoading}
-                style={{width:"100%",padding:"10px",background:"#f0f0f0",color:"#555",border:"1.5px dashed #ccc",borderRadius:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",fontSize:13,fontWeight:800}}>
+                style={{width:"100%",padding:"10px",background:inputBg,color:sub,border:`1.5px dashed ${navBord}`,borderRadius:12,cursor:"pointer",fontFamily:"Nunito,sans-serif",fontSize:13,fontWeight:800}}>
                 {imgLoading?"Procesando...":"📷 Agregar imagen (opcional)"}
               </button>
             )}

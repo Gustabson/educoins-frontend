@@ -291,9 +291,10 @@ export default function AMisiones({ me, balance, showToast, refreshBalance, onBa
     : filter === "mias" ? mias
     : missions;
 
-  const rolMissions = disponibles.filter(m => m.tipo === "rol");
-  const rapidas     = disponibles.filter(m => m.tipo === "rapida" || m.auto_approve);
-  const tareas      = disponibles.filter(m => !["rol","rapida"].includes(m.tipo) && !m.auto_approve);
+  const destacadas  = disponibles.filter(m => m.creador_rol === "admin");
+  const rolMissions = disponibles.filter(m => m.tipo === "rol" && m.creador_rol !== "admin");
+  const rapidas     = disponibles.filter(m => (m.tipo === "rapida" || m.auto_approve) && m.tipo !== "rol" && m.creador_rol !== "admin");
+  const tareas      = disponibles.filter(m => !["rol","rapida"].includes(m.tipo) && !m.auto_approve && m.creador_rol !== "admin");
 
   const FILTERS = [
     { id:"todas",      label:"Todas" },
@@ -350,6 +351,37 @@ export default function AMisiones({ me, balance, showToast, refreshBalance, onBa
 
         {!loading && filter === "todas" && (
           <>
+            {/* Admin missions — destacadas full-width */}
+            {destacadas.length > 0 && (
+              <>
+                <SectionHeader title="📢 De la escuela" sub="Publicado por la administración"/>
+                <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:8 }}>
+                  {destacadas.map(m => (
+                    <div key={m.id} onClick={() => setDetail(m)}
+                      style={{ background: isDark ? cardBg : "#fffbeb",
+                        border: `2px solid #f59e0b55`, borderRadius: 20,
+                        padding: "16px", cursor: "pointer",
+                        boxShadow: isDark ? "0 2px 12px rgba(0,0,0,.4)" : "0 2px 12px rgba(245,158,11,.15)",
+                        display: "flex", gap: 14, alignItems: "center", transition: "background .3s" }}>
+                      {m.imagen_url
+                        ? <img src={m.imagen_url} alt="" style={{ width:72, height:72, borderRadius:14, objectFit:"cover", flexShrink:0 }}/>
+                        : <div style={{ width:72, height:72, borderRadius:14, background:"#f59e0b18", display:"flex", alignItems:"center", justifyContent:"center", fontSize:36, flexShrink:0 }}>{m.icon||"⚡"}</div>
+                      }
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", gap:6, marginBottom:4, flexWrap:"wrap" }}>
+                          <span style={{ background:"#f59e0b", color:"white", borderRadius:99, padding:"2px 10px", fontSize:10, fontWeight:900 }}>📢 OFICIAL</span>
+                          {m.auto_approve && <span style={{ background:"#10b98122", color:"#10b981", borderRadius:99, padding:"2px 8px", fontSize:10, fontWeight:800 }}>⚡ Auto</span>}
+                        </div>
+                        <div style={{ fontWeight:900, fontSize:15, color:txt, transition:"color .3s", marginBottom:2 }}>{m.titulo}</div>
+                        {m.descripcion && <div style={{ fontSize:12, color:sub, transition:"color .3s", overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{m.descripcion}</div>}
+                        <div style={{ fontWeight:900, color:"#f59e0b", fontSize:14, marginTop:6 }}>🪙 {m.recompensa.toLocaleString("es-AR")}</div>
+                      </div>
+                      <span style={{ color: sub, fontSize: 20, flexShrink:0 }}>›</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             {rapidas.length > 0 && (
               <>
                 <SectionHeader title="⚡ Rápidas" sub="Se aprueban automáticamente"/>

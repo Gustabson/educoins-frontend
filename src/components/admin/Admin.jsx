@@ -25,6 +25,7 @@ import AdminVincular    from "./AdminVincular";
 import AdminAsistencias from "./AdminAsistencias";
 import AdminContacto   from "./AdminContacto";
 import AdminCalendario from "./AdminCalendario";
+import AdminMisiones  from "./AdminMisiones";
 
 // ── Mapa de secciones → permiso requerido ─────────────────────
 // null = solo superadmin (rol='admin')
@@ -51,6 +52,7 @@ const SECTION_PERMS = {
   asistencias: "administracion",
   contacto:    "administracion",
   calendario:  "administracion",
+  misiones:    "administracion",
 };
 
 function Admin({ me, logout }) {
@@ -114,6 +116,7 @@ function Admin({ me, logout }) {
         {tab==="asistencias"  && canSee("asistencias")  && <AdminAsistencias showToast={showToast} onBack={()=>setTab("home")} me={me}/>}
         {tab==="contacto"     && canSee("contacto")     && <AdminContacto    showToast={showToast} onBack={()=>setTab("home")} me={me}/>}
         {tab==="calendario"   && canSee("calendario")   && <AdminCalendario  showToast={showToast} onBack={()=>setTab("home")} today={today}/>}
+        {tab==="misiones"     && canSee("misiones")     && <AdminMisiones    me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
 
       </div>
 
