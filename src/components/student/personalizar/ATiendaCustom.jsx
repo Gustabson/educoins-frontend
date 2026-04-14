@@ -8,7 +8,7 @@ import TituloCustomPanel from "./TituloCustomPanel";
 
 
 function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChange,onDarkChange,isDark,onPreviewAccent,onClearPreview,onSetMode,currentModeId,currentPrimary,currentMode}){
-  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd} = useTheme();
+  const {primary:accent, isDark:dark, txt, sub, cardBg, pageBg:bg, inputBg, inputBd, navBord} = useTheme();
   const [sec,setSec]     = useState("pantalla");  // pantalla|texto|colores|emojis|efectos|apodo
   const [items,setItems] = useState([]);
   const [owned,setOwned]   = useState([]);
@@ -510,8 +510,8 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                   {/* Comprar */}
                   {!isOwned&&!isFree&&(
                     <button onClick={()=>comprar(item)} disabled={buying===item.id||item.precio>balance}
-                      style={{background:buying===item.id?"#ccc":item.precio>balance?"#f0f0f0":accent,
-                        color:item.precio>balance?"#aaa":"white",border:"none",borderRadius:99,
+                      style={{background:buying===item.id?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):item.precio>balance?inputBg:accent,
+                        color:item.precio>balance?sub:"white",border:"none",borderRadius:99,
                         padding:"6px 12px",fontSize:11,fontWeight:800,cursor:"pointer",
                         fontFamily:"Nunito,sans-serif"}}>
                       {buying===item.id?"...":item.precio>balance?"Sin saldo":"Comprar"}
@@ -622,7 +622,7 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
         </div>
         <div onClick={()=>updateField("isDark",!customMode.isDark)}
           style={{width:48,height:26,borderRadius:99,cursor:"pointer",flexShrink:0,
-            background:customMode.isDark?accent:"#ccc",position:"relative",
+            background:customMode.isDark?accent:navBord,position:"relative",
             transition:"background .2s"}}>
           <div style={{position:"absolute",top:3,
             left:customMode.isDark?24:3,width:20,height:20,
@@ -633,7 +633,7 @@ function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, t
 
       {/* Botón guardar */}
       <button onClick={guardar} disabled={saving}
-        style={{width:"100%",background:saved?"#10b981":saving?"#ccc":accent,
+        style={{width:"100%",background:saved?"#10b981":saving?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent,
           border:"none",borderRadius:50,color:"white",padding:"12px",
           fontWeight:800,fontSize:13,cursor:saving?"not-allowed":"pointer",
           fontFamily:"Nunito,sans-serif",transition:"background .3s",

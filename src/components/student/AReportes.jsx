@@ -190,7 +190,7 @@ function AReportes({ me, showToast, onBack }) {
                     fontSize:13, outline:"none", resize:"none", color:txt,
                     fontFamily:"Nunito,sans-serif", fontWeight:600, marginBottom:10 }}/>
                 <button onClick={sendMsg} disabled={sending || !newMsg.trim()}
-                  style={{ width:"100%", background:sending?"#ccc":accent, border:"none",
+                  style={{ width:"100%", background:sending?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent, border:"none",
                     borderRadius:50, color:"white", padding:"11px", fontWeight:800, fontSize:13,
                     cursor:sending?"not-allowed":"pointer", fontFamily:"Nunito,sans-serif" }}>
                   {sending ? "Enviando..." : "Enviar respuesta ↩"}
@@ -356,7 +356,7 @@ function AReportes({ me, showToast, onBack }) {
               </div>
 
               <button onClick={enviar} disabled={enviando}
-                style={{ width:"100%", background:enviando?"#ccc":accent, border:"none",
+                style={{ width:"100%", background:enviando?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent, border:"none",
                   borderRadius:50, color:"white", padding:"13px", fontWeight:800, fontSize:14,
                   cursor:enviando?"not-allowed":"pointer", fontFamily:"Nunito,sans-serif",
                   boxShadow:enviando?"none":`0 4px 16px ${accent}44` }}>

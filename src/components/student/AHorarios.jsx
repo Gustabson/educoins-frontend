@@ -41,7 +41,7 @@ const genId = () =>
 // ─── Grid view ────────────────────────────────────────────────────────────────
 function GridView({
   periods, entries, activeTurno, locked, rotated, visibleDays,
-  primary, txt, sub, navBord, isDark,
+  primary, txt, sub, navBord, isDark, inputBg,
   onCellClick, onPeriodClick,
 }) {
   const cellEntry = (dow, periodId) => {
@@ -96,7 +96,7 @@ function GridView({
               {/* HORARIO cell → edit time */}
               <div onClick={() => !locked && onPeriodClick(period)} style={{
                 width:HORARIO_W, flexShrink:0, padding:"6px 10px",
-                background: isDark ? "rgba(255,255,255,.025)" : "#fdfcf8",
+                background: isDark ? "rgba(255,255,255,.025)" : inputBg,
                 display:"flex", flexDirection:"column", justifyContent:"center",
                 cursor: locked ? "default" : "pointer",
               }}>
@@ -632,7 +632,7 @@ export default function AHorarios({ showToast, onBack, today }) {
                     activeTurno={activeTurno} locked={locked}
                     rotated={gridRotated} visibleDays={visibleDays}
                     primary={primary} txt={txt} sub={sub}
-                    navBord={navBord} isDark={dark}
+                    navBord={navBord} isDark={dark} inputBg={inputBg}
                     onCellClick={openCell}
                     onPeriodClick={openPeriodEdit}
                   />

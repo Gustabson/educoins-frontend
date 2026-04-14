@@ -279,7 +279,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
               {apodoItemId?(
                 <button onClick={comprarPermisoApodo}
                   disabled={buyingApodo||balance<apodoCosto}
-                  style={{background:buyingApodo||balance<apodoCosto?"#ccc":accent,
+                  style={{background:buyingApodo||balance<apodoCosto?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent,
                     border:"none",borderRadius:99,color:"white",padding:"10px 22px",
                     fontSize:13,fontWeight:900,cursor:"pointer",
                     fontFamily:"Nunito,sans-serif",
@@ -309,7 +309,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
                   fontFamily:"Nunito,sans-serif",marginBottom:8}}/>
               <div style={{display:"flex",gap:8}}>
                 <button onClick={guardarApodo} disabled={savingApodo||!apodoVal.trim()||balance<apodoCosto}
-                  style={{flex:1,background:savingApodo||!apodoVal.trim()||balance<apodoCosto?"#ccc":accent,
+                  style={{flex:1,background:savingApodo||!apodoVal.trim()||balance<apodoCosto?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent,
                     border:"none",borderRadius:50,color:"white",padding:"10px",fontWeight:800,
                     fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                   {savingApodo?"Guardando...":balance<apodoCosto?"Sin saldo":apodoCosto>0?`Guardar 🪙${apodoCosto}`:"Guardar"}
@@ -344,7 +344,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
               <div style={{display:"flex",gap:8}}>
                 <button onClick={guardarEstado}
                   disabled={saving==="estado"||balance<PRECIO_ESTADO}
-                  style={{flex:1,background:balance<PRECIO_ESTADO?"#ccc":accent,
+                  style={{flex:1,background:balance<PRECIO_ESTADO?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent,
                     border:"none",borderRadius:50,color:"white",padding:"10px",fontWeight:800,
                     fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                   {saving==="estado"?"...":balance<PRECIO_ESTADO?"Sin saldo":`Guardar 🪙${PRECIO_ESTADO}`}
@@ -473,7 +473,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={()=>saveCustomSlot(slot,customTitleVal)}
                       disabled={!customTitleVal.trim()||saving===("cs"+slot)||balance<PRECIO_TITULO_CUSTOM}
-                      style={{flex:1,background:!customTitleVal.trim()||balance<PRECIO_TITULO_CUSTOM?"#ccc":accent,
+                      style={{flex:1,background:!customTitleVal.trim()||balance<PRECIO_TITULO_CUSTOM?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent,
                         border:"none",borderRadius:50,color:"white",padding:"9px",fontWeight:800,
                         fontSize:12,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
                       {saving===("cs"+slot)?"...":balance<PRECIO_TITULO_CUSTOM?"Sin saldo":`Guardar 🪙${PRECIO_TITULO_CUSTOM}`}
@@ -517,7 +517,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
                 <div style={{fontSize:26,marginBottom:3}}>{s.emoji}</div>
                 <div style={{fontSize:9,fontWeight:800,color:equipped?"white":txt}}>{s.name}</div>
                 {!owned&&s.price>0&&(
-                  <div style={{fontSize:9,color:canBuy?accent:"#aaa",fontWeight:800,marginTop:2}}>
+                  <div style={{fontSize:9,color:canBuy?accent:sub,fontWeight:800,marginTop:2}}>
                     🪙{s.price}
                   </div>
                 )}
@@ -630,7 +630,7 @@ function APerfil({me,balance,logout,showToast,setMe,refreshBalance}){
                   borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",
                   fontSize:10,color:"white"}}>...</div>}
                 <div style={{fontSize:11,fontWeight:800,color:equipped?"#FFB800":txt}}>{b.name}</div>
-                {!owned&&b.price>0&&<div style={{fontSize:10,color:canBuy?accent:"#aaa",fontWeight:800}}>🪙{b.price}</div>}
+                {!owned&&b.price>0&&<div style={{fontSize:10,color:canBuy?accent:sub,fontWeight:800}}>🪙{b.price}</div>}
                 {owned&&!equipped&&<div style={{fontSize:10,color:accent,fontWeight:700}}>Equipar</div>}
                 {equipped&&<div style={{fontSize:10,color:"#FFB800",fontWeight:800}}>✅</div>}
               </div>

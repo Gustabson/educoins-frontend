@@ -306,7 +306,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
   const renderOrder = (order, compact=false) => {
     const isBuyer  = order.buyer_id  === me.id;
     const isSeller = order.seller_id === me.id;
-    const statusCol = STATUS_COLOR[order.status] || "#888";
+    const statusCol = STATUS_COLOR[order.status] || sub;
     return (
       <div key={order.id}
         onClick={compact ? () => setActiveOrder(order) : undefined}
@@ -829,7 +829,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                             seller_instructions: o.seller_instructions || o.instructions,
                           })}
                           style={{...card, padding:"14px 16px", marginBottom:10,
-                            cursor:"pointer", borderLeft:`3px solid ${STATUS_COLOR[o.status]||"#888"}`}}>
+                            cursor:"pointer", borderLeft:`3px solid ${STATUS_COLOR[o.status]||sub}`}}>
                           <div style={{display:"flex", justifyContent:"space-between",
                             alignItems:"center", marginBottom:6}}>
                             <div>
@@ -841,8 +841,8 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                               </span>
                             </div>
                             <span style={{fontSize:10, fontWeight:700,
-                              background:(STATUS_COLOR[o.status]||"#888")+"22",
-                              color:STATUS_COLOR[o.status]||"#888",
+                              background:(STATUS_COLOR[o.status]||sub)+"22",
+                              color:STATUS_COLOR[o.status]||sub,
                               borderRadius:99, padding:"3px 10px"}}>
                               {STATUS_LABEL[o.status]}
                             </span>
@@ -881,7 +881,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                           })}
                           style={{...card, padding:"12px 14px", marginBottom:8,
                             cursor:"pointer",
-                            borderLeft:`3px solid ${STATUS_COLOR[o.status]||"#888"}`}}>
+                            borderLeft:`3px solid ${STATUS_COLOR[o.status]||sub}`}}>
                           <div style={{display:"flex", justifyContent:"space-between",
                             alignItems:"center"}}>
                             <div>
@@ -893,8 +893,8 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
                               </span>
                             </div>
                             <span style={{fontSize:10, fontWeight:700,
-                              background:(STATUS_COLOR[o.status]||"#888")+"22",
-                              color:STATUS_COLOR[o.status]||"#888",
+                              background:(STATUS_COLOR[o.status]||sub)+"22",
+                              color:STATUS_COLOR[o.status]||sub,
                               borderRadius:99, padding:"3px 8px"}}>
                               {STATUS_LABEL[o.status]}
                             </span>
@@ -1001,7 +1001,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
               </div>
               <div style={{display:"flex", gap:8}}>
                 <button onClick={createOffer} disabled={submitting}
-                  style={{flex:2, background:submitting ? "#ccc" : accent,
+                  style={{flex:2, background:submitting ? (dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)") : accent,
                     border:"none", borderRadius:50, color:"white", padding:"13px",
                     fontWeight:800, fontSize:14, cursor:"pointer",
                     fontFamily:"Nunito,sans-serif"}}>
@@ -1126,7 +1126,7 @@ function AP2P({ me, balance, showToast, onBack, refreshBalance }) {
               <button onClick={createOrder} disabled={submitting || !buyAmount || parseInt(buyAmount) < 1}
                 style={{flex:2,
                   background: (submitting || !buyAmount || parseInt(buyAmount) < 1)
-                    ? (dark ? "#333" : "#ccc") : "#10b981",
+                    ? navBord : "#10b981",
                   border:"none", borderRadius:50, color:"white", padding:"13px",
                   fontWeight:800, fontSize:14, cursor:"pointer",
                   fontFamily:"Nunito,sans-serif"}}>

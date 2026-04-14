@@ -187,7 +187,7 @@ function AEnviar({me,balance,showToast,refreshBalance}){
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
             {selected&&(
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,
-                padding:"10px 12px",background:dark?"rgba(255,255,255,.05)":"#f7f7f7",borderRadius:12}}>
+                padding:"10px 12px",background:inputBg,borderRadius:12}}>
                 <Av user={selected} sz={36} avatarBg={selected?.avatar_bg||null}/>
                 <div>
                   <div style={{fontSize:11,color:sub,fontWeight:700}}>Enviando a</div>
@@ -218,7 +218,7 @@ function AEnviar({me,balance,showToast,refreshBalance}){
               ))}
             </div>
             <button onClick={send} disabled={sending||!amount||parseInt(amount)<=0}
-              style={{width:"100%",background:sending?"#ccc":accent,border:"none",
+              style={{width:"100%",background:sending?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent,border:"none",
                 borderRadius:50,color:"white",padding:"13px",fontWeight:900,fontSize:15,
                 cursor:sending?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif",
                 boxShadow:sending?"none":`0 4px 16px ${accent}55`}}>

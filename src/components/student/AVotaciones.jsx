@@ -713,7 +713,7 @@ function AVotaciones({me,showToast,onBack,parentMode=false}){
               {/* Confirmar voto */}
               {v.activa&&!yaVote&&opSel&&!sinPoder&&(
                 <button onClick={()=>confirmarVoto(v.id)} disabled={isVoting}
-                  style={{width:"100%",marginTop:8,background:isVoting?"#ccc":accent,
+                  style={{width:"100%",marginTop:8,background:isVoting?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent,
                     border:"none",borderRadius:50,color:"white",padding:"11px",
                     fontWeight:800,fontSize:13,cursor:isVoting?"not-allowed":"pointer",
                     fontFamily:"Nunito,sans-serif",boxShadow:`0 4px 14px ${accent}44`}}>
@@ -1069,7 +1069,7 @@ function AVotaciones({me,showToast,onBack,parentMode=false}){
                   color:sub,padding:"13px",fontWeight:800,fontSize:13,cursor:"pointer",
                   fontFamily:"Nunito,sans-serif"}}>Cancelar</button>
               <button onClick={proponer} disabled={propSaving}
-                style={{flex:2,background:propSaving?"#ccc":accent,border:"none",borderRadius:50,
+                style={{flex:2,background:propSaving?(dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)"):accent,border:"none",borderRadius:50,
                   color:"white",padding:"13px",fontWeight:800,fontSize:13,
                   cursor:propSaving?"not-allowed":"pointer",fontFamily:"Nunito,sans-serif",
                   boxShadow:`0 4px 14px ${accent}44`}}>

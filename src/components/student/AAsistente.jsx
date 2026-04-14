@@ -12,11 +12,12 @@ const SUGERENCIAS = [
 ];
 
 function TypingDots() {
+  const { sub } = useTheme();
   return (
     <div style={{ display:"flex", gap:4, alignItems:"center", padding:"10px 14px" }}>
       {[0,1,2].map(i => (
         <div key={i} style={{
-          width:7, height:7, borderRadius:"50%", background:"#aaa",
+          width:7, height:7, borderRadius:"50%", background:sub,
           animation:`typingBounce 1.2s ease-in-out ${i*0.2}s infinite`,
         }}/>
       ))}
@@ -31,7 +32,7 @@ function TypingDots() {
 }
 
 function AAsistente({ me, onBack }) {
-  const { primary, isDark:dark, txt, sub, cardBg, pageBg, inputBg, inputBd } = useTheme();
+  const { primary, isDark:dark, txt, sub, cardBg, pageBg, inputBg, inputBd, navBord } = useTheme();
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -187,7 +188,7 @@ function AAsistente({ me, onBack }) {
 
       {/* Input */}
       <div style={{ padding:"10px 14px 28px", background:pageBg,
-        borderTop:`1px solid ${dark?"#333":"#eee"}`,
+        borderTop:`1px solid ${navBord}`,
         transition:"background .3s, border .3s" }}>
         <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
           <textarea
@@ -199,7 +200,7 @@ function AAsistente({ me, onBack }) {
             rows={1}
             disabled={loading}
             style={{
-              flex:1, border:`1.5px solid ${inputBd||"#e5e7eb"}`,
+              flex:1, border:`1.5px solid ${inputBd||navBord}`,
               borderRadius:18, padding:"10px 14px",
               fontSize:13, fontFamily:"Nunito,sans-serif",
               resize:"none", outline:"none",
@@ -211,7 +212,7 @@ function AAsistente({ me, onBack }) {
           <button onClick={() => send()} disabled={loading || !input.trim()}
             style={{
               width:42, height:42, borderRadius:"50%",
-              background: (!input.trim()||loading) ? "#ccc" : primary,
+              background: (!input.trim()||loading) ? (dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.12)") : primary,
               border:"none", cursor: loading||!input.trim() ? "not-allowed":"pointer",
               display:"flex", alignItems:"center", justifyContent:"center",
               fontSize:18, flexShrink:0, transition:"background .2s",

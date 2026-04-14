@@ -476,7 +476,7 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
           onClick={e=>{if(e.target===e.currentTarget)setCamOpen(false);}}>
           <div style={{background:theme.cardBg,borderRadius:"24px 24px 0 0",
             width:"100%",maxWidth:480,padding:"20px 24px 44px",animation:"slideUp .25s ease"}}>
-            <div style={{width:36,height:4,background:theme.isDark?"#555":"#ddd",borderRadius:2,margin:"0 auto 16px"}}/>
+            <div style={{width:36,height:4,background:theme.navBord,borderRadius:2,margin:"0 auto 16px"}}/>
             <div style={{fontWeight:900,fontSize:18,color:theme.txt,marginBottom:4,textAlign:"center"}}>Escanear QR</div>
             <div style={{fontSize:12,color:theme.sub,textAlign:"center",marginBottom:16}}>
               Apuntá la cámara al QR de tu compañero

@@ -39,7 +39,7 @@ const AFIRMACIONES = {
 };
 
 function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialMood = null, onGoReportes }) {
-  const { primary: accent, isDark: dark, txt, sub, pageBg: bg, inputBg, inputBd } = useTheme();
+  const { primary: accent, isDark: dark, txt, sub, pageBg: bg, inputBg, inputBd, navBord } = useTheme();
 
   const [mood,         setMood]        = useState(initialMood);
   const [cats,         setCats]        = useState([]);
@@ -109,7 +109,7 @@ function AWellness({ onClose, showToast, refreshBalance, onCheckinDone, initialM
         borderRadius:"24px 24px 0 0", maxHeight:"92vh", overflowY:"auto",
         animation:"slideUp .25s ease", fontFamily:"Nunito,sans-serif",
       }}>
-        <div style={{width:36,height:4,background:dark?"#555":"#ddd",borderRadius:2,margin:"12px auto 0"}}/>
+        <div style={{width:36,height:4,background:navBord,borderRadius:2,margin:"12px auto 0"}}/>
 
         {/* ── Pantalla de éxito ─────────────────────────────── */}
         {done ? (
