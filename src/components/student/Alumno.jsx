@@ -356,6 +356,11 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
       const tipo = n.type || n.tipo || "";
       if(tipo==="chat_personal") setBadges(b=>({...b,chat:b.chat+1}));
       else setBadges(b=>({...b,notifs:b.notifs+1}));
+      // wellness_reward: solo actualiza balance, sin toast (AWellness ya muestra pantalla de éxito)
+      if(tipo==="wellness_reward"){
+        refreshBalance();
+        return;
+      }
       const msg=tipo==="reward"?`Recibiste 🪙${n.amount} — ${n.description||""}`
         :tipo==="transfer"?`Te enviaron 🪙${n.amount}`
         :tipo==="chat_personal"?`Nuevo mensaje de ${n.from}`

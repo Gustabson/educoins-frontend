@@ -7,7 +7,8 @@ import { Av, OHdrA, WCard, CircBtn, Toast, useToast, displayName } from "../shar
 function AOpciones({me,logout,notifs=[]}){
   const {primary:accent, isDark, txt, sub, cardBg, inputBg, navInact, pageBg} = useTheme();
   const dark = isDark;
-  const noLeidas=notifs.filter(n=>!n.leida).length;
+  const visibleNotifs = notifs.filter(n => n.type !== "wellness_reward");
+  const noLeidas = visibleNotifs.filter(n=>!n.leida).length;
 
   const NOTIF_ICON={
     reward:"🪙", transfer:"💸", chat_personal:"💬",
@@ -31,7 +32,7 @@ function AOpciones({me,logout,notifs=[]}){
       <div style={{padding:"0 14px",marginTop:12}}>
 
         {/* Notificaciones recientes */}
-        {notifs.length>0&&(
+        {visibleNotifs.length>0&&(
           <div style={{background:cardBg,borderRadius:20,overflow:"hidden",marginBottom:12,
             boxShadow:dark?"0 1px 8px rgba(0,0,0,.4)":"0 1px 8px rgba(0,0,0,.06)"}}>
             <div style={{padding:"12px 16px",borderBottom:`1px solid ${inputBg}`,
@@ -40,9 +41,9 @@ function AOpciones({me,logout,notifs=[]}){
               {noLeidas>0&&<span style={{background:"#ef4444",color:"white",borderRadius:99,
                 padding:"2px 8px",fontSize:10,fontWeight:800}}>{noLeidas} nuevas</span>}
             </div>
-            {notifs.slice(0,5).map((n,i)=>(
+            {visibleNotifs.slice(0,5).map((n,i)=>(
               <div key={n.id||i} style={{padding:"11px 16px",
-                borderBottom:i<Math.min(notifs.length,5)-1?`1px solid ${inputBg}`:"none",
+                borderBottom:i<Math.min(visibleNotifs.length,5)-1?`1px solid ${inputBg}`:"none",
                 display:"flex",alignItems:"center",gap:10}}>
                 <div style={{fontSize:20,flexShrink:0}}>{NOTIF_ICON[n.type]||"🔔"}</div>
                 <div style={{flex:1}}>
