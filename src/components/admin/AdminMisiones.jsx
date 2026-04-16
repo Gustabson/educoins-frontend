@@ -39,6 +39,9 @@ export default function AdminMisiones({ me, showToast, onBack }) {
   const [autoApprove,     setAutoApprove]     = useState(false);
   const [activarTarde,    setActivarTarde]    = useState(false);
   const [fechaInicio,     setFechaInicio]     = useState("");
+  const [grupoMin,        setGrupoMin]        = useState("2");
+  const [grupoMax,        setGrupoMax]        = useState("2");
+  const [peerEval,        setPeerEval]        = useState(true);
   const fileRef = useRef(null);
 
   const reload = () =>
@@ -52,6 +55,7 @@ export default function AdminMisiones({ me, showToast, onBack }) {
     setTitulo(""); setDesc(""); setRec(""); setDif("facil"); setTipo("normal");
     setDurVal("24"); setDurUnidad("horas"); setMaxSub(""); setImgUrl("");
     setMisionIcon("⚡"); setAutoApprove(false); setActivarTarde(false); setFechaInicio("");
+    setGrupoMin("2"); setGrupoMax("2"); setPeerEval(true);
   };
 
   const openEdit = (m) => {
@@ -61,6 +65,8 @@ export default function AdminMisiones({ me, showToast, onBack }) {
     setImgUrl(m.imagen_url||""); setMisionIcon(m.icon||"⚡"); setAutoApprove(!!m.auto_approve);
     if (m.fecha_inicio) { setActivarTarde(true); setFechaInicio(toLocalDT(m.fecha_inicio)); }
     else { setActivarTarde(false); setFechaInicio(""); }
+    setGrupoMin(String(m.grupo_min_size || 2)); setGrupoMax(String(m.grupo_max_size || 2));
+    setPeerEval(m.requires_peer_eval !== false);
     setForm(m);
   };
 
@@ -84,6 +90,9 @@ export default function AdminMisiones({ me, showToast, onBack }) {
       imagen_url: imgUrl || null, icon: misionIcon || "⚡",
       auto_approve: autoApprove || tipo === "rapida",
       fecha_inicio: activarTarde && fechaInicio ? new Date(fechaInicio).toISOString() : null,
+      grupo_min_size: tipo === "grupal" ? parseInt(grupoMin) || 2 : 2,
+      grupo_max_size: tipo === "grupal" ? parseInt(grupoMax) || 2 : 2,
+      requires_peer_eval: tipo === "grupal" ? peerEval : false,
     };
     if (!isEdit) payload.fecha_fin = calcFin();
     try {
@@ -164,6 +173,7 @@ export default function AdminMisiones({ me, showToast, onBack }) {
                   {TIPO_ICON[m.tipo||"normal"]} {m.tipo||"normal"}
                 </span>
                 {m.auto_approve && <span style={{ background: "#10b98118", color: "#10b981", borderRadius: 99, padding: "2px 8px", fontSize: 10, fontWeight: 800 }}>⚡ auto</span>}
+                {m.tipo === "grupal" && <span style={{ background: "#8b5cf618", color: "#8b5cf6", borderRadius: 99, padding: "2px 8px", fontSize: 10, fontWeight: 800 }}>{m.grupo_min_size||2}-{m.grupo_max_size||2} miembros{m.requires_peer_eval ? " · 🤝" : ""}</span>}
                 {!esMia && <span style={{ background: primary + "18", color: primary, borderRadius: 99, padding: "2px 8px", fontSize: 10, fontWeight: 800 }}>por {m.creador_nombre?.split(" ")[0]}</span>}
                 {programada && (
                   <span style={{ background: "#f59e0b18", color: "#f59e0b", borderRadius: 99, padding: "2px 8px", fontSize: 10, fontWeight: 800 }}>
@@ -279,6 +289,28 @@ export default function AdminMisiones({ me, showToast, onBack }) {
                 <input type="number" value={maxSub} onChange={e => setMaxSub(e.target.value)}
                   placeholder={tipo === "rol" ? "Cupos (por defecto 1)" : "Máx. participantes (vacío = ilimitado)"}
                   style={inp}/>
+              )}
+
+              {/* Grupal config */}
+              {tipo === "grupal" && (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: sub, transition: "color .3s" }}>TAMAÑO DEL GRUPO</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: sub, marginBottom: 2 }}>Mínimo</div>
+                      <input type="number" min="2" max="10" value={grupoMin} onChange={e => setGrupoMin(e.target.value)} style={inp}/>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: sub, marginBottom: 2 }}>Máximo</div>
+                      <input type="number" min="2" max="10" value={grupoMax} onChange={e => setGrupoMax(e.target.value)} style={inp}/>
+                    </div>
+                  </div>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                    <input type="checkbox" checked={peerEval} onChange={e => setPeerEval(e.target.checked)}
+                      style={{ accentColor: "#8b5cf6", width: 18, height: 18 }}/>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: sub, transition: "color .3s" }}>🤝 Evaluación entre pares al completar</span>
+                  </label>
+                </>
               )}
 
               {/* Auto-approve */}

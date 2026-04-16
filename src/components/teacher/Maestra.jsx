@@ -280,6 +280,9 @@ function MMisiones({me,showToast}){
   const [autoApprove,setAutoApprove]=useState(false);
   const [activarMasTarde,setActivarMasTarde]=useState(false);
   const [fechaInicio,setFechaInicio]=useState("");
+  const [grupoMin,setGrupoMin]=useState("2");
+  const [grupoMax,setGrupoMax]=useState("2");
+  const [peerEval,setPeerEval]=useState(true);
   const fileRef=useRef(null);
   const [loading,setLoading]=useState(true);
   const [deleting,setDeleting]=useState(null);
@@ -291,6 +294,7 @@ function MMisiones({me,showToast}){
     setTitulo("");setDesc("");setRec("");setDif("facil");setTipo("normal");
     setDurVal("24");setDurUnidad("horas");setMaxSub("");setImgUrl("");
     setMisionIcon("⚡");setAutoApprove(false);setActivarMasTarde(false);setFechaInicio("");
+    setGrupoMin("2");setGrupoMax("2");setPeerEval(true);
   };
 
   const openEdit=(m)=>{
@@ -301,6 +305,8 @@ function MMisiones({me,showToast}){
     setAutoApprove(!!m.auto_approve);
     if(m.fecha_inicio){ setActivarMasTarde(true); setFechaInicio(toLocalDatetimeValue(m.fecha_inicio)); }
     else { setActivarMasTarde(false); setFechaInicio(""); }
+    setGrupoMin(String(m.grupo_min_size||2));setGrupoMax(String(m.grupo_max_size||2));
+    setPeerEval(m.requires_peer_eval!==false);
     setForm(m);
   };
 
@@ -321,6 +327,9 @@ function MMisiones({me,showToast}){
       imagen_url:imgUrl||null, icon:misionIcon||"⚡",
       auto_approve:autoApprove||tipo==="rapida",
       fecha_inicio: activarMasTarde&&fechaInicio ? new Date(fechaInicio).toISOString() : null,
+      grupo_min_size: tipo==="grupal" ? parseInt(grupoMin)||2 : 2,
+      grupo_max_size: tipo==="grupal" ? parseInt(grupoMax)||2 : 2,
+      requires_peer_eval: tipo==="grupal" ? peerEval : false,
     };
     const isEdit=form&&typeof form==="object"&&form.id;
     if(!isEdit) payload.fecha_fin=calcFin();
@@ -385,6 +394,7 @@ function MMisiones({me,showToast}){
                   {TIPO_ICON_MAP[m.tipo||"normal"]} {m.tipo||"normal"}
                 </span>
                 {m.auto_approve&&<span style={{background:"#10b98118",color:"#10b981",borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>⚡ auto</span>}
+                {m.tipo==="grupal"&&<span style={{background:"#8b5cf618",color:"#8b5cf6",borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>{m.grupo_min_size||2}-{m.grupo_max_size||2} miembros{m.requires_peer_eval?" · 🤝":""}</span>}
                 {pendiente&&<span style={{background:"#f59e0b18",color:"#f59e0b",borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:800}}>
                   🕐 Activa {new Date(m.fecha_inicio).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
                 </span>}
@@ -455,6 +465,27 @@ function MMisiones({me,showToast}){
             {(tipo==="grupal"||tipo==="rol")&&(
               <Inp val={maxSub} set={setMaxSub} ph={tipo==="rol"?"Cupos (por defecto 1)":"Máx. participantes (vacío=ilimitado)"} type="number" icon={tipo==="rol"?"👑":"👥"}/>
             )}
+
+            {/* Grupal config: tamaño del grupo + peer eval */}
+            {tipo==="grupal"&&(<>
+              <div style={{fontWeight:700,fontSize:12,color:sub}}>Tamaño del grupo</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <div>
+                  <div style={{fontSize:10,fontWeight:700,color:sub,marginBottom:2}}>Mínimo</div>
+                  <input type="number" min="2" max="10" value={grupoMin} onChange={e=>setGrupoMin(e.target.value)}
+                    style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${navBord}`,borderRadius:10,padding:"9px 12px",fontSize:14,fontWeight:800,outline:"none",color:txt,background:inputBg,fontFamily:"Nunito,sans-serif"}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:10,fontWeight:700,color:sub,marginBottom:2}}>Máximo</div>
+                  <input type="number" min="2" max="10" value={grupoMax} onChange={e=>setGrupoMax(e.target.value)}
+                    style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${navBord}`,borderRadius:10,padding:"9px 12px",fontSize:14,fontWeight:800,outline:"none",color:txt,background:inputBg,fontFamily:"Nunito,sans-serif"}}/>
+                </div>
+              </div>
+              <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"4px 0"}}>
+                <input type="checkbox" checked={peerEval} onChange={e=>setPeerEval(e.target.checked)} style={{accentColor:"#8b5cf6",width:18,height:18}}/>
+                <span style={{fontSize:13,fontWeight:700,color:sub}}>🤝 Evaluación entre pares al completar</span>
+              </label>
+            </>)}
 
             {/* Auto-approve toggle (si no es rapida) */}
             {tipo!=="rapida"&&(
