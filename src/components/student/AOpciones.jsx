@@ -14,6 +14,8 @@ function AOpciones({me,logout,notifs=[]}){
     reward:"🪙", transfer:"💸", chat_personal:"💬",
     mission_approved:"✅", mission_rejected:"❌",
     checkin:"🔥", gift:"🎁", tax:"⚖️",
+    group_invite:"👥", group_accepted:"✅",
+    peer_eval_pending:"🤝", coop_ranking_reward:"🤝",
   };
   const NOTIF_TEXT={
     reward:       n=>`Recibiste 🪙${n.amount} — ${n.description||""}`,
@@ -24,6 +26,10 @@ function AOpciones({me,logout,notifs=[]}){
     checkin:      n=>`Check-in dia ${n.racha}! +🪙${n.recompensa||""}`,
     gift:         n=>`Regalo de ${n.from||"alguien"}! 🎁`,
     tax:          n=>`Impuesto aplicado: -🪙${n.amount} — ${n.motivo||""}`,
+    group_invite: n=>`${n.from||"Alguien"} te invitó a un grupo`,
+    group_accepted:n=>`${n.from||"Alguien"} aceptó unirse al grupo`,
+    peer_eval_pending:n=>`Evaluá a tus compañeros`,
+    coop_ranking_reward:n=>`Ranking cooperación #${n.posicion} — +🪙${n.amount}`,
   };
 
   return(

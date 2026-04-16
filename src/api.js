@@ -50,7 +50,7 @@ const api = {
   account:        ()                      => apiFetch("/accounts/me"),
   transactions:   (page=1)               => apiFetch(`/accounts/me/transactions?page=${page}&limit=20`),
   missions:       ()                      => apiFetch("/missions"),
-  submitMission:  (id)                    => apiFetch(`/missions/${id}/submit`,  { method:"POST" }),
+  submitMission:  (id, data)               => apiFetch(`/missions/${id}/submit`,  { method:"POST", body:data }),
   submissions:    ()                      => apiFetch("/missions/submissions?estado=pendiente"),
   approve:        (id,data={})            => apiFetch(`/missions/submissions/${id}/approve`, { method:"POST", body:data }),
   reject:         (id, data)              => apiFetch(`/missions/submissions/${id}/reject`,  { method:"POST", body:typeof data==="string"?{reason:data}:data }),

@@ -370,9 +370,13 @@ function Alumno({me,balance,refreshBalance,logout,setMe}){
         :tipo==="tax"?`Impuesto: -🪙${n.amount} — ${n.motivo||""}`
         :tipo==="premio_monedas"?`${n.mensaje||"Premio recibido!"}`
         :tipo==="premio"||tipo==="titulo_otorgado"?`🏆 ${n.mensaje||"Recibiste un premio!"}`
+        :tipo==="group_invite"?`👥 ${n.from} te invitó a un grupo — "${n.mision||""}"`
+        :tipo==="group_accepted"?`✅ ${n.from} aceptó unirse al grupo`
+        :tipo==="peer_eval_pending"?`🤝 Evaluá a tus compañeros de "${n.mision||""}"`
+        :tipo==="coop_ranking_reward"?`🤝 Ranking cooperación #${n.posicion} — +🪙${n.amount}`
         :"Nueva notificacion";
       showToast(msg);
-      if(["reward","transfer","checkin","gift","premio_monedas","premio","titulo_otorgado"].includes(tipo))
+      if(["reward","transfer","checkin","gift","premio_monedas","premio","titulo_otorgado","coop_ranking_reward"].includes(tipo))
         refreshBalance();
     };
     s.on('notification',onNotif);
