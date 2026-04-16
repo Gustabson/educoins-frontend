@@ -12,7 +12,7 @@ import TeacherCorreo      from "./TeacherCorreo";
 function Maestra({me,logout}){
   const [tab,setTab]=useState("home");
   const [toast,showToast]=useToast();
-  const showNav = !["diwy","asistencias","reportes","correo"].includes(tab);
+  const showNav = !["diwy","asistencias","reportes","correo","cooperacion"].includes(tab);
 
   return(
     <ThemeCtx.Provider value={ADMIN_THEME}>
@@ -29,6 +29,7 @@ function Maestra({me,logout}){
         {tab==="asistencias" && <TeacherAsistencias onBack={()=>setTab("home")} showToast={showToast}/>}
         {tab==="reportes"    && <TeacherReportes    me={me} onBack={()=>setTab("home")}/>}
         {tab==="correo"      && <TeacherCorreo      me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
+        {tab==="cooperacion" && <MCooperacion       me={me} showToast={showToast} onBack={()=>setTab("home")}/>}
         {tab==="perfil"      && <MPerfilSimple  me={me} logout={logout}/>}
       </div>
       <div style={{position:"sticky",bottom:0,width:"100%",background:"white",
@@ -141,7 +142,8 @@ function MHome({me,onNav}){
           {icon:"⚡",title:"Crear misión",    sub:"Nuevas actividades",                dest:"misiones",   col:"#f59e0b"},
           {icon:"📬",title:"Aprobar entregas",sub:`${pending.length} pendientes`,     dest:"aprobar",    col:"#10b981"},
           {icon:"📋",title:"Asistencias",    sub:"Registrá y consultá asistencia",    dest:"asistencias",col:"#3b82f6"},
-          {icon:"📝",title:"Reportes",       sub:"Observaciones semanales por alumno",dest:"reportes",   col:"#8b5cf6"},
+          {icon:"🤝",title:"Cooperación",     sub:"Ranking y evaluación entre pares",  dest:"cooperacion",col:"#8b5cf6"},
+          {icon:"📝",title:"Reportes",       sub:"Observaciones semanales por alumno",dest:"reportes",   col:"#6366f1"},
           {icon:"✉️",title:"Correo",          sub:correoUnread>0?`${correoUnread} mensaje${correoUnread>1?"s":""} de padres`:"Mensajes formales de padres",dest:"correo",col:"#0ea5e9",badge:correoUnread},
           {icon:"🐾",title:"Diwy",           sub:diwyPending>0?`${diwyPending} mensaje${diwyPending>1?"s":""} de padres!`:"Mensajes y clase del día",dest:"diwy",col:"#7c3aed",badge:diwyPending},
           {icon:"👨‍🎓",title:"Ver alumnos",   sub:`${students.length} en tu aula`,    dest:null,         col:"#00c1fc",
@@ -632,6 +634,319 @@ function MAprobar({me,showToast}){
               color={feedbackSheet.action==="approve"?"#10b981":"#ef4444"}/>
           </div>
         </Sheet>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// MCooperacion — teacher cooperation dashboard
+// ═════════════════════════════════════════════════════════════════
+function MCooperacion({me,showToast,onBack}){
+  const {primary,isDark,txt,sub,cardBg,pageBg,navBord,inputBg}=useTheme();
+  const [tab,setTab]=useState("ranking");   // ranking | student | triangulation
+  const [ranking,setRanking]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [selected,setSelected]=useState(null);  // student detail
+  const [studentData,setStudentData]=useState(null);
+  const [triangulation,setTriangulation]=useState([]);
+  const [triLoading,setTriLoading]=useState(false);
+  // Teacher observation form
+  const [obsStudent,setObsStudent]=useState(null);
+  const [obsRating,setObsRating]=useState(0);
+  const [obsNote,setObsNote]=useState("");
+  const [obsSending,setObsSending]=useState(false);
+
+  useEffect(()=>{
+    api.peerDashboard().then(r=>setRanking(r.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+  },[]);
+
+  const openStudent=async(s)=>{
+    setSelected(s);setStudentData(null);
+    try{
+      const r=await api.peerStudent(s.id);
+      setStudentData(r.data);
+    }catch(e){showToast("Error cargando perfil","error");}
+  };
+
+  const loadTriangulation=async()=>{
+    setTriLoading(true);
+    try{ const r=await api.peerTriangulation(); setTriangulation(r.data||[]); }
+    catch(e){showToast("Error","error");}
+    finally{setTriLoading(false);}
+  };
+
+  const submitObs=async()=>{
+    if(!obsStudent||!obsRating){showToast("Elegí una calificación","error");return;}
+    setObsSending(true);
+    try{
+      await api.peerTeacherObs({student_id:obsStudent.id,rating:obsRating,note:obsNote||null});
+      showToast("Observación guardada ✅");
+      setObsStudent(null);setObsRating(0);setObsNote("");
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setObsSending(false);}
+  };
+
+  const TREND_ICON={improving:"📈",declining:"📉",stable:"➡️"};
+  const TREND_COL ={improving:"#10b981",declining:"#ef4444",stable:sub};
+
+  return(
+    <div style={{background:pageBg,minHeight:"100%",fontFamily:"Nunito,sans-serif"}}>
+      <OHdrA title="🤝 Cooperación" onBack={onBack}/>
+      {/* Sub-tabs */}
+      <div style={{display:"flex",gap:6,padding:"10px 14px",background:cardBg,borderBottom:`1px solid ${navBord}`}}>
+        {[["ranking","📊 Ranking"],["triangulation","🔍 Triangulación"]].map(([id,label])=>(
+          <button key={id} onClick={()=>{setTab(id);if(id==="triangulation")loadTriangulation();}}
+            style={{flex:1,padding:"8px 12px",borderRadius:12,border:"none",cursor:"pointer",
+              fontFamily:"Nunito,sans-serif",fontSize:12,fontWeight:800,
+              background:tab===id?primary:"transparent",color:tab===id?"white":sub}}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{padding:"12px 14px 100px"}}>
+        {/* ── RANKING TAB ── */}
+        {tab==="ranking"&&(<>
+          {loading&&<div style={{textAlign:"center",padding:40,color:sub,fontWeight:700}}>Cargando...</div>}
+          {!loading&&ranking.length===0&&(
+            <div style={{textAlign:"center",padding:"40px 20px",color:sub}}>
+              <div style={{fontSize:40,marginBottom:8}}>🤝</div>
+              <div style={{fontWeight:800,fontSize:14}}>Sin evaluaciones aún</div>
+              <div style={{fontSize:12,marginTop:4}}>Creá misiones grupales con evaluación entre pares para ver datos</div>
+            </div>
+          )}
+          {ranking.map((s,i)=>(
+            <WCard key={s.id} onClick={()=>openStudent(s)}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",marginBottom:8}}>
+              <div style={{fontWeight:900,fontSize:16,color:i<3?primary:sub,width:28,textAlign:"center"}}>
+                {i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}
+              </div>
+              <Av user={s} sz={38} avatarBg={s.avatar_bg}/>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:13,color:txt}}>{s.nombre}</div>
+                <div style={{fontSize:10,color:sub,marginTop:1}}>
+                  {s.total_evals} evaluaciones · {TREND_ICON[s.trend]} {s.trend==="improving"?"Mejorando":s.trend==="declining"?"Bajando":"Estable"}
+                </div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontWeight:900,fontSize:18,color:primary}}>
+                  {s.avg_rating ? parseFloat(s.avg_rating).toFixed(1) : "—"}
+                </div>
+                <div style={{fontSize:9,color:sub,fontWeight:700}}>/ 5.0</div>
+              </div>
+            </WCard>
+          ))}
+
+          {/* Teacher observation button */}
+          {ranking.length>0&&!obsStudent&&(
+            <div style={{marginTop:16,textAlign:"center"}}>
+              <div style={{fontSize:11,color:sub,fontWeight:700,marginBottom:6}}>
+                Registrá tu propia observación de cooperación
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center"}}>
+                {ranking.slice(0,10).map(s=>(
+                  <button key={s.id} onClick={()=>setObsStudent(s)}
+                    style={{display:"flex",alignItems:"center",gap:4,background:cardBg,
+                      border:`1px solid ${navBord}`,borderRadius:99,padding:"5px 12px 5px 5px",
+                      cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>
+                    <Av user={s} sz={20}/>
+                    <span style={{fontSize:11,fontWeight:700,color:txt}}>{s.nombre?.split(" ")[0]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Teacher observation form */}
+          {obsStudent&&(
+            <WCard style={{marginTop:12,padding:16}}>
+              <div style={{fontWeight:900,fontSize:14,color:txt,marginBottom:8}}>
+                Observación: {obsStudent.nombre}
+              </div>
+              <div style={{display:"flex",gap:4,marginBottom:8,justifyContent:"center"}}>
+                {[1,2,3,4,5].map(star=>(
+                  <button key={star} onClick={()=>setObsRating(star)}
+                    style={{background:"none",border:"none",cursor:"pointer",fontSize:28,padding:2,
+                      filter:obsRating>=star?"none":"grayscale(1) opacity(.3)",
+                      transform:obsRating===star?"scale(1.2)":"scale(1)",transition:"all .15s"}}>
+                    ⭐
+                  </button>
+                ))}
+              </div>
+              <textarea value={obsNote} onChange={e=>setObsNote(e.target.value)}
+                placeholder="Nota sobre cooperación (opcional)..."
+                rows={2} style={{width:"100%",boxSizing:"border-box",background:inputBg,
+                  border:`1px solid ${navBord}`,borderRadius:12,padding:"8px 12px",
+                  fontFamily:"Nunito,sans-serif",fontSize:12,fontWeight:700,color:txt,
+                  resize:"none",outline:"none",marginBottom:8}}/>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{setObsStudent(null);setObsRating(0);setObsNote("");}}
+                  style={{flex:1,padding:10,background:inputBg,color:sub,border:"none",borderRadius:12,
+                    fontFamily:"Nunito,sans-serif",fontSize:13,fontWeight:800,cursor:"pointer"}}>
+                  Cancelar
+                </button>
+                <button onClick={submitObs} disabled={obsSending||!obsRating}
+                  style={{flex:1,padding:10,background:obsRating?primary:inputBg,
+                    color:obsRating?"white":sub,border:"none",borderRadius:12,
+                    fontFamily:"Nunito,sans-serif",fontSize:13,fontWeight:800,cursor:"pointer",
+                    opacity:obsSending?.5:1}}>
+                  {obsSending?"Guardando...":"Guardar"}
+                </button>
+              </div>
+            </WCard>
+          )}
+        </>)}
+
+        {/* ── TRIANGULATION TAB ── */}
+        {tab==="triangulation"&&(<>
+          {triLoading&&<div style={{textAlign:"center",padding:40,color:sub,fontWeight:700}}>Cargando...</div>}
+          {!triLoading&&triangulation.length===0&&(
+            <div style={{textAlign:"center",padding:"40px 20px",color:sub}}>
+              <div style={{fontSize:40,marginBottom:8}}>🔍</div>
+              <div style={{fontWeight:800,fontSize:14}}>Sin datos de triangulación</div>
+              <div style={{fontSize:12,marginTop:4}}>Se necesitan evaluaciones de pares + observaciones docentes</div>
+            </div>
+          )}
+          {triangulation.map(s=>{
+            const peerAvg=parseFloat(s.peer_avg)||0;
+            const teacherAvg=parseFloat(s.teacher_avg)||0;
+            const diff=parseFloat(s.discrepancy)||0;
+            const isHigh=diff>1;
+            return(
+              <WCard key={s.id} style={{marginBottom:8,borderLeft:isHigh?`4px solid #ef4444`:`4px solid ${navBord}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <Av user={s} sz={36} avatarBg={s.avatar_bg}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,fontSize:13,color:txt}}>{s.nombre}</div>
+                    <div style={{fontSize:10,color:sub,marginTop:2}}>
+                      {s.peer_count} eval. pares · {s.teacher_count} obs. docente
+                    </div>
+                  </div>
+                  {isHigh&&<span style={{background:"#ef444418",color:"#ef4444",borderRadius:99,
+                    padding:"3px 10px",fontSize:10,fontWeight:900}}>⚠️ Discrepancia</span>}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:10}}>
+                  <div style={{textAlign:"center",background:inputBg,borderRadius:10,padding:"8px 4px"}}>
+                    <div style={{fontWeight:900,fontSize:16,color:"#8b5cf6"}}>{peerAvg.toFixed(1)}</div>
+                    <div style={{fontSize:9,color:sub,fontWeight:700}}>Pares</div>
+                  </div>
+                  <div style={{textAlign:"center",background:inputBg,borderRadius:10,padding:"8px 4px"}}>
+                    <div style={{fontWeight:900,fontSize:16,color:primary}}>{teacherAvg.toFixed(1)}</div>
+                    <div style={{fontSize:9,color:sub,fontWeight:700}}>Docente</div>
+                  </div>
+                  <div style={{textAlign:"center",background:isHigh?"#ef444418":inputBg,borderRadius:10,padding:"8px 4px"}}>
+                    <div style={{fontWeight:900,fontSize:16,color:isHigh?"#ef4444":sub}}>{diff.toFixed(1)}</div>
+                    <div style={{fontSize:9,color:sub,fontWeight:700}}>Diferencia</div>
+                  </div>
+                </div>
+              </WCard>
+            );
+          })}
+        </>)}
+      </div>
+
+      {/* ── Student Detail Sheet ── */}
+      {selected&&(
+        <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setSelected(null)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)"}}/>
+          <div style={{position:"relative",background:cardBg,borderRadius:"28px 28px 0 0",
+            maxHeight:"85vh",display:"flex",flexDirection:"column",
+            boxShadow:"0 -8px 40px rgba(0,0,0,.25)",animation:"slideUp .25s ease"}}>
+            <div style={{width:40,height:4,background:navBord,borderRadius:99,margin:"12px auto 0",flexShrink:0}}/>
+            <div style={{flex:1,overflowY:"auto",padding:"16px 20px 40px"}}>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                <Av user={selected} sz={48} avatarBg={selected.avatar_bg}/>
+                <div>
+                  <div style={{fontWeight:900,fontSize:16,color:txt}}>{selected.nombre}</div>
+                  <div style={{fontSize:12,color:sub}}>
+                    Promedio: <b style={{color:primary}}>{selected.avg_rating ? parseFloat(selected.avg_rating).toFixed(1) : "—"}</b> / 5.0
+                    · {selected.total_evals} evaluaciones
+                  </div>
+                </div>
+              </div>
+
+              {!studentData&&<div style={{textAlign:"center",padding:30,color:sub,fontWeight:700}}>Cargando...</div>}
+
+              {studentData&&(<>
+                {/* Stats */}
+                {studentData.stats&&(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+                    <div style={{textAlign:"center",background:inputBg,borderRadius:12,padding:"10px 4px"}}>
+                      <div style={{fontWeight:900,fontSize:18,color:primary}}>{studentData.stats.avg_rating||"—"}</div>
+                      <div style={{fontSize:9,color:sub,fontWeight:700}}>Promedio</div>
+                    </div>
+                    <div style={{textAlign:"center",background:inputBg,borderRadius:12,padding:"10px 4px"}}>
+                      <div style={{fontWeight:900,fontSize:18,color:"#10b981"}}>{studentData.stats.max_rating||"—"}</div>
+                      <div style={{fontSize:9,color:sub,fontWeight:700}}>Máximo</div>
+                    </div>
+                    <div style={{textAlign:"center",background:inputBg,borderRadius:12,padding:"10px 4px"}}>
+                      <div style={{fontWeight:900,fontSize:18,color:"#ef4444"}}>{studentData.stats.min_rating||"—"}</div>
+                      <div style={{fontSize:9,color:sub,fontWeight:700}}>Mínimo</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent evaluations (anonymized) */}
+                {studentData.evaluations?.length>0&&(<>
+                  <div style={{fontWeight:800,fontSize:13,color:txt,marginBottom:8}}>Evaluaciones recibidas</div>
+                  {studentData.evaluations.slice(0,10).map((ev,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 0",
+                      borderBottom:i<Math.min(studentData.evaluations.length,10)-1?`1px solid ${navBord}`:"none"}}>
+                      <div style={{fontWeight:900,fontSize:16,color:primary,width:28,flexShrink:0,textAlign:"center"}}>
+                        {"⭐".repeat(ev.rating)}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:700,color:txt}}>{ev.mision_titulo}</div>
+                        {ev.comment&&<div style={{fontSize:11,color:sub,marginTop:2,fontStyle:"italic"}}>"{ev.comment}"</div>}
+                        <div style={{fontSize:9,color:sub,marginTop:2}}>
+                          {new Date(ev.submitted_at).toLocaleDateString("es-AR",{day:"numeric",month:"short"})}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>)}
+
+                {/* Teacher observations */}
+                {studentData.observations?.length>0&&(<>
+                  <div style={{fontWeight:800,fontSize:13,color:txt,marginTop:16,marginBottom:8}}>Observaciones docentes</div>
+                  {studentData.observations.map((obs,i)=>(
+                    <div key={i} style={{background:inputBg,borderRadius:12,padding:"10px 12px",marginBottom:6}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span style={{fontSize:12,fontWeight:700,color:txt}}>{"⭐".repeat(obs.rating)} — {obs.teacher_name}</span>
+                        <span style={{fontSize:9,color:sub}}>{new Date(obs.created_at).toLocaleDateString("es-AR",{day:"numeric",month:"short"})}</span>
+                      </div>
+                      {obs.note&&<div style={{fontSize:11,color:sub,marginTop:4}}>{obs.note}</div>}
+                      {obs.mision_titulo&&<div style={{fontSize:10,color:sub,marginTop:2}}>📋 {obs.mision_titulo}</div>}
+                    </div>
+                  ))}
+                </>)}
+
+                {/* Groups history */}
+                {studentData.groups?.length>0&&(<>
+                  <div style={{fontWeight:800,fontSize:13,color:txt,marginTop:16,marginBottom:8}}>Historial de grupos</div>
+                  {studentData.groups.map((g,i)=>(
+                    <div key={g.id||i} style={{background:inputBg,borderRadius:12,padding:"10px 12px",marginBottom:6}}>
+                      <div style={{fontWeight:700,fontSize:12,color:txt}}>{g.mision_titulo}</div>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
+                        {g.members?.map((mem,j)=>(
+                          <span key={j} style={{fontSize:10,color:sub,background:cardBg,
+                            borderRadius:99,padding:"2px 8px",fontWeight:700}}>
+                            {mem.nombre?.split(" ")[0]}
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{fontSize:9,color:sub,marginTop:4}}>
+                        Estado: {g.status==="approved"?"✅ Aprobado":g.status==="submitted"?"⏳ Entregado":g.status}
+                      </div>
+                    </div>
+                  ))}
+                </>)}
+              </>)}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
