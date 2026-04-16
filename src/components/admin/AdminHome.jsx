@@ -75,6 +75,7 @@ function AdminHome({ me, onNav, showToast, isSuperAdmin, hasPerm, canSee }) {
     { icon:"✉️", title:"Contacto padres", sub:"Mensajes de familias a la institución",           dest:"contacto",      col:"#0ea5e9" },
     { icon:"🗓️", title:"Calendario",     sub:"Eventos y fechas académicas del año",             dest:"calendario",    col:"#0ea5e9" },
     { icon:"⚡", title:"Misiones",       sub:"Actividades y desafíos para alumnos",              dest:"misiones",       col:"#f59e0b" },
+    { icon:"🤝", title:"Cooperación",    sub:"Ranking entre pares, premios semanales",          dest:"cooperacion",    col:"#8b5cf6" },
   ].filter(item => canSee(item.dest));
 
   return (
