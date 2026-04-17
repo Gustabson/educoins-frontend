@@ -266,8 +266,15 @@ function toLocalDatetimeValue(iso){ if(!iso) return ""; const d=new Date(iso); c
 
 function MMisiones({me,showToast}){
   const {primary,isDark,txt,sub,cardBg,pageBg,navBord,inputBg}=useTheme();
+  // Classroom navigation
+  const [classrooms,setClassrooms]=useState([]);
+  const [selectedCid,setSelectedCid]=useState(null); // null = classroom list, else UUID
+  const [classLoading,setClassLoading]=useState(true);
+  // Missions list
   const [missions,setMissions]=useState([]);
-  const [form,setForm]=useState(false);          // 'new' | mission_obj | false
+  const [mLoading,setMLoading]=useState(false);
+  // Form
+  const [form,setForm]=useState(false);
   const [titulo,setTitulo]=useState("");
   const [desc,setDesc]=useState("");
   const [rec,setRec]=useState("");
@@ -286,11 +293,34 @@ function MMisiones({me,showToast}){
   const [grupoMax,setGrupoMax]=useState("2");
   const [peerEval,setPeerEval]=useState(true);
   const fileRef=useRef(null);
-  const [loading,setLoading]=useState(true);
   const [deleting,setDeleting]=useState(null);
+  // Duplicate
+  const [dupMission,setDupMission]=useState(null);
+  const [dupTargetCid,setDupTargetCid]=useState("");
+  const [dupLoading,setDupLoading]=useState(false);
 
-  const reload=()=>api.teacherMissions().then(d=>setMissions(d.data||d||[])).catch(()=>{});
-  useEffect(()=>{ reload().finally(()=>setLoading(false)); },[]);
+  // Load classrooms on mount
+  useEffect(()=>{
+    api.myClassrooms()
+      .then(d=>setClassrooms(d.data||d||[]))
+      .catch(()=>{})
+      .finally(()=>setClassLoading(false));
+  },[]);
+
+  // Load missions whenever classroom changes
+  useEffect(()=>{
+    if(!selectedCid) return;
+    setMLoading(true);
+    api.teacherMissions(selectedCid)
+      .then(d=>setMissions(d.data||d||[]))
+      .catch(()=>{})
+      .finally(()=>setMLoading(false));
+  },[selectedCid]);
+
+  const reload=()=>{
+    if(!selectedCid) return;
+    api.teacherMissions(selectedCid).then(d=>setMissions(d.data||d||[])).catch(()=>{});
+  };
 
   const resetForm=()=>{
     setTitulo("");setDesc("");setRec("");setDif("facil");setTipo("normal");
@@ -332,6 +362,7 @@ function MMisiones({me,showToast}){
       grupo_min_size: tipo==="grupal" ? parseInt(grupoMin)||2 : 2,
       grupo_max_size: tipo==="grupal" ? parseInt(grupoMax)||2 : 2,
       requires_peer_eval: tipo==="grupal" ? peerEval : false,
+      classroom_id: selectedCid||null,
     };
     const isEdit=form&&typeof form==="object"&&form.id;
     if(!isEdit) payload.fecha_fin=calcFin();
@@ -370,22 +401,96 @@ function MMisiones({me,showToast}){
     }catch(e2){showToast(e2.message||"Error","error");}
   };
 
+  const duplicar=async()=>{
+    if(!dupMission||!dupTargetCid){showToast("Elegí un curso destino","error");return;}
+    setDupLoading(true);
+    try{
+      await api.duplicateMission(dupMission.id,{classroom_id:dupTargetCid});
+      showToast("Misión duplicada ✅");
+      setDupMission(null);setDupTargetCid("");
+      // If target is current classroom, reload
+      if(dupTargetCid===selectedCid) reload();
+    }catch(e){showToast(e.message||"Error","error");}
+    finally{setDupLoading(false);}
+  };
+
   const TIPO_COL={normal:"#3b82f6",limitada:"#ef4444",grupal:"#10b981",encadenada:"#8b5cf6",rol:"#ec4899",rapida:"#10b981"};
   const TIPO_ICON_MAP={normal:"📋",limitada:"⏱",grupal:"👥",encadenada:"🔗",rol:"👑",rapida:"⚡"};
   const isEdit=form&&typeof form==="object"&&form.id;
+  const selectedClassroom=classrooms.find(c=>c.id===selectedCid);
 
-  if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando...</div>;
+  // ── CLASSROOM LIST VIEW ──
+  if(!selectedCid){
+    return(
+      <div>
+        <OHdr title="Misiones" sub="EDUCOINS"/>
+        <div style={{padding:"12px 14px"}}>
+          {classLoading&&<div style={{textAlign:"center",padding:40,color:sub,fontWeight:700}}>Cargando cursos...</div>}
+          {!classLoading&&classrooms.length===0&&(
+            <WCard style={{textAlign:"center",padding:"40px 20px"}}>
+              <div style={{fontSize:40,marginBottom:8}}>🏫</div>
+              <div style={{fontWeight:800,fontSize:15,color:txt}}>Sin cursos asignados</div>
+              <div style={{fontSize:12,color:sub,marginTop:4}}>Pedile al admin que te asigne a un aula</div>
+            </WCard>
+          )}
+          {classrooms.map(c=>(
+            <WCard key={c.id} onClick={()=>setSelectedCid(c.id)}
+              style={{marginBottom:12,cursor:"pointer",padding:"18px 20px",
+                borderLeft:`4px solid ${primary}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                <div style={{width:52,height:52,borderRadius:16,background:primary+"18",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>
+                  🏫
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:900,fontSize:16,color:txt}}>{c.nombre||c.name||`Curso ${c.id?.slice(0,6)}`}</div>
+                  <div style={{fontSize:12,color:sub,marginTop:3,display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <span>👨‍🎓 {c.student_count||0} alumnos</span>
+                    <span>⚡ {c.mission_count||0} misiones</span>
+                    {(c.pending_count||0)>0&&<span style={{color:"#f59e0b",fontWeight:800}}>📬 {c.pending_count} pendientes</span>}
+                  </div>
+                </div>
+                <span style={{color:"#ddd",fontSize:22}}>›</span>
+              </div>
+            </WCard>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
+  // ── MISSIONS VIEW (classroom selected) ──
   return(
     <div>
-      <OHdr title="Misiones" sub="EDUCOINS"
-        extra={<button onClick={()=>{resetForm();setForm("new");}}
-          style={{marginTop:14,background:"rgba(255,255,255,.22)",border:"1.5px solid rgba(255,255,255,.35)",
-            borderRadius:50,color:"white",padding:"8px 20px",fontWeight:800,fontSize:13,cursor:"pointer"}}>
-          + Nueva
-        </button>}/>
-      <div style={{padding:"0 14px",marginTop:12}}>
-        {missions.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:sub,fontWeight:700}}>Sin misiones. Creá la primera ⚡</div>}
+      {/* Header with back button */}
+      <div style={{background:"#00c1fc",color:"white",padding:"46px 16px 18px",
+        position:"sticky",top:0,zIndex:50,textShadow:"0 1px 4px rgba(0,60,100,.4)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+          <button onClick={()=>{setSelectedCid(null);setMissions([]);}}
+            style={{background:"rgba(255,255,255,.22)",border:"none",borderRadius:99,
+              color:"white",padding:"6px 14px",fontWeight:800,fontSize:12,cursor:"pointer",
+              fontFamily:"Nunito,sans-serif"}}>
+            ← Cursos
+          </button>
+          <div style={{flex:1,fontWeight:900,fontSize:17,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+            {selectedClassroom?.nombre||selectedClassroom?.name||"Curso"}
+          </div>
+          <button onClick={()=>{resetForm();setForm("new");}}
+            style={{background:"rgba(255,255,255,.22)",border:"1.5px solid rgba(255,255,255,.35)",
+              borderRadius:50,color:"white",padding:"7px 16px",fontWeight:800,fontSize:12,cursor:"pointer",
+              fontFamily:"Nunito,sans-serif",flexShrink:0}}>
+            + Nueva
+          </button>
+        </div>
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
+        {mLoading&&<div style={{textAlign:"center",padding:40,color:sub,fontWeight:700}}>Cargando...</div>}
+        {!mLoading&&missions.length===0&&(
+          <div style={{textAlign:"center",padding:"40px 0",color:sub,fontWeight:700}}>
+            Sin misiones en este curso. ¡Creá la primera ⚡!
+          </div>
+        )}
         {missions.map(m=>{
           const pendiente=m.fecha_inicio&&new Date(m.fecha_inicio)>new Date();
           return(
@@ -409,8 +514,9 @@ function MMisiones({me,showToast}){
                   <div style={{fontWeight:800,fontSize:14,color:txt}}>{m.icon||"⚡"} {m.titulo}</div>
                   {m.descripcion&&<div style={{fontSize:12,color:sub,marginTop:2}}>{m.descripcion}</div>}
                 </div>
-                <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <div style={{display:"flex",gap:5,flexShrink:0}}>
                   <button onClick={()=>openEdit(m)} style={{background:primary+"18",color:primary,border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>✏️</button>
+                  <button onClick={()=>{setDupMission(m);setDupTargetCid("");}} style={{background:"#f59e0b18",color:"#f59e0b",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>📋</button>
                   <button onClick={(e)=>eliminar(m,e)} disabled={deleting===m.id} style={{background:"#ef444418",color:"#ef4444",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Nunito,sans-serif"}}>🗑️</button>
                 </div>
               </div>
@@ -427,6 +533,8 @@ function MMisiones({me,showToast}){
           );
         })}
       </div>
+
+      {/* Mission form sheet */}
       {form&&(
         <Sheet title={isEdit?"Editar misión":"Nueva misión"} onClose={()=>{setForm(false);resetForm();}}>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -440,7 +548,6 @@ function MMisiones({me,showToast}){
               </select>
             </div>
 
-            {/* Tipo */}
             {!isEdit&&(<>
               <div style={{fontWeight:700,fontSize:12,color:sub}}>Tipo de misión</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -451,7 +558,6 @@ function MMisiones({me,showToast}){
               </div>
             </>)}
 
-            {/* Duración para limitada */}
             {tipo==="limitada"&&!isEdit&&(
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 <input type="number" value={durVal} min="1" onChange={e=>setDurVal(e.target.value)}
@@ -463,12 +569,10 @@ function MMisiones({me,showToast}){
               </div>
             )}
 
-            {/* Cupos */}
             {(tipo==="grupal"||tipo==="rol")&&(
               <Inp val={maxSub} set={setMaxSub} ph={tipo==="rol"?"Cupos (por defecto 1)":"Máx. participantes (vacío=ilimitado)"} type="number" icon={tipo==="rol"?"👑":"👥"}/>
             )}
 
-            {/* Grupal config: tamaño del grupo + peer eval */}
             {tipo==="grupal"&&(<>
               <div style={{fontWeight:700,fontSize:12,color:sub}}>Tamaño del grupo</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -489,7 +593,6 @@ function MMisiones({me,showToast}){
               </label>
             </>)}
 
-            {/* Auto-approve toggle (si no es rapida) */}
             {tipo!=="rapida"&&(
               <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 0"}}>
                 <input type="checkbox" checked={autoApprove} onChange={e=>setAutoApprove(e.target.checked)} style={{accentColor:"#10b981",width:18,height:18}}/>
@@ -497,7 +600,6 @@ function MMisiones({me,showToast}){
               </label>
             )}
 
-            {/* Activar más tarde */}
             <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"4px 0"}}>
               <input type="checkbox" checked={activarMasTarde} onChange={e=>setActivarMasTarde(e.target.checked)} style={{accentColor:primary,width:18,height:18}}/>
               <span style={{fontSize:13,fontWeight:700,color:sub}}>🕐 Programar activación</span>
@@ -507,14 +609,12 @@ function MMisiones({me,showToast}){
                 style={{border:`1.5px solid ${navBord}`,borderRadius:12,padding:"10px 12px",fontSize:13,outline:"none",fontFamily:"Nunito,sans-serif",fontWeight:700,color:txt,background:inputBg}}/>
             )}
 
-            {/* Icon */}
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <input value={misionIcon} onChange={e=>setMisionIcon(e.target.value)} maxLength={4}
                 placeholder="⚡" style={{width:56,border:`1.5px solid ${navBord}`,borderRadius:12,padding:"10px",fontSize:22,textAlign:"center",outline:"none",fontFamily:"Nunito,sans-serif",background:inputBg,color:txt}}/>
               <span style={{fontSize:12,color:sub,fontWeight:700}}>Emoji / ícono</span>
             </div>
 
-            {/* Image upload */}
             <input ref={fileRef} type="file" accept="image/*" onChange={async e=>{
               const f=e.target.files?.[0]; if(!f) return;
               setImgLoading(true);
@@ -534,6 +634,38 @@ function MMisiones({me,showToast}){
               </button>
             )}
             <PBtn label={isEdit?"Guardar cambios":"Crear misión"} onClick={guardar} full/>
+          </div>
+        </Sheet>
+      )}
+
+      {/* Duplicate mission sheet */}
+      {dupMission&&(
+        <Sheet title="Duplicar misión" onClose={()=>{setDupMission(null);setDupTargetCid("");}}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:inputBg,borderRadius:12,padding:"10px 14px"}}>
+              <div style={{fontWeight:800,fontSize:13,color:txt}}>{dupMission.icon||"⚡"} {dupMission.titulo}</div>
+              <div style={{fontSize:11,color:sub,marginTop:2}}>🪙{dupMission.recompensa} · {dupMission.tipo}</div>
+            </div>
+            <div style={{fontWeight:700,fontSize:12,color:sub}}>Duplicar en el curso:</div>
+            {classrooms.filter(c=>c.id!==selectedCid).map(c=>(
+              <button key={c.id} onClick={()=>setDupTargetCid(c.id)}
+                style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",
+                  background:dupTargetCid===c.id?primary+"18":inputBg,
+                  border:`1.5px solid ${dupTargetCid===c.id?primary:navBord}`,
+                  borderRadius:14,cursor:"pointer",fontFamily:"Nunito,sans-serif",textAlign:"left"}}>
+                <span style={{fontSize:20}}>🏫</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:13,color:txt}}>{c.nombre||c.name||`Curso ${c.id?.slice(0,6)}`}</div>
+                  <div style={{fontSize:11,color:sub}}>{c.student_count||0} alumnos</div>
+                </div>
+                {dupTargetCid===c.id&&<span style={{color:primary,fontSize:16}}>✓</span>}
+              </button>
+            ))}
+            {classrooms.filter(c=>c.id!==selectedCid).length===0&&(
+              <div style={{textAlign:"center",padding:20,color:sub,fontSize:13}}>No hay otros cursos disponibles</div>
+            )}
+            <PBtn label={dupLoading?"Duplicando...":"Duplicar misión 📋"} onClick={duplicar} full
+              disabled={!dupTargetCid||dupLoading}/>
           </div>
         </Sheet>
       )}
