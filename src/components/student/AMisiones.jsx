@@ -94,7 +94,7 @@ function MisionCard({ m, onClick, pendingEvals }) {
         </div>
         {m.creador_nombre && (
           <div style={{ fontSize:10, color:sub, fontWeight:700, transition:"color .3s" }}>
-            {m.creador_nombre.split(" ")[0]}
+            {m.creador_nombre}
           </div>
         )}
         {/* Group status badge for grupal missions */}
@@ -141,6 +141,7 @@ function GroupFormSheet({ mission, onClose, onCreated, showToast }) {
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
   const minSize = mission.grupo_min_size || 2;
   const maxSize = mission.grupo_max_size || 2;
   const maxPartners = maxSize - 1; // minus the creator
@@ -160,13 +161,17 @@ function GroupFormSheet({ mission, onClose, onCreated, showToast }) {
     });
   };
 
+  const visible = search.trim()
+    ? classmates.filter(c => c.nombre.toLowerCase().includes(search.toLowerCase()))
+    : classmates;
+
   const canCreate = selected.length >= (minSize - 1) && selected.length <= maxPartners;
 
   const create = async () => {
     setCreating(true);
     try {
       const r = await api.peerCreateGroup({ mission_id: mission.id, partner_ids: selected });
-      showToast("Grupo creado — esperando aceptación");
+      showToast("¡Invitaciones enviadas! Esperá que acepten.");
       onCreated(r.data);
     } catch (e) {
       showToast(e.message || "Error al crear grupo", "error");
@@ -181,10 +186,17 @@ function GroupFormSheet({ mission, onClose, onCreated, showToast }) {
         boxShadow:"0 -8px 40px rgba(0,0,0,.25)", transition:"background .3s", animation:"slideUp .25s ease" }}>
         <div style={{ width:40, height:4, background:navBord, borderRadius:99, margin:"12px auto 0", flexShrink:0 }}/>
         <div style={{ padding:"16px 20px 8px" }}>
-          <div style={{ fontWeight:900, fontSize:18, color:txt, transition:"color .3s" }}>👥 Formar grupo</div>
+          <div style={{ fontWeight:900, fontSize:18, color:txt, transition:"color .3s" }}>👥 Elegí tu compañero/s</div>
           <div style={{ fontSize:12, color:sub, marginTop:2, fontWeight:700, transition:"color .3s" }}>
-            {mission.titulo} — elegí {minSize === maxSize ? `${minSize - 1}` : `${minSize - 1} a ${maxPartners}`} compañero{maxPartners > 1 ? "s" : ""}
+            {mission.titulo} — podés elegir {minSize === maxSize ? `${minSize - 1}` : `${minSize - 1} a ${maxPartners}`} compañero{maxPartners > 1 ? "s" : ""}
           </div>
+          {/* Search */}
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar compañero..."
+            style={{ marginTop:10, width:"100%", boxSizing:"border-box",
+              background:inputBg, border:`1px solid ${navBord}`, borderRadius:12,
+              padding:"9px 14px", fontFamily:"Nunito,sans-serif", fontSize:13, fontWeight:700,
+              color:txt, outline:"none", transition:"all .3s" }}/>
         </div>
 
         <div style={{ flex:1, overflowY:"auto", padding:"8px 20px 20px" }}>
@@ -193,10 +205,15 @@ function GroupFormSheet({ mission, onClose, onCreated, showToast }) {
             <div style={{ textAlign:"center", padding:40, color:sub }}>
               <div style={{ fontSize:36, marginBottom:8 }}>🤷</div>
               <div style={{ fontWeight:800, fontSize:13 }}>No hay compañeros disponibles</div>
-              <div style={{ fontSize:11, marginTop:4 }}>Puede que todos ya estén en un grupo para esta misión</div>
+              <div style={{ fontSize:11, marginTop:4 }}>Todos ya están en un grupo para esta misión</div>
             </div>
           )}
-          {classmates.map(c => {
+          {!loading && classmates.length > 0 && visible.length === 0 && (
+            <div style={{ textAlign:"center", padding:20, color:sub, fontSize:12, fontWeight:700 }}>
+              Sin resultados para "{search}"
+            </div>
+          )}
+          {visible.map(c => {
             const isSel = selected.includes(c.id);
             const isDisabled = !isSel && selected.length >= maxPartners;
             return (
@@ -238,7 +255,7 @@ function GroupFormSheet({ mission, onClose, onCreated, showToast }) {
               border:"none", borderRadius:18, fontFamily:"Nunito,sans-serif",
               fontSize:15, fontWeight:900, cursor: !canCreate || creating ? "not-allowed" : "pointer",
               opacity: !canCreate || creating ? .6 : 1, transition:"all .2s" }}>
-            {creating ? "Creando..." : "👥 Invitar y crear grupo"}
+            {creating ? "Enviando invitaciones..." : selected.length === 0 ? "Seleccioná un compañero" : `👥 Invitar a ${selected.length} compañero${selected.length > 1 ? "s" : ""}`}
           </button>
         </div>
       </div>
@@ -783,7 +800,7 @@ export default function AMisiones({ me, balance, showToast, refreshBalance, onBa
 
   const destacadas  = disponibles.filter(m => m.creador_rol === "admin");
   const rolMissions = disponibles.filter(m => m.tipo === "rol" && m.creador_rol !== "admin");
-  const rapidas     = disponibles.filter(m => (m.tipo === "rapida" || m.auto_approve) && m.tipo !== "rol" && m.creador_rol !== "admin");
+  const rapidas     = disponibles.filter(m => (m.tipo === "rapida" || m.auto_approve) && !["rol","grupal"].includes(m.tipo) && m.creador_rol !== "admin");
   const grupales    = disponibles.filter(m => m.tipo === "grupal" && m.creador_rol !== "admin");
   const tareas      = disponibles.filter(m => !["rol","rapida","grupal"].includes(m.tipo) && !m.auto_approve && m.creador_rol !== "admin");
 
