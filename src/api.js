@@ -193,7 +193,9 @@ const api = {
   notifReadAll:   ()         => apiFetch("/notifications/read",{ method:"PATCH" }),
   notifRead:      (id)       => apiFetch(`/notifications/${id}/read`,{ method:"PATCH" }),
   // ── Misiones avanzadas ────────────────────────────────────
-  teacherMissions:()         => apiFetch("/missions/teacher"),
+  teacherMissions:(cid)      => apiFetch(`/missions/teacher${cid?`?classroom_id=${cid}`:""}`),
+  myClassrooms:   ()         => apiFetch("/missions/my-classrooms"),
+  duplicateMission:(id,d)    => apiFetch(`/missions/${id}/duplicate`, { method:"POST", body:d }),
   classroomStudents:()       => apiFetch("/missions/classroom-students"),
   rewardDirect:   (d)        => apiFetch("/missions/reward-direct",{ method:"POST", body:d }),
   allSubmissions: (estado)   => apiFetch(`/missions/submissions${estado?`?estado=${estado}`:""}`),
