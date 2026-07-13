@@ -332,11 +332,11 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
     s.emit('typing', { conversation_id: cid, type });
   };
 
-  // Buscar usuarios para agregar. Con búsqueda vacía, mostrar sugerencias.
+  // Buscar usuarios para agregar a partir de dos caracteres.
   useEffect(() => {
     if (!addOpen) return undefined;
     const query = search.trim();
-    if (query.length === 1) {
+    if (query.length < 2) {
       setResults([]);
       setSearching(false);
       setSearchError("");
@@ -946,7 +946,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
             </div>
 
             <div aria-live="polite" style={{marginTop:12}}>
-              {search.trim().length===1&&(
+              {search.trim().length<2&&(
                 <div style={{textAlign:"center",color:sub,fontSize:12,padding:12}}>
                   Escribí al menos 2 caracteres para buscar.
                 </div>
@@ -957,9 +957,9 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
               {!searching&&searchError&&(
                 <div role="alert" style={{textAlign:"center",color:txt,fontSize:12,padding:12}}>{searchError}</div>
               )}
-              {!searching&&!searchError&&search.trim().length!==1&&results.length===0&&(
+              {!searching&&!searchError&&search.trim().length>=2&&results.length===0&&(
                 <div style={{textAlign:"center",color:sub,fontSize:12,padding:12}}>
-                  {search.trim() ? `Sin resultados para “${search.trim()}”.` : "No hay otros usuarios disponibles."}
+                  {`Sin resultados para “${search.trim()}”.`}
                 </div>
               )}
               {!searching&&results.map(u=>{

@@ -65,7 +65,10 @@ describe('AChat', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /agregar/i }));
     expect(screen.getByRole('dialog', { name: /agregar contacto/i })).toBeInTheDocument();
-    await waitFor(() => expect(mocks.chatSearch).toHaveBeenCalledWith(''));
+    expect(screen.getByText(/al menos 2 caracteres/i)).toBeInTheDocument();
+    expect(mocks.chatSearch).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText('Ej.: María'), { target: { value: 'María' } });
+    await waitFor(() => expect(mocks.chatSearch).toHaveBeenCalledWith('María'));
     expect((await screen.findAllByText('María García')).length).toBeGreaterThan(0);
   });
 });
