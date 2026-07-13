@@ -17,6 +17,7 @@ function useChatSocket(token, onMessage, onTyping) {
   useEffect(() => {
     const s = connectSocket(token);
     socketRef.current = s;
+    if (!s) return undefined;
 
     const handleMsg    = (m) => onMsgRef.current(m);
     const handleTyping = (d) => onTypRef.current(d);
@@ -63,6 +64,10 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
   const [search, setSearch]     = useState("");
   const [results, setResults]   = useState([]);
   const [loading, setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [addingUserId, setAddingUserId] = useState(null);
   // perfilUserId manejado en Alumno via onOpenPerfil prop
   // Emoji picker
   const [emojiOpen,    setEmojiOpen]    = useState(false);
@@ -127,22 +132,35 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
 
   const socketRef = useChatSocket(token, onMessage, onTyping);
 
-  // Cargar datos iniciales
-  useEffect(() => {
-    Promise.all([
-      api.chatFriends().catch(()=>({data:[]})),
-      api.chatClassroomInfo().catch(()=>({data:null})),
-      api.chatGlobalMsgs().catch(()=>({data:[]})),
-    ]).then(([fr, cl, gl]) => {
-      const all = fr.data || fr || [];
+  const loadFriends = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const response = await api.chatFriends();
+      const all = Array.isArray(response) ? response : (response?.data || []);
       setFriends(all.filter(f=>f.estado==='accepted'));
       setPend(all.filter(f=>f.estado==='pending' && !f.soy_requester));
-      setClass(cl.data || cl);
-      if ((cl.data||cl)?.conversation_id) classConvIdRef.current = (cl.data||cl).conversation_id;
-      const gMsgs = (gl.data || gl || []);
-      setGlobal(gMsgs);
+    } catch {
+      setFriends([]);
+      setPend([]);
+      setLoadError("No se pudieron cargar tus contactos.");
+    } finally {
       setLoading(false);
-    });
+    }
+  }, []);
+
+  // Cargar cada sección por separado: no tener aula nunca debe bloquear contactos.
+  useEffect(() => {
+    loadFriends();
+    api.chatClassroomInfo().then(cl => {
+      const classroom = cl?.data ?? cl ?? null;
+      setClass(classroom);
+      if (classroom?.conversation_id) classConvIdRef.current = classroom.conversation_id;
+    }).catch(()=>setClass(null));
+    api.chatGlobalMsgs().then(gl => {
+      setGlobal(Array.isArray(gl) ? gl : (gl?.data || []));
+    }).catch(()=>setGlobal([]));
+
     // Obtener el conversation_id del global por separado (funciona aunque no haya mensajes)
     api.chatGlobalInfo().then(d => {
       const cid = d.conversation_id || d.data?.conversation_id;
@@ -151,12 +169,12 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
 
     // Cargar grupos y joinear sus rooms de socket
     api.myGroups().then(d => {
-      const gs = d || [];
+      const gs = Array.isArray(d) ? d : (d?.data || []);
       setGroups(gs);
       const s = getSocket();
       if (s) gs.forEach(g => s.emit('join_group', g.conversation_id));
     }).catch(()=>{});
-  }, []);
+  }, [loadFriends]);
 
   // Cargar mensajes del aula cuando se selecciona esa tab
   useEffect(() => {
@@ -314,22 +332,40 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
     s.emit('typing', { conversation_id: cid, type });
   };
 
-  // Buscar usuarios para agregar
+  // Buscar usuarios para agregar. Con búsqueda vacía, mostrar sugerencias.
   useEffect(() => {
-    if (search.length < 2) { setResults([]); return; }
+    if (!addOpen) return undefined;
+    const query = search.trim();
+    if (query.length === 1) {
+      setResults([]);
+      setSearching(false);
+      setSearchError("");
+      return undefined;
+    }
+    setSearching(true);
+    setSearchError("");
     const t = setTimeout(() => {
-      api.chatSearch(search).then(d=>setResults(d.data||d||[])).catch(()=>[]);
+      api.chatSearch(query)
+        .then(d=>setResults(Array.isArray(d) ? d : (d?.data || [])))
+        .catch(()=>{
+          setResults([]);
+          setSearchError("No se pudo buscar usuarios. Intentá nuevamente.");
+        })
+        .finally(()=>setSearching(false));
     }, 350);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [search, addOpen]);
 
   const sendFriendReq = async (userId) => {
+    setAddingUserId(userId);
     try {
       await api.chatFriendReq(userId);
       showToast("Solicitud enviada 📨");
       setResults(prev => prev.map(u => u.id===userId ? {...u, friendship_estado:'pending'} : u));
     } catch(e) {
       showToast(e.message||"Error al enviar solicitud","error");
+    } finally {
+      setAddingUserId(null);
     }
   };
 
@@ -871,6 +907,94 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
     <div style={{background:bg}}>
       <OHdrA title="💬 Chat" onBack={onBack}/>
 
+      {addOpen&&(
+        <div onClick={e=>{
+          if (e.target===e.currentTarget) {
+            setAddOpen(false);
+            setSearch("");
+            setResults([]);
+          }
+        }} style={{position:"fixed",inset:0,zIndex:9999,
+          background:`color-mix(in srgb, ${txt} 55%, transparent)`,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div role="dialog" aria-modal="true" aria-labelledby="add-contact-title"
+            style={{width:"100%",maxWidth:440,maxHeight:"min(680px, 86vh)",overflowY:"auto",
+              background:cardBg,border:`1px solid ${navBord}`,borderRadius:22,
+              boxShadow:`0 18px 50px color-mix(in srgb, ${txt} 25%, transparent)`,padding:18}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+              <div>
+                <div id="add-contact-title" style={{fontWeight:900,fontSize:18,color:txt}}>Agregar contacto</div>
+                <div style={{fontSize:11,color:sub,marginTop:2}}>Buscá por nombre o apodo</div>
+              </div>
+              <button aria-label="Cerrar" onClick={()=>{
+                setAddOpen(false);
+                setSearch("");
+                setResults([]);
+              }} style={{width:34,height:34,borderRadius:"50%",border:`1px solid ${navBord}`,
+                background:inputBg,color:txt,cursor:"pointer",fontSize:16}}>✕</button>
+            </div>
+
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:14,
+              background:inputBg,border:`1.5px solid ${inputBd}`,borderRadius:50,padding:"10px 14px"}}>
+              <span aria-hidden="true">🔍</span>
+              <input autoFocus value={search} onChange={e=>setSearch(e.target.value)}
+                placeholder="Ej.: María"
+                style={{flex:1,minWidth:0,border:"none",outline:"none",background:"transparent",
+                  color:txt,fontFamily:"Nunito,sans-serif",fontWeight:600,fontSize:14}}/>
+              {search&&<button aria-label="Limpiar búsqueda" onClick={()=>setSearch("")}
+                style={{border:"none",background:"transparent",color:sub,cursor:"pointer"}}>✕</button>}
+            </div>
+
+            <div aria-live="polite" style={{marginTop:12}}>
+              {search.trim().length===1&&(
+                <div style={{textAlign:"center",color:sub,fontSize:12,padding:12}}>
+                  Escribí al menos 2 caracteres para buscar.
+                </div>
+              )}
+              {searching&&(
+                <div style={{textAlign:"center",color:sub,fontSize:12,padding:12}}>Buscando usuarios...</div>
+              )}
+              {!searching&&searchError&&(
+                <div role="alert" style={{textAlign:"center",color:txt,fontSize:12,padding:12}}>{searchError}</div>
+              )}
+              {!searching&&!searchError&&search.trim().length!==1&&results.length===0&&(
+                <div style={{textAlign:"center",color:sub,fontSize:12,padding:12}}>
+                  {search.trim() ? `Sin resultados para “${search.trim()}”.` : "No hay otros usuarios disponibles."}
+                </div>
+              )}
+              {!searching&&results.map(u=>{
+                const roleLabel = u.rol==='teacher' ? 'Docente'
+                  : u.rol==='admin' ? 'Administración'
+                  : u.rol==='parent' ? 'Familia' : 'Alumno';
+                return (
+                  <div key={u.id} style={{display:"flex",alignItems:"center",gap:10,
+                    border:`1px solid ${navBord}`,borderRadius:15,padding:"10px 12px",marginBottom:8}}>
+                    <Av user={u} sz={40} avatarBg={u.avatar_bg||null}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:800,fontSize:13,color:txt,
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayName(u)}</div>
+                      <div style={{fontSize:10,color:sub}}>{roleLabel}</div>
+                    </div>
+                    {u.friendship_estado==='accepted' ? (
+                      <span style={{fontSize:11,fontWeight:800,color:sub}}>Contacto</span>
+                    ) : u.friendship_estado==='pending' ? (
+                      <span style={{fontSize:11,fontWeight:800,color:sub}}>Pendiente</span>
+                    ) : (
+                      <button disabled={addingUserId===u.id} onClick={()=>sendFriendReq(u.id)}
+                        style={{border:"none",borderRadius:99,background:accent,color:"white",
+                          padding:"7px 12px",fontFamily:"Nunito,sans-serif",fontWeight:800,
+                          cursor:addingUserId===u.id?"wait":"pointer",opacity:addingUserId===u.id ? .65 : 1}}>
+                        {addingUserId===u.id ? "Enviando..." : "+ Agregar"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div style={{display:"flex",background:cardBg,
         borderBottom:`1px solid ${inputBg}`}}>
@@ -931,7 +1055,15 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
           </div>
 
           {loading&&<div style={{textAlign:"center",color:sub,padding:20}}>Cargando...</div>}
-          {!loading&&friends.length===0&&(
+          {!loading&&loadError&&(
+            <div role="alert" style={{textAlign:"center",color:sub,padding:20,fontSize:13}}>
+              <div>{loadError}</div>
+              <button onClick={loadFriends} style={{marginTop:9,border:"none",borderRadius:99,
+                background:accent,color:"white",padding:"7px 14px",fontWeight:800,
+                fontFamily:"Nunito,sans-serif",cursor:"pointer"}}>Reintentar</button>
+            </div>
+          )}
+          {!loading&&!loadError&&friends.length===0&&(
             <div style={{textAlign:"center",color:sub,padding:24,fontSize:13}}>
               Sin amigos todavía. ¡Agregá a tus compañeros! 👋
             </div>
