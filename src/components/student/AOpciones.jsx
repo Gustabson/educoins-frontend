@@ -64,8 +64,8 @@ function AOpciones({me,logout,notifs=[]}){
         )}
 
         {[
-          ["❓","Ayuda","Como funciona Aubank","#3b82f6"],
-          ["⚙️","Configuracion","Ajustes de la cuenta","#94a3b8"],
+          ["❓","Ayuda","Cómo funciona EduCoins","#3b82f6"],
+          ["⚙️","Configuración","Ajustes de la cuenta","#94a3b8"],
         ].map(([ic,lb,ds,col])=>(
           <div key={lb} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
             cursor:"pointer",marginBottom:8,background:cardBg,borderRadius:20,
@@ -83,7 +83,7 @@ function AOpciones({me,logout,notifs=[]}){
           <button onClick={logout} style={{width:"100%",background:cardBg,
             border:`1.5px solid ${inputBg}`,borderRadius:50,color:sub,
             padding:"14px",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"Nunito,sans-serif",transition:"all .3s"}}>
-            Cerrar sesion
+            Cerrar sesión
           </button>
         </div>
       </div>

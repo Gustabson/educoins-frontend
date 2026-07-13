@@ -86,10 +86,10 @@ function Pill({text,col}){
   return <span style={{background:c+"1a",color:c,border:`1px solid ${c}33`,
     borderRadius:99,padding:"3px 10px",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}>{text}</span>;
 }
-function PBtn({label,onClick,disabled,color,full,sm,style}){
+function PBtn({label,onClick,disabled,color,full,sm,style,type="button"}){
   const bg=disabled?"#e0e0e0":color||"#00c1fc";
   return(
-    <button onClick={onClick} disabled={disabled}
+    <button type={type} onClick={onClick} disabled={disabled}
       style={{background:bg,border:"none",borderRadius:sm?12:50,
         color:disabled?"#aaa":"white",padding:sm?"8px 16px":"13px 28px",
         fontWeight:800,fontSize:sm?12:15,cursor:disabled?"not-allowed":"pointer",
@@ -109,12 +109,13 @@ function OBtn({label,onClick,color}){
       cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.06)",whiteSpace:"nowrap"}}>{label}</button>
   );
 }
-function Inp({val,set,ph,type,icon}){
+function Inp({val,set,ph,type,icon,label,name,autoComplete}){
   return(
     <div style={{position:"relative"}}>
       {icon&&<span style={{position:"absolute",left:13,top:"50%",transform:"translateY(-50%)",
         fontSize:15,pointerEvents:"none"}}>{icon}</span>}
       <input value={val} onChange={e=>set(e.target.value)} placeholder={ph} type={type||"text"}
+        aria-label={label||ph} name={name} autoComplete={autoComplete}
         style={{background:"#F7F7F7",border:"1.5px solid #E8E8E8",borderRadius:14,
           color:"#1a1a1a",padding:icon?"12px 14px 12px 38px":"12px 16px",
           fontSize:14,outline:"none",width:"100%",fontWeight:600}}/>
@@ -230,6 +231,13 @@ function useToast(){
 }
 
 // ── APP PRINCIPAL ─────────────────────────────────────────────
+/*
+ * Legacy App implementation kept temporarily for reference in the original
+ * source. The real application entry point lives in src/App.js. Keeping this
+ * executable created a second, incomplete App with missing dependencies and
+ * prevented production builds.
+ */
+/*
 export default function App(){
   const [me,setMe]=useState(null);
   const [balance,setBalance]=useState(0);
@@ -290,7 +298,7 @@ export default function App(){
         <div style={{position:"absolute",width:240,height:240,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-60,right:-60,pointerEvents:"none"}}/>
         <div style={{fontSize:48,marginBottom:6}}>🏦</div>
-        <div style={{fontWeight:900,fontSize:30,letterSpacing:"-1px",lineHeight:1}}>Aubank</div>
+        <div style={{fontWeight:900,fontSize:30,letterSpacing:"-1px",lineHeight:1}}>EduCoins</div>
         <div style={{fontSize:14,opacity:.8,marginTop:4,fontWeight:600}}>Juega, aprende y gana</div>
       </div>
       <div style={{flex:1,background:"white",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px"}}>
@@ -314,6 +322,7 @@ export default function App(){
   if(me.rol==="admin")   return <Admin   me={me} logout={logout}/>;
   return <div>Rol desconocido</div>;
 }
+*/
 
 // ════════════════════════════════════════════════════════════
 // VISTA ALUMNO

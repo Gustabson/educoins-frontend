@@ -200,7 +200,7 @@ function AdminRanking({onBack}){
         {!loading&&data&&Object.values(data).every(v=>!Array.isArray(v)||v.length===0)&&(
           <div style={{textAlign:"center",color:"#aaa",padding:40}}>
             <div style={{fontSize:40}}>📊</div>
-            <div style={{fontWeight:800,marginTop:8}}>Sin datos todavia</div>
+            <div style={{fontWeight:800,marginTop:8}}>Sin datos todavía</div>
           </div>
         )}
       </div>

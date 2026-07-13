@@ -1,40 +1,40 @@
 // DiwyLanding.jsx — Upsell page for parents without Diwy subscription.
-// Activation is free (beta). Stores flag in localStorage.
-// In V2: replace localStorage check with DB field (diwy_premium on users).
+// La activación beta es gratuita y se guarda en el servidor.
 
 import { useState } from "react";
 import { useTheme } from "../../ThemeContext";
+import { api } from "../../api";
 
 const FEATURES = [
   {
     icon: "📊",
     title: "Reportes semanales con IA",
-    desc: "Cada semana, Diwy analiza el comportamiento, rendimiento y estado emocional de tu hijo y te lo explica en palabras simples.",
+    desc: "Cada semana, Diwy organiza la información educativa disponible y te la explica en palabras simples.",
     tag: null, // available now
   },
   {
     icon: "🔍",
     title: "Pedí un análisis cuando quieras",
-    desc: "¿Algo te preocupa? Solicitá un nuevo reporte en cualquier momento. Diwy investiga y te responde.",
+    desc: "¿Algo te preocupa? Solicitá un nuevo reporte en cualquier momento para comprender mejor la situación.",
     tag: null,
   },
   {
     icon: "💬",
     title: "Preguntale a la maestra en tiempo real",
     desc: "Mandá una consulta directa al equipo docente desde Diwy. Sin intermediarios, sin perder el hilo.",
-    tag: "pronto",
+    tag: null,
   },
   {
     icon: "📡",
-    title: "Datos únicos de tu hijo en tiempo real",
-    desc: "Enterate de cambios en su estado emocional, monedas ganadas, logros y alertas antes de que llegue a casa.",
-    tag: "pronto",
+    title: "Información educativa organizada",
+    desc: "Consultá asistencia, reportes, logros y novedades desde un mismo lugar.",
+    tag: null,
   },
   {
     icon: "🗓️",
     title: "Preview de la clase antes de empezar",
     desc: "Sabé de qué se va a tratar la próxima clase, los temas del día y si hay algo especial planeado.",
-    tag: "pronto",
+    tag: null,
   },
   {
     icon: "🚨",
@@ -44,20 +44,24 @@ const FEATURES = [
   },
 ];
 
-export default function DiwyLanding({ me, onActivate, onBack }) {
+export default function DiwyLanding({ onActivate, onBack }) {
   const { primary, txt, sub, cardBg, pageBg, navBord, isDark } = useTheme();
   const [loading, setLoading] = useState(false);
   const [done,    setDone]    = useState(false);
+  const [error,   setError]   = useState("");
 
-  const activate = () => {
+  const activate = async () => {
     setLoading(true);
-    // TODO V2: POST /api/diwy/subscribe with real payment/activation
-    setTimeout(() => {
-      localStorage.setItem(`${me.id}_diwy_premium`, "1");
+    setError("");
+    try {
+      await api.diwyActivate();
       setDone(true);
-      setLoading(false);
       setTimeout(() => onActivate(), 1200);
-    }, 900);
+    } catch (activationError) {
+      setError(activationError.message || "No pudimos activar Diwy. Intentá de nuevo.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -91,8 +95,8 @@ export default function DiwyLanding({ me, onActivate, onBack }) {
         </div>
         <div style={{ fontSize:15, color:"rgba(255,255,255,.85)", lineHeight:1.6,
           maxWidth:320, margin:"0 auto 24px", position:"relative" }}>
-          Mientras tu hijo está en clase, Diwy está mirando.<br/>
-          <strong style={{ color:"white" }}>Vos te enterás de todo, antes que nadie.</strong>
+          Diwy reúne la información educativa disponible.<br/>
+          <strong style={{ color:"white" }}>Vos acompañás con más contexto y claridad.</strong>
         </div>
 
         {/* Beta badge */}
@@ -109,7 +113,7 @@ export default function DiwyLanding({ me, onActivate, onBack }) {
         borderBottom:`1px solid ${navBord}`, padding:"14px 24px",
         display:"flex", justifyContent:"space-around", flexWrap:"wrap", gap:8,
         transition:"background .3s" }}>
-        {["🤖 IA propia", "📈 Sin tecnicismos", "🔒 100% privado", "⚡ En tiempo real"].map(t => (
+        {["🤖 Asistencia con IA", "📈 Sin tecnicismos", "🔒 Acceso protegido", "⚡ Información actualizada"].map(t => (
           <div key={t} style={{ fontSize:11, fontWeight:800, color:sub,
             transition:"color .3s" }}>{t}</div>
         ))}
@@ -172,12 +176,12 @@ export default function DiwyLanding({ me, onActivate, onBack }) {
           <div style={{ fontSize:22, marginBottom:8 }}>🕵️</div>
           <div style={{ fontWeight:900, fontSize:16, color:txt, marginBottom:6,
             transition:"color .3s" }}>
-            Un espía personal para cada hijo.
+            Una mirada clara para acompañar mejor.
           </div>
           <div style={{ fontSize:13, color:sub, lineHeight:1.6, transition:"color .3s" }}>
-            No espera a la reunión de padres.<br/>
-            No espera a que tu hijo te cuente.<br/>
-            <strong style={{ color:txt }}>Diwy te avisa primero.</strong>
+            Complementa el diálogo con tu hijo.<br/>
+            Facilita la comunicación con la escuela.<br/>
+            <strong style={{ color:txt }}>Diwy organiza; las personas deciden.</strong>
           </div>
         </div>
 
@@ -211,6 +215,7 @@ export default function DiwyLanding({ me, onActivate, onBack }) {
               }}>
               {loading ? "Activando..." : "🐾 Activar Diwy — GRATIS"}
             </button>
+            {error && <div role="alert" style={{ textAlign:"center", color:"#ef4444", fontSize:12, marginBottom:8 }}>{error}</div>}
             <div style={{ textAlign:"center", fontSize:11, color:sub,
               lineHeight:1.6, transition:"color .3s" }}>
               Sin costo. Sin tarjeta. Durante la beta, Diwy es completamente gratuito.<br/>

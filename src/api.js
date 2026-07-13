@@ -1,34 +1,74 @@
 import { io } from 'socket.io-client';
 // api.js — cliente HTTP y socket
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
+const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.REACT_APP_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:3000" : "")).replace(/\/$/, "");
 const API = `${API_URL}/api/v1`;
 
+class ApiError extends Error {
+  constructor(code, message, status=0) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
 async function apiFetch(path, options={}) {
+  if (!API_URL) throw new ApiError('API_NOT_CONFIGURED', 'El servicio no está configurado. Contactá al administrador.');
   const token = localStorage.getItem("ec_token");
-  const res = await fetch(API + path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  const data = await res.json();
-  if (!data.ok) throw { code: data.error?.code, message: data.error?.message };
-  return data.data;
+  const { timeoutMs=30000, headers={}, body, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(API + path, {
+      ...fetchOptions,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    const raw = await res.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; }
+    catch { throw new ApiError('INVALID_RESPONSE', 'El servidor devolvió una respuesta inválida', res.status); }
+
+    if (!res.ok || !data?.ok) {
+      if (res.status === 401 && token) {
+        localStorage.removeItem("ec_token");
+        disconnectSocket();
+      }
+      throw new ApiError(
+        data?.error?.code || `HTTP_${res.status}`,
+        data?.error?.message || 'No se pudo completar la solicitud',
+        res.status
+      );
+    }
+    return data.data;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (error?.name === 'AbortError') throw new ApiError('TIMEOUT', 'El servidor tardó demasiado en responder');
+    throw new ApiError('NETWORK_ERROR', 'No se pudo conectar con el servidor. Revisá tu conexión.');
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 let _socket = null;
+let _socketToken = null;
 
 function connectSocket(token) {
-  // Si ya existe (aunque esté conectando), devolvemos el mismo —
-  // no destruirlo evita que los handlers registrados queden en un socket muerto.
-  if (_socket) return _socket;
+  if (!token) return null;
+  // Reuse handlers for the same session, but never retain a socket that was
+  // authenticated with an expired or different JWT.
+  if (_socket && _socketToken === token) return _socket;
+  if (_socket) _socket.disconnect();
+  _socketToken = token;
   _socket = io(API_URL, {
     auth: { token },
-    transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 10,
   });
@@ -37,7 +77,9 @@ function connectSocket(token) {
   return _socket;
 }
 export function disconnectSocket() {
-  if (_socket) { _socket.disconnect(); _socket = null; }
+  if (_socket) _socket.disconnect();
+  _socket = null;
+  _socketToken = null;
 }
 function getSocket() { return _socket; }
 
@@ -261,7 +303,7 @@ const api = {
   wellnessAdminBackups:       ()       => apiFetch("/wellness/admin/backups"),
   wellnessAdminBackupCreate:  (days)   => apiFetch("/wellness/admin/backups",       { method:"POST", body:{days} }),
   wellnessAdminBackupDelete:  (id)     => apiFetch(`/wellness/admin/backups/${id}`, { method:"DELETE" }),
-  wellnessAdminBackupDownload:(id)     => `${(typeof process!=="undefined"?process.env?.REACT_APP_API_URL:"")||""}/api/v1/wellness/admin/backups/${id}/download`,
+  wellnessAdminBackupDownload:(id)     => `${API_URL}/api/v1/wellness/admin/backups/${id}/download`,
   myReports:      ()                      => apiFetch("/reports/mine"),
   allReports:     (q="")                  => apiFetch(`/reports${q}`),
   updateReport:   (id, data)              => apiFetch(`/reports/${id}/estado`,    { method:"PATCH", body:data }),
@@ -288,6 +330,8 @@ const api = {
   aiDocDelete:       (id)       => apiFetch(`/ai-docs/${id}`,      { method:"DELETE" }),
   // ── Diwy ──────────────────────────────────────────────────────
   diwyStudents:       ()          => apiFetch("/diwy/students"),
+  diwySubscription:   ()          => apiFetch("/diwy/subscription"),
+  diwyActivate:       ()          => apiFetch("/diwy/subscription", { method:"POST" }),
   diwyAddObs:         (data)      => apiFetch("/diwy/observations",         { method:"POST",   body:data }),
   diwyObservations:   (studentId) => apiFetch(`/diwy/observations/${studentId}`),
   diwyDeleteObs:      (id)        => apiFetch(`/diwy/observations/${id}`,   { method:"DELETE" }),
@@ -320,7 +364,7 @@ const api = {
       headers: { "Content-Type":"application/json", ...(token ? { Authorization:`Bearer ${token}` } : {}) }
     });
     const json = await res.json();
-    if (!json.ok) throw { code: json.error?.code, message: json.error?.message };
+    if (!json.ok) throw new ApiError(json.error?.code, json.error?.message, res.status);
     // Return full object so caller can access first_saved alongside data
     return { data: json.data, first_saved: json.first_saved };
   },
@@ -390,4 +434,4 @@ const api = {
 // ── GAMIFICACIÓN (local, solo visual) ────────────────────────
 // ── Helper: nombre visible (apodo si tiene, nombre si no) ────
 
-export { apiFetch, connectSocket, getSocket, api };
+export { ApiError, apiFetch, connectSocket, getSocket, api };

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { api, connectSocket } from './api';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+import { api, connectSocket, disconnectSocket } from './api';
 import { GS } from './constants';
 import { Inp, PBtn } from './components/shared/index';
-import Alumno from './components/student/Alumno';
-import Maestra from './components/teacher/Maestra';
-import Admin   from './components/admin/Admin';
-import Padre   from './components/parent/Padre';
+const Alumno = lazy(() => import('./components/student/Alumno'));
+const Maestra = lazy(() => import('./components/teacher/Maestra'));
+const Admin = lazy(() => import('./components/admin/Admin'));
+const Padre = lazy(() => import('./components/parent/Padre'));
 
 export default function App(){
   const [me,setMe]         = useState(null);
@@ -19,10 +19,16 @@ export default function App(){
   useEffect(()=>{
     const token = localStorage.getItem("ec_token");
     if(!token){ setLoading(false); return; }
-    connectSocket(token); // Conectar socket para TODOS los roles al cargar
-    Promise.all([api.me(), api.account()])
-      .then(([user,acc])=>{ setMe(user); setBalance(acc.balance); })
-      .catch(()=>localStorage.removeItem("ec_token"))
+    api.me()
+      .then(async user=>{
+        const acc = await api.account().catch(()=>({balance:user.balance||0}));
+        setMe(user); setBalance(acc.balance||0);
+        connectSocket(token);
+      })
+      .catch(()=>{
+        localStorage.removeItem("ec_token");
+        disconnectSocket();
+      })
       .finally(()=>setLoading(false));
   },[]);
 
@@ -30,7 +36,7 @@ export default function App(){
     if(!email||!pass){ setErr("Completá email y contraseña"); return; }
     setLogging(true); setErr("");
     try{
-      const {token,user} = await api.login(email,pass);
+      const {token,user} = await api.login(email.trim().toLowerCase(),pass);
       localStorage.setItem("ec_token",token);
       connectSocket(token); // Conectar socket para TODOS los roles al login
       const acc = await api.account().catch(()=>({balance:0}));
@@ -41,6 +47,7 @@ export default function App(){
   };
 
   const logout = () => {
+    disconnectSocket();
     localStorage.removeItem("ec_token");
     setMe(null); setBalance(0); setEmail(""); setPass("");
   };
@@ -72,17 +79,17 @@ export default function App(){
         <div style={{position:"absolute",width:240,height:240,borderRadius:"50%",
           background:"rgba(255,255,255,.1)",top:-60,right:-60,pointerEvents:"none"}}/>
         <div style={{fontSize:48,marginBottom:6}}>🏦</div>
-        <div style={{fontWeight:900,fontSize:30,letterSpacing:"-1px",lineHeight:1}}>Aubank</div>
+        <div style={{fontWeight:900,fontSize:30,letterSpacing:"-1px",lineHeight:1}}>EduCoins</div>
         <div style={{fontSize:14,opacity:.8,marginTop:4,fontWeight:600}}>Juega, aprende y gana</div>
       </div>
-      <div style={{flex:1,background:"white",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px"}}>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div className="ec-login-card" style={{flex:1,alignSelf:"center",width:"100%",maxWidth:520,background:"white",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px"}}>
+        <form onSubmit={event=>{event.preventDefault();login();}} style={{display:"flex",flexDirection:"column",gap:14}}>
           <div style={{fontWeight:900,fontSize:22,color:"#1a1a1a",textAlign:"center"}}>Iniciá sesión</div>
-          <Inp val={email} set={setEmail} ph="Email" type="email" icon="✉️"/>
-          <Inp val={pass}  set={setPass}  ph="Contraseña" type="password" icon="🔒"/>
-          {err&&<div style={{color:"#ef4444",fontSize:13,fontWeight:700,textAlign:"center"}}>{err}</div>}
-          <PBtn label={logging?"Ingresando...":"Ingresar"} onClick={login} full disabled={logging}/>
-        </div>
+          <Inp val={email} set={setEmail} ph="Email" label="Correo electrónico" name="email" type="email" icon="✉️" autoComplete="email"/>
+          <Inp val={pass} set={setPass} ph="Contraseña" label="Contraseña" name="password" type="password" icon="🔒" autoComplete="current-password"/>
+          {err&&<div role="alert" style={{color:"#ef4444",fontSize:13,fontWeight:700,textAlign:"center"}}>{err}</div>}
+          <PBtn type="submit" label={logging?"Ingresando...":"Ingresar"} full disabled={logging}/>
+        </form>
         <div style={{marginTop:24,textAlign:"center",fontSize:12,color:"#aaa",fontWeight:600}}>
           Las cuentas son creadas por el administrador del sistema.
         </div>
@@ -91,9 +98,11 @@ export default function App(){
   );
 
   // Routing por rol
-  if(me.rol==="student") return <Alumno me={me} balance={balance} refreshBalance={refreshBalance} logout={logout} setMe={setMe}/>;
-  if(me.rol==="teacher") return <Maestra me={me} logout={logout}/>;
-  if(me.rol==="admin")   return <Admin   me={me} logout={logout}/>;
-  if(me.rol==="parent")  return <Padre   me={me} balance={balance} refreshBalance={refreshBalance} logout={logout} setMe={setMe}/>;
+  const roleView = me.rol==="student" ? <Alumno me={me} balance={balance} refreshBalance={refreshBalance} logout={logout} setMe={setMe}/>
+    : me.rol==="teacher" ? <Maestra me={me} logout={logout}/>
+    : me.rol==="admin" ? <Admin me={me} logout={logout}/>
+    : me.rol==="parent" ? <Padre me={me} balance={balance} refreshBalance={refreshBalance} logout={logout} setMe={setMe}/>
+    : null;
+  if (roleView) return <Suspense fallback={<div style={{padding:40,textAlign:'center',fontFamily:'Nunito'}}>Cargando tu espacio…</div>}>{roleView}</Suspense>;
   return <div style={{padding:40,fontFamily:"Nunito",textAlign:"center"}}>Rol desconocido: {me.rol}</div>;
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CHAT_SECTIONS } from "../../constants";
-import { api, connectSocket, getSocket } from "../../api";;
+import { api, connectSocket, getSocket } from "../../api";
 import { useTheme } from "../../ThemeContext";
 import { Av, OHdrA, displayName } from "../shared/index";
 
@@ -933,7 +933,7 @@ function AChat({me, showToast, onBack, nameColorConfig, onOpenPerfil, initialFri
           {loading&&<div style={{textAlign:"center",color:sub,padding:20}}>Cargando...</div>}
           {!loading&&friends.length===0&&(
             <div style={{textAlign:"center",color:sub,padding:24,fontSize:13}}>
-              Sin amigos todavia. Agrega a tus companeros! 👋
+              Sin amigos todavía. ¡Agregá a tus compañeros! 👋
             </div>
           )}
           {friends.map(f=>(

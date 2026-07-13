@@ -24,7 +24,7 @@ export default function PEnviar({ me, balance, showToast, refreshBalance, setTab
     api.chatFriends()
       .then(d => {
         const all = d.data || d || [];
-        setFriends(all.filter(f => f.estado === "accepted" && f.rol === "padre"));
+        setFriends(all.filter(f => f.estado === "accepted" && f.rol === "parent"));
       }).catch(() => {});
   }, []);
 
@@ -205,7 +205,7 @@ export default function PEnviar({ me, balance, showToast, refreshBalance, setTab
                 <div style={{ flex:1 }}>
                   <div style={{ fontWeight:800, fontSize:14, color:txt }}>{u.nombre}</div>
                   <div style={{ fontSize:11, color:sub }}>
-                    {u.rol==="padre"  ? "👨‍👩‍👧 Padre/Madre" :
+                    {u.rol==="parent" ? "👨‍👩‍👧 Padre/Madre" :
                      u.rol==="teacher"? "👩‍🏫 Docente" : "👨‍🎓 Alumno"}
                   </div>
                 </div>

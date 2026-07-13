@@ -519,7 +519,7 @@ export default function DiwyPadre({ showToast, onBack }) {
             justifyContent:"center", flexShrink:0 }}>←</button>
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:900, fontSize:20, color:"white" }}>🐾 Diwy</div>
-            <div style={{ fontSize:12, color:"rgba(255,255,255,.8)" }}>Tu espía en el aula</div>
+            <div style={{ fontSize:12, color:"rgba(255,255,255,.8)" }}>Acompañamiento escolar</div>
           </div>
         </div>
         {snapshot.length > 1 && (
@@ -531,7 +531,6 @@ export default function DiwyPadre({ showToast, onBack }) {
                   setOrderSent(null); setExpandedRptId(null);
                   setShowAllMsgs(false); setIaReport(null);
                   setReportRateErr(null); setWeekOffset(0); setMonthOffset(0);
-                  setSelTeacher(null); setDirectThread([]); setDirectMsg(""); setDirectRateErr(null);
                 }}
                 style={{
                   background: c.id===selectedChild ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.18)",

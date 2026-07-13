@@ -13,7 +13,7 @@ function AdminConfig({me, logout}){
     {icon:"📧", label:"Correo",      value:me.email},
     {icon:"🔑", label:"Rol",         value:ROL_LABEL[me.rol]||me.rol},
     {icon:"🆔", label:"ID de cuenta",value:me.id?.slice(0,8)+"..."},
-    {icon:"🌐", label:"Version",     value:"Aubank v1.0"},
+    {icon:"🌐", label:"Versión",     value:"EduCoins v1.0"},
     {icon:"🏫", label:"Sistema",     value:"EduCoins Economia Escolar"},
   ];
 
@@ -63,7 +63,7 @@ function AdminConfig({me, logout}){
           borderRadius:16,color:"#ef4444",padding:"14px",fontWeight:900,fontSize:15,
           cursor:"pointer",fontFamily:"Nunito,sans-serif",
           boxShadow:"0 2px 8px rgba(239,68,68,.2)"}}>
-          Cerrar sesion
+          Cerrar sesión
         </button>
       </div>
     </div>

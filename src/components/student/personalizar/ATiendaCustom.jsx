@@ -326,6 +326,7 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
                 setCustomMode={setCustomMode}
                 onSetMode={onSetMode}
                 accent={accent} dark={dark} txt={txt} sub={sub} cardBg={cardBg} inputBg={inputBg}
+                navBord={navBord} userId={me.id}
               />
             )}
 
@@ -538,9 +539,10 @@ function ATiendaCustom({me,balance,showToast,refreshBalance,onBack,onCustomChang
 
 // ── NOTIFICACIONES ────────────────────────────────────────────
 
-function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, txt, sub, cardBg, inputBg}){
+function CustomModeEditor({customMode, setCustomMode, onSetMode, accent, dark, txt, sub, cardBg, inputBg, navBord, userId}){
   const [saving,setSaving] = useState(false);
   const [saved,setSaved]   = useState(false);
+  const lk = key => `${userId}_${key}`;
 
   const FIELDS = [
     {key:"bg",      label:"🎨 Fondo de la app"},

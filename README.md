@@ -1,70 +1,37 @@
-# Getting Started with Create React App
+# EduCoins Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Interfaz React de la economía escolar EduCoins. Incluye portales separados para alumnado, docentes, administración y familias, comunicación en tiempo real y soporte instalable/offline.
 
-## Available Scripts
+## Desarrollo
 
-In the project directory, you can run:
+Requiere Node.js 20.19 o superior.
 
-### `npm start`
+```bash
+npm ci
+npm start
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+La aplicación local abre en `http://localhost:3001` y usa `http://localhost:3000` como API cuando no se configura otra URL.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Variables admitidas:
 
-### `npm test`
+```env
+VITE_API_URL=https://tu-backend.up.railway.app
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Por compatibilidad con el despliegue anterior también se acepta `REACT_APP_API_URL`.
 
-### `npm run build`
+## Controles antes de publicar
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+npm test
+npm run lint -- --quiet
+npm run build
+npm audit
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Vite genera el sitio en `dist/`. Los contenedores de cada rol se cargan de forma diferida para reducir la descarga inicial. Vercel despliega automáticamente cada push a `main`.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## PWA y seguridad
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+`public/service-worker.js` mantiene un shell básico para ingreso offline y actualiza las navegaciones con estrategia network-first. `vercel.json` aplica headers de seguridad, caché inmutable a los bundles versionados y fallback de SPA.

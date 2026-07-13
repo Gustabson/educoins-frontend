@@ -6,23 +6,28 @@
 //   - Each child component only calls endpoints it is authorized for.
 //   - No shared state or data flows between role views.
 //
-// Subscription (parent role):
-//   - V1/beta: localStorage `${me.id}_diwy_premium` = "1"
-//   - V2: replace with DB field check (GET /api/diwy/subscription)
+// La suscripción beta de padres se valida en el servidor.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../../api";
 import DiwyAdmin   from "./DiwyAdmin";
 import DiwyMaestra from "./DiwyMaestra";
 import DiwyPadre   from "./DiwyPadre";
 import DiwyLanding from "./DiwyLanding";
 
-// TODO: remove SHOW_LANDING_ALWAYS before V2 launch
-const SHOW_LANDING_ALWAYS = true;
-
 export default function DiwyHub({ me, onBack, showToast }) {
-  const [subscribed, setSubscribed] = useState(
-    () => !SHOW_LANDING_ALWAYS && !!localStorage.getItem(`${me?.id}_diwy_premium`)
-  );
+  const [subscribed, setSubscribed] = useState(false);
+  const [checking, setChecking] = useState(me?.rol === "parent");
+
+  useEffect(() => {
+    if (me?.rol !== "parent") return;
+    let alive = true;
+    api.diwySubscription()
+      .then(result => { if (alive) setSubscribed(!!result?.active); })
+      .catch(() => { if (alive) setSubscribed(false); })
+      .finally(() => { if (alive) setChecking(false); });
+    return () => { alive = false; };
+  }, [me?.id, me?.rol]);
 
   if (!me) return null;
 
@@ -30,10 +35,12 @@ export default function DiwyHub({ me, onBack, showToast }) {
   if (me.rol === "teacher") return <DiwyMaestra me={me} />;
 
   if (me.rol === "parent") {
+    if (checking) {
+      return <div style={{ minHeight:"70vh", display:"grid", placeItems:"center", fontWeight:800 }}>Cargando Diwy…</div>;
+    }
     if (!subscribed) {
       return (
         <DiwyLanding
-          me={me}
           onBack={onBack}
           onActivate={() => setSubscribed(true)}
         />

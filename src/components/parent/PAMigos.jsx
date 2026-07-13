@@ -38,7 +38,7 @@ export default function PAMigos({ me, showToast, onBack, onOpenChat }) {
       const d = await api.chatFriends();
       const all = Array.isArray(d) ? d : (d?.data || []);
       // Filtrar solo amigos que son padres
-      setFriends(all.filter(f => f.estado === "accepted" && f.rol === "padre"));
+      setFriends(all.filter(f => f.estado === "accepted" && f.rol === "parent"));
       setPending(all.filter(f => f.estado === "pending" && !f.soy_requester));
       setSent(all.filter(f => f.estado === "pending" && f.soy_requester));
     } catch(e) {}

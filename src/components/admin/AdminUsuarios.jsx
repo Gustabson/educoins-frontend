@@ -59,6 +59,57 @@ function AdminUsuarios({showToast}){
     }catch(e){showToast(e.message||"Error","error");}
   };
 
+  const grantTitle=async()=>{
+    const name=grantForm.name.trim();
+    if(!grantModal||!name) return;
+    setGranting(true);
+    try{
+      await api.grantTitle({
+        user_id:grantModal.id,
+        name,
+        rarity:grantForm.rarity,
+        color:grantForm.color,
+        glow_color:grantForm.glow_color||null,
+        emoji:grantForm.emoji.trim()||null,
+        note:grantForm.note.trim()||null,
+      });
+      setGrantForm({name:"",rarity:"common",color:"#8b5cf6",glow_color:"",emoji:"",note:""});
+      setGrantModal(null);
+      showToast(`Título otorgado a ${grantModal.nombre} ✅`);
+    }catch(e){
+      showToast(e.message||"No se pudo otorgar el título","error");
+    }finally{
+      setGranting(false);
+    }
+  };
+
+  const grantLoan=async()=>{
+    if(!grantModal) return;
+    const days=Number.parseInt(loanForm.days,10);
+    setGranting(true);
+    try{
+      await api.loanItem({
+        user_id:grantModal.id,
+        type:loanForm.type,
+        item_data:{
+          name:loanForm.itemName,
+          type:loanForm.type,
+          value:loanForm.value,
+          glow:loanForm.glow||null,
+        },
+        note:loanForm.note.trim()||null,
+        expires_days:Number.isFinite(days)&&days>0?days:null,
+      });
+      setLoanForm({itemName:"Marco Dorado",type:"frame",value:"3px solid #f59e0b",glow:"#f59e0b44",note:"",days:""});
+      setGrantModal(null);
+      showToast(`Premio prestado a ${grantModal.nombre} ✅`);
+    }catch(e){
+      showToast(e.message||"No se pudo prestar el premio","error");
+    }finally{
+      setGranting(false);
+    }
+  };
+
   if(loading) return <div style={{padding:40,textAlign:"center",color:"#aaa"}}>Cargando...</div>;
 
   return(

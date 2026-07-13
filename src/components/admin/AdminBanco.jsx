@@ -52,8 +52,8 @@ function AdminBanco({me,showToast,onBack}){
 
   const enviar=async()=>{
     if(!amount||parseInt(amount)<=0){showToast("Ingresa un monto","error");return;}
-    if(rMode==="individual"&&!selUser){showToast("Selecciona un destinatario","error");return;}
-    if(rMode==="classroom"&&!selClass){showToast("Selecciona un aula","error");return;}
+    if(rMode==="individual"&&!selUser){showToast("Seleccioná un destinatario","error");return;}
+    if(rMode==="classroom"&&!selClass){showToast("Seleccioná un aula","error");return;}
     setSending(true);
     try{
       const recipients = rMode==="individual"?[selUser.id]:rMode;
@@ -89,8 +89,8 @@ function AdminBanco({me,showToast,onBack}){
   const cobrarImpuesto=async()=>{
     if(!taxAmt||parseInt(taxAmt)<=0){showToast("Ingresa un monto","error");return;}
     if(!taxMotivo.trim()){showToast("El motivo es obligatorio","error");return;}
-    if(taxRMode==="individual"&&!taxUser){showToast("Selecciona un alumno","error");return;}
-    if(taxRMode==="classroom"&&!taxClass){showToast("Selecciona un aula","error");return;}
+    if(taxRMode==="individual"&&!taxUser){showToast("Seleccioná un alumno","error");return;}
+    if(taxRMode==="classroom"&&!taxClass){showToast("Seleccioná un aula","error");return;}
     setTaxing(true);
     try{
       const recipients=taxRMode==="individual"?[taxUser.id]:taxRMode==="classroom"?"classroom":"all";
@@ -156,7 +156,7 @@ function AdminBanco({me,showToast,onBack}){
             borderRadius:50,color:"white",width:34,height:34,cursor:"pointer",fontSize:18,
             display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
           <div>
-            <div style={{fontWeight:900,fontSize:20}}>🏛️ Banco Aubank</div>
+            <div style={{fontWeight:900,fontSize:20}}>🏛️ Banco EduCoins</div>
             <div style={{fontSize:11,opacity:.85}}>Transferencias · Impuestos · Reversas</div>
           </div>
         </div>
@@ -284,7 +284,7 @@ function AdminBanco({me,showToast,onBack}){
               <input value={revertId} onChange={e=>setRevertId(e.target.value)}
                 placeholder="UUID de la transaccion..."
                 style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #fecaca",borderRadius:12,
-                  padding:"9px 14px",fontSize:12,outline:"none",fontFamily:"Nunito,sans-serif",
+                  padding:"9px 14px",fontSize:12,outline:"none",
                   color:"#1a1a1a",marginBottom:6,fontFamily:"monospace"}}/>
               <input value={revertMotivo} onChange={e=>setRevertMotivo(e.target.value)}
                 placeholder="Motivo de la reversa..."
@@ -419,7 +419,7 @@ function AdminBanco({me,showToast,onBack}){
               boxShadow:"0 1px 8px rgba(0,0,0,.06)",fontSize:11,color:"#555",lineHeight:1.6}}>
               💡 Toca el icono 📋 de cualquier transaccion para copiar su ID y usarlo en "Revertir".
             </div>
-            {historial.length===0&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Sin historial todavia</div>}
+            {historial.length===0&&<div style={{textAlign:"center",color:"#aaa",padding:32}}>Sin historial todavía</div>}
             {historial.map((h,i)=>{
               const txId = h.details?.transaction_id||h.id||"";
               return(

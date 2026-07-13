@@ -45,7 +45,7 @@ const SIREN_STYLE = `
 `;
 
 function VerdictModal({ verdict, onDismiss }) {
-  const { cardBg, txt, sub, isDark } = useTheme();
+  const { primary, cardBg, txt, sub, isDark } = useTheme();
   const cfg = VERDICT_SEVERITY[verdict.severity] || VERDICT_SEVERITY.advertencia;
   return (
     <>

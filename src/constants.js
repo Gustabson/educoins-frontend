@@ -241,6 +241,7 @@ const GS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body,#root{margin:0;padding:0;background:#F0F0F0;font-family:'Nunito',sans-serif;}
 input,select,button,textarea{font-family:'Nunito',sans-serif;}
+@media (min-width:600px){.ec-login-card{flex:0 0 auto!important;border-radius:28px!important;min-height:360px;margin-bottom:48px;box-shadow:0 24px 70px rgba(0,80,120,.18);}}
 input::placeholder{color:#bbb;}
 ::-webkit-scrollbar{display:none;}
 @keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}

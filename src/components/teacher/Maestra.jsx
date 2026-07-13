@@ -196,7 +196,7 @@ function MHome({me,onNav}){
             ))}
             {students.length===0&&(
               <div style={{padding:20,textAlign:"center",color:"#aaa",fontSize:13}}>
-                No hay alumnos en tu aula todavia
+                No hay alumnos en tu aula todavía
               </div>
             )}
 
