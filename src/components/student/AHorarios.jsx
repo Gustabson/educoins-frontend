@@ -260,7 +260,7 @@ export default function AHorarios({ showToast, onBack, today }) {
   const visibleDays = [0,1,2,3,4, ...(showSat?[5]:[]), ...(showDom?[6]:[])];
 
   // ── Load ─────────────────────────────────────────────────────────────────────
-  const applyData = (arr, prefs) => {
+  const applyData = (arr, prefs, persist = false) => {
     setEntries(arr);
     if (arr.length > 0) {
       const counts = arr.reduce((acc, e) => {
@@ -278,21 +278,27 @@ export default function AHorarios({ showToast, onBack, today }) {
         prefs.sch_turno_order.length === TURNOS.length) {
       setTurnoOrder(prefs.sch_turno_order);
     }
-    if (Array.isArray(prefs.sch_periods) && prefs.sch_periods.length > 0) {
-      setPeriods([...prefs.sch_periods].sort((a,b) =>
-        (a.time_from||"") < (b.time_from||"") ? -1 : 1));
-    } else if (arr.length > 0) {
-      const seen = new Set();
-      const derived = [];
-      arr.filter(e => e.time_from)
-        .sort((a,b) => (a.time_from||"") < (b.time_from||"") ? -1 : 1)
-        .forEach(e => {
-          if (!seen.has(e.time_from)) {
-            seen.add(e.time_from);
-            derived.push({ id:genId(), time_from:e.time_from, time_to:e.time_to||null });
-          }
-        });
-      if (derived.length > 0) setPeriods(derived);
+    // Base: los períodos guardados, si los hay
+    const base = Array.isArray(prefs.sch_periods) ? [...prefs.sch_periods] : [];
+
+    // Reconciliar: toda entrada con horario necesita su fila en la grilla.
+    // La grilla matchea por time_from exacto, así que una entrada sin fila
+    // propia queda invisible en el Cuadro. Esto además repara horarios
+    // creados antes de que el modo lista generara su período.
+    const conocidos = new Set(base.map(p => p.time_from));
+    const faltantes = [];
+    arr.filter(e => e.time_from).forEach(e => {
+      if (!conocidos.has(e.time_from)) {
+        conocidos.add(e.time_from);
+        faltantes.push({ id:genId(), time_from:e.time_from, time_to:e.time_to||null });
+      }
+    });
+
+    const merged = [...base, ...faltantes].sort((a,b) =>
+      (a.time_from||"") < (b.time_from||"") ? -1 : 1);
+    if (merged.length > 0) setPeriods(merged);
+    if (persist && faltantes.length > 0) {
+      api.patchSchedulePrefs({ sch_periods: merged }).catch(() => {});
     }
   };
 
@@ -310,7 +316,7 @@ export default function AHorarios({ showToast, onBack, today }) {
       if (scheduleData === null) return; // offline, cache already applied
       const arr = Array.isArray(scheduleData) ? scheduleData : [];
       try { localStorage.setItem('sch_cache', JSON.stringify({ entries:arr, prefs:prefs||{} })); } catch(e) {}
-      applyData(arr, prefs || {});
+      applyData(arr, prefs || {}, true);
     }).finally(() => setLoading(false));
   }, []); // eslint-disable-line
 
@@ -323,6 +329,17 @@ export default function AHorarios({ showToast, onBack, today }) {
 
   // ── Pref helpers ─────────────────────────────────────────────────────────────
   const setPref = patch => api.patchSchedulePrefs(patch).catch(() => {});
+
+  // La grilla arma sus filas desde `periods` y matchea por time_from exacto.
+  // Una entrada creada en modo lista con un horario que no tiene fila propia
+  // queda invisible en el Cuadro, así que creamos la fila si falta.
+  const ensurePeriod = async (timeFrom, timeTo) => {
+    if (!timeFrom || periods.some(p => p.time_from === timeFrom)) return;
+    const next = [...periods, { id:genId(), time_from:timeFrom, time_to:timeTo||null }]
+      .sort((a,b) => (a.time_from||"") < (b.time_from||"") ? -1 : 1);
+    setPeriods(next);
+    await api.patchSchedulePrefs({ sch_periods: next });
+  };
 
   const toggleView = () => {
     const next = viewMode === "list" ? "grid" : "list";
@@ -447,6 +464,7 @@ export default function AHorarios({ showToast, onBack, today }) {
             time_to:form.time_to||null, color:form.color,
           });
           setEntries(prev => prev.map(e => e.id === editEntry.id ? d : e));
+          await ensurePeriod(d.time_from, d.time_to);
         } else {
           const d = await api.postSchedule({
             turno:activeTurno, day_of_week:selectedDay,
@@ -454,6 +472,7 @@ export default function AHorarios({ showToast, onBack, today }) {
             time_to:form.time_to||null, color:form.color,
           });
           setEntries(prev => [...prev, d]);
+          await ensurePeriod(d.time_from, d.time_to);
         }
         setDrawerOpen(false);
       }
